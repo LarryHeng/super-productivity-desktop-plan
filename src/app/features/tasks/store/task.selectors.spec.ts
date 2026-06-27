@@ -233,6 +233,7 @@ describe('Task Selectors', () => {
     fromSelectors.selectAllTasks.clearResult();
     fromSelectors.selectAllTasksInActiveProjects.clearResult();
     fromSelectors.selectOverdueTasks.clearResult();
+    fromSelectors.selectUndoneOverdue.clearResult();
     selectProjectFeatureState.clearResult();
     selectAllProjects.clearResult();
     selectArchivedProjects.clearResult();
@@ -249,6 +250,7 @@ describe('Task Selectors', () => {
     fromSelectors.selectAllTasks.release();
     fromSelectors.selectAllTasksInActiveProjects.release();
     fromSelectors.selectOverdueTasks.release();
+    fromSelectors.selectUndoneOverdue.release();
     selectProjectFeatureState.release();
     selectAllProjects.release();
     selectArchivedProjects.release();
