@@ -13,6 +13,7 @@ let nextIsLocked;
 let sharedState;
 let refreshIndicatorCalls;
 let localRestApiConfig;
+let taskWidgetGlobalBackgroundUpdates;
 
 const resetModule = () => {
   delete require.cache[appControlModulePath];
@@ -96,6 +97,17 @@ const installMocks = () => {
       };
     }
 
+    if (request === '../task-widget/task-widget') {
+      return {
+        updateTaskWidgetGlobalBackground: (backgroundImage, backgroundImageOpacity) => {
+          taskWidgetGlobalBackgroundUpdates.push({
+            backgroundImage,
+            backgroundImageOpacity,
+          });
+        },
+      };
+    }
+
     if (request === '../lockscreen') {
       return {
         lockscreen: () => {},
@@ -153,8 +165,35 @@ test.beforeEach(() => {
   };
   refreshIndicatorCalls = 0;
   localRestApiConfig = undefined;
+  taskWidgetGlobalBackgroundUpdates = [];
 
   installMocks();
+});
+
+test('settings update forwards global background as task widget fallback', async () => {
+  const { initAppControlIpc } = loadAppControlModule();
+  initAppControlIpc();
+
+  const updateSettings = ipcHandlers.get('UPDATE_SETTINGS');
+
+  await updateSettings(
+    {},
+    {
+      tasks: {},
+      misc: {
+        isMinimizeToTray: false,
+        globalBackgroundImage: 'image:global',
+        globalBackgroundImageOpacity: 32,
+      },
+    },
+  );
+
+  assert.deepEqual(taskWidgetGlobalBackgroundUpdates, [
+    {
+      backgroundImage: 'image:global',
+      backgroundImageOpacity: 32,
+    },
+  ]);
 });
 
 test.afterEach(() => {

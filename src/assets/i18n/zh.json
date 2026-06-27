@@ -828,6 +828,7 @@
       }
     },
     "PLANNER": {
+      "CURRENT_WEEK": "回到本周",
       "D": {
         "ADD_PLANNED": {
           "RE_PLAN_ALL": "全部重新安排"
@@ -835,15 +836,20 @@
       },
       "EDIT_REPEATED_TASK": "编辑重复任务 '{{taskName}}'",
       "NO_TASKS": "没有任务",
+      "NEXT_MONTH": "下个月",
+      "NEXT_WEEK": "下一周",
       "PLAN_VIEW": {
         "NO_SCHEDULED_ITEMS": "没有计划项目",
         "NO_DEADLINES": "无截止日期"
       },
+      "PREVIOUS_MONTH": "上个月",
+      "PREVIOUS_WEEK": "上一周",
       "S": {
         "REMOVED_PLAN_DATE": "删除了任务 '{{taskTitle}}' 的计划日期",
         "TASK_ALREADY_PLANNED": "任务已计划在 {{date}}",
         "TASK_PLANNED_FOR": "任务计划在 <strong>{{date}}</strong>{{extra}}"
-      }
+      },
+      "WEEK_NAV": "周次导航"
     },
     "POMODORO": {
       "BREAK_IS_DONE": "专注休息结束！"
@@ -1879,9 +1885,20 @@
       },
       "D_IDLE": {
         "ADD_ENTRY": "添加跟踪条目",
+        "ALL_TIME_ASSIGNED": "所有空闲时间均已分配",
         "BREAK": "休息",
+        "BREAK_SUMMARY": "{{time}} 将计入休息时间。",
+        "CONFIRM_BREAK": "记录为休息",
+        "CONFIRM_CREATE_TASK": "创建任务并记录",
+        "CONFIRM_SPLIT": "记录全部时间",
+        "CONFIRM_TASK": "记录到任务",
+        "CONFIRM_TRACK": "记录时间",
         "CREATE_AND_TRACK": "<em>创建</em> 并跟踪到",
+        "DONT_TRACK": "不记录",
         "IDLE_FOR": "您已空闲：",
+        "MODE_BREAK": "正在休息",
+        "MODE_SPLIT": "任务和休息都有",
+        "MODE_TASK": "正在处理任务",
         "RESET_BREAK_REMINDER_TIMER": "重置休息提醒计时器",
         "SIMPLE_CONFIRM_COUNTER_CANCEL": "跳过",
         "SIMPLE_CONFIRM_COUNTER_OK": "跟踪",
@@ -1891,9 +1908,13 @@
         "SKIP": "跳过",
         "SPLIT_TIME": "将时间拆分为多个任务和休息",
         "TASK": "任务",
+        "TIME_OVER_ASSIGNED": "超出空闲时间 {{time}}",
+        "TIME_UNASSIGNED": "还有 {{time}} 未分配",
         "TRACK_TO": "跟踪到",
+        "USE_REMAINING_TIME": "分配剩余时间",
         "WARN_SIMPLE_COUNTER": "时间将计入激活的简单计数器按钮。",
-        "WARN_SIMPLE_COUNTER_BREAK": "时间仍将计入激活的简单计数器按钮。"
+        "WARN_SIMPLE_COUNTER_BREAK": "时间仍将计入激活的简单计数器按钮。",
+        "WHAT_WERE_YOU_DOING": "刚才这段时间您在做什么？"
       },
       "D_TRACKING_REMINDER": {
         "CREATE_AND_TRACK": "<em>创建</em> 并跟踪到",
@@ -2113,9 +2134,16 @@
       "EXPERIMENTAL_WARNING_MSG": "此功能为实验性功能。它可能存在错误、发生重大变化，或在未来更新中被移除。请务必保留数据备份。<br/><br/>要启用它吗？"
     },
     "AUTO_BACKUPS": {
-      "HELP": "自动将所有数据保存到您的应用文件夹，以防出现问题。",
+      "HELP": "自动备份会保存应用数据。界面只显示实际存储目录；C 盘兼容入口只是指向该目录的链接，不会生成第二份备份。",
       "LABEL_IS_ENABLED": "启用自动备份",
+      "CHOOSE_LINK_TARGET": "选择备份目录",
+      "LAST_BACKUP_INFO": "最近备份：{{date}}",
+      "LINK_TARGET_INFO": "兼容入口链接到：",
+      "LOCATION_CHANGED": "备份目录已更改为：{{path}}",
       "LOCATION_INFO": "备份保存到：",
+      "MAX_BACKUP_FILES": "最多保留的备份文件数",
+      "MAX_BACKUP_FILES_DESCRIPTION": "仅桌面版。超过数量后会自动删除较旧的自动备份文件。",
+      "RESTORE_LATEST": "恢复最近一次自动备份",
       "TITLE": "自动备份"
     },
     "CALENDARS": {
@@ -2315,6 +2343,8 @@
       "IS_MINIMIZE_TO_TRAY": "最小化到托盘（仅限桌面）",
       "IS_OVERLAY_INDICATOR_ENABLED": "启用覆盖指示器窗口（桌面 Linux/Gnome）",
       "IS_SHOW_TIP_LONGER": "在应用启动时显示生产力提示更长一点",
+      "GLOBAL_BACKGROUND_IMAGE": "全局软件背景图",
+      "GLOBAL_BACKGROUND_IMAGE_OPACITY": "全局背景遮罩不透明度",
       "IS_TRAY_SHOW_CURRENT_COUNTDOWN": "在托盘/状态菜单中显示当前倒计时（仅限桌面 Mac）",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR": "使用自定义标题栏（仅限Windows/Linux）",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR_HINT": "需要重启方可生效",
@@ -2426,7 +2456,8 @@
       "TITLE": "任务小部件",
       "IS_ENABLED": "启用任务小部件",
       "IS_ALWAYS_SHOW": "始终显示任务小部件（即使主窗口可见）",
-      "OPACITY": "任务小部件不透明度"
+      "OPACITY": "小部件背景可见度",
+      "CONTENT_OPACITY": "小部件文字和控件可见度"
     }
   },
   "GLOBAL": {
@@ -2589,6 +2620,10 @@
     "ARCHIVED_TASKS": {
       "ONE": "已有 {{count}} 个已完成的父任务被归档",
       "OTHER": "已有 {{count}} 个已完成的父任务被归档"
+    },
+    "SETTLED_TASKS": {
+      "ONE": "已清除 {{count}} 个已完成任务的矩阵标签",
+      "OTHER": "已清除 {{count}} 个已完成任务的矩阵标签"
     },
     "BREAK_LABEL": "休息（数量/时间）",
     "CELEBRATE": "花一点时间来 <i>庆祝！</i>",

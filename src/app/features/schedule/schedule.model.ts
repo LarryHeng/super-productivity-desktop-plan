@@ -33,7 +33,11 @@ interface SVEBase {
 }
 
 export interface SVETask extends SVEBase {
-  type: SVEType.Task | SVEType.TaskPlannedForDay | SVEType.ScheduledTask;
+  type:
+    | SVEType.Task
+    | SVEType.TaskPlannedForDay
+    | SVEType.ScheduledTask
+    | SVEType.ActualTask;
   data: TaskCopy;
 }
 

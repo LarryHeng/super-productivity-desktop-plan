@@ -3,6 +3,8 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import { assertPathOutside } from './file-path-guard';
+import { loadSimpleStoreAll } from './simple-store';
+import { SimpleStoreKey } from './shared-with-frontend/simple-store.const';
 
 /**
  * Main-owned cache for user-picked images (e.g. background images).
@@ -16,10 +18,11 @@ import { assertPathOutside } from './file-path-guard';
  *
  * After this module: the renderer picks a file via `dialog.showOpenDialog`
  * (proven user intent), main copies the file into a private cache directory
- * under userData and hands back an opaque `id`. The renderer stores that id
- * in user config and asks main for the data URL by id. No path ever leaves
- * main. Subsequent app launches can resolve the id without re-asking the
- * user — the file is now owned by the app.
+ * and hands back an opaque `id`. The renderer stores that id in user config
+ * and asks main for the data URL by id. No path ever leaves main. Subsequent
+ * app launches can resolve the id without re-asking the user. The cache
+ * follows an externally linked `backups` folder when one is configured;
+ * otherwise it remains under userData.
  *
  * Source-path validation is layered defense-in-depth:
  *   - source must live outside userData (no laundering the grant file)
@@ -48,10 +51,26 @@ const MIME_BY_EXT: Record<string, string> = {
 
 const ID_RE = /^[a-f0-9]{32}$/;
 
-const getCacheDir = (): string => path.join(app.getPath('userData'), 'bg-images');
+const getCacheDir = async (): Promise<string> => {
+  if (process.env.SP_IMAGE_CACHE_DIR) {
+    return process.env.SP_IMAGE_CACHE_DIR;
+  }
+
+  const simpleStore = await loadSimpleStoreAll();
+  const backupTarget = simpleStore[SimpleStoreKey.BACKUP_LINK_TARGET];
+  if (
+    typeof backupTarget === 'string' &&
+    path.isAbsolute(backupTarget) &&
+    path.basename(backupTarget).toLowerCase() === 'backups'
+  ) {
+    return path.join(path.dirname(backupTarget), 'bg-images');
+  }
+
+  return path.join(app.getPath('userData'), 'bg-images');
+};
 
 const ensureCacheDir = async (): Promise<string> => {
-  const dir = getCacheDir();
+  const dir = await getCacheDir();
   await fs.mkdir(dir, { recursive: true });
   return dir;
 };
@@ -131,7 +150,7 @@ interface CachedImageFile {
 
 const findCachedFile = async (id: string): Promise<CachedImageFile | null> => {
   if (!ID_RE.test(id)) return null;
-  const dir = getCacheDir();
+  const dir = await getCacheDir();
   let entries: string[];
   try {
     entries = await fs.readdir(dir);

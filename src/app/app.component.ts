@@ -83,6 +83,7 @@ import { OnboardingHintComponent } from './features/onboarding/onboarding-hint.c
 import { OnboardingHintService } from './features/onboarding/onboarding-hint.service';
 import { MaterialIconsLoaderService } from './ui/material-icons-loader.service';
 import { BrowserTitleService } from './core/browser-title/browser-title.service';
+import { DailySettlementSchedulerService } from './features/daily-settlement/daily-settlement-scheduler.service';
 
 const ONBOARDING_PRESET_EXIT_DELAY = 1000;
 const ONBOARDING_ENTRANCE_COMPLETE_DELAY = 2000;
@@ -102,7 +103,22 @@ type WorkContextThemeSource =
 
 export const getBackgroundOverlayOpacity = (context: WorkContextThemeSource): number => {
   const baseOpacity = context?.theme?.backgroundOverlayOpacity ?? 20;
-  return baseOpacity * 0.01;
+  return baseOpacity / 100;
+};
+
+const isBackgroundImageSet = (backgroundImage: string | null | undefined): boolean =>
+  typeof backgroundImage === 'string' && backgroundImage.trim().length > 0;
+
+export const getResolvedBackgroundOverlayOpacity = (
+  context: WorkContextThemeSource,
+  globalBackgroundImage?: string | null,
+  globalBackgroundImageOpacity?: number,
+): number => {
+  if (isBackgroundImageSet(globalBackgroundImage)) {
+    const baseOpacity = Math.max(0, Math.min(100, globalBackgroundImageOpacity ?? 20));
+    return baseOpacity / 100;
+  }
+  return getBackgroundOverlayOpacity(context);
 };
 
 export const getBackgroundImageBlur = (context: WorkContextThemeSource): number =>
@@ -175,6 +191,7 @@ export class AppComponent implements OnDestroy, AfterViewInit {
   readonly _store = inject(Store);
   private _sectionService = inject(SectionService);
   private _browserTitleService = inject(BrowserTitleService);
+  private _dailySettlementSchedulerService = inject(DailySettlementSchedulerService);
   private _hasShownLegacyFileBgSnack = false;
   readonly T = T;
   readonly TODAY_TAG_ID = TODAY_TAG.id;
@@ -235,6 +252,7 @@ export class AppComponent implements OnDestroy, AfterViewInit {
 
   constructor() {
     this._startupService.init();
+    this._dailySettlementSchedulerService.init();
     void this._materialIconsLoaderService.ensureFontReady();
 
     // Skip onboarding for existing users with data
@@ -442,7 +460,12 @@ export class AppComponent implements OnDestroy, AfterViewInit {
   }
 
   readonly bgOverlayOpacity = computed((): number => {
-    return getBackgroundOverlayOpacity(this._activeWorkContext());
+    const misc = this._globalConfigService.misc();
+    return getResolvedBackgroundOverlayOpacity(
+      this._activeWorkContext(),
+      misc?.globalBackgroundImage,
+      misc?.globalBackgroundImageOpacity,
+    );
   });
 
   readonly bgImageBlur = computed((): number => {

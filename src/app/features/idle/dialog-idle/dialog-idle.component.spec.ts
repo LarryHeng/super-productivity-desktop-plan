@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { ComponentFixture } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MockStore, provideMockStore } from '@ngrx/store/testing';
 import { TranslateModule } from '@ngx-translate/core';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { of } from 'rxjs';
-import { DialogIdleComponent } from './dialog-idle.component';
+import { DialogIdleComponent, IdleDialogMode } from './dialog-idle.component';
 import { DialogIdlePassedData } from './dialog-idle.model';
 import { selectIdleTime } from '../store/idle.selectors';
 import { TaskService } from '../../tasks/task.service';
@@ -18,9 +20,11 @@ import {
 import { selectAllProjects } from '../../project/store/project.selectors';
 import { LayoutService } from '../../../core-ui/layout/layout.service';
 import { LS } from '../../../core/persistence/storage-keys.const';
+import { SelectTaskComponent } from '../../tasks/select-task/select-task.component';
 
 describe('DialogIdleComponent', () => {
   let dialogRefSpy: jasmine.SpyObj<MatDialogRef<DialogIdleComponent>>;
+  let fixture: ComponentFixture<DialogIdleComponent>;
 
   // selectMode() persists the choice, so reset it to keep tests independent
   beforeEach(() => localStorage.removeItem(LS.LAST_IDLE_DIALOG_MODE));
@@ -71,9 +75,22 @@ describe('DialogIdleComponent', () => {
     store.overrideSelector(selectTrackableTasksActiveContextFirst, []);
     store.overrideSelector(selectStartableTasksActiveContextFirst, []);
 
-    const fixture = TestBed.createComponent(DialogIdleComponent);
+    fixture = TestBed.createComponent(DialogIdleComponent);
     fixture.detectChanges();
     return fixture.componentInstance;
+  };
+
+  const detectComponentChanges = (): void => {
+    fixture.detectChanges();
+  };
+
+  const clickMode = (mode: IdleDialogMode): void => {
+    const button = fixture.nativeElement.querySelector(
+      `mat-button-toggle[value="${mode}"] button`,
+    ) as HTMLButtonElement | null;
+    expect(button).not.toBeNull();
+    button?.click();
+    detectComponentChanges();
   };
 
   describe('initial state', () => {
@@ -135,6 +152,21 @@ describe('DialogIdleComponent', () => {
   });
 
   describe('TASK mode', () => {
+    it('should show existing task suggestions before typing', () => {
+      const c = setup();
+      clickMode('TASK');
+      expect(c.mode).toBe('TASK');
+
+      const taskSelects = fixture.debugElement.queryAll(
+        By.directive(SelectTaskComponent),
+      );
+
+      expect(taskSelects.length).toBe(1);
+      expect(
+        taskSelects[0].componentInstance.isShowSuggestionsWithoutSearch(),
+      ).toBeTrue();
+    });
+
     it('should require a task or new task title', () => {
       const c = setup();
       c.selectMode('TASK');
@@ -202,6 +234,23 @@ describe('DialogIdleComponent', () => {
   });
 
   describe('SPLIT mode', () => {
+    it('should show existing task suggestions before typing for task rows', () => {
+      const c = setup();
+      clickMode('SPLIT');
+      expect(c.mode).toBe('SPLIT');
+
+      const taskSelects = fixture.debugElement.queryAll(
+        By.directive(SelectTaskComponent),
+      );
+
+      expect(taskSelects.length).toBeGreaterThan(0);
+      expect(
+        taskSelects.every((debugEl) =>
+          debugEl.componentInstance.isShowSuggestionsWithoutSearch(),
+        ),
+      ).toBeTrue();
+    });
+
     it('should initialize with a break row and a task row prefilled with the selected task', () => {
       const c = setup({ lastCurrentTaskId: 'LAST_TASK_ID' });
       c.selectMode('SPLIT');

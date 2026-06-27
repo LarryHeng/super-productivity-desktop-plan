@@ -20,6 +20,16 @@ import {
 } from './shared-with-frontend/local-rest-api.model';
 import { ElectronDistChannel } from './shared-with-frontend/get-dist-channel';
 
+export interface BackupPathInfo {
+  backupDir: string;
+  effectiveDir: string;
+  linkTarget: string | null;
+}
+
+export interface BackupPathSelectionError {
+  error: string;
+}
+
 export interface PluginNodeExecutionElectronApi {
   requestGrant(pluginId: string): Promise<{ token: string } | null>;
   executeScript(
@@ -45,6 +55,10 @@ export interface ElectronAPI {
   getUserDataPath(): Promise<string>;
 
   getBackupPath(): Promise<string>;
+
+  getBackupPathInfo(): Promise<BackupPathInfo>;
+
+  pickBackupLinkTarget(): Promise<BackupPathInfo | BackupPathSelectionError | undefined>;
 
   checkBackupAvailable(): Promise<false | LocalBackupMeta>;
 
@@ -107,6 +121,9 @@ export interface ElectronAPI {
    * disappeared.
    */
   imageCacheGetDataUrl(id: string): Promise<string | null>;
+
+  /** Remove a cached image id from the main-owned background image cache. */
+  imageCacheRemove(id: string): Promise<void>;
 
   // checkDirExists(dirPath: string): Promise<true | Error>;
 
@@ -260,6 +277,23 @@ export interface ElectronAPI {
   updateTodayTasks(
     tasks: { id: string; title: string; timeEstimate: number; timeSpent: number }[],
   ): void;
+
+  updateTaskWidgetTasks(tasks: {
+    panels: {
+      id: string;
+      title: string;
+      tasks: {
+        id: string;
+        title: string;
+        timeEstimate?: number;
+        timeSpent?: number;
+        dueDay?: string;
+        dueWithTime?: number;
+        deadlineDay?: string;
+        deadlineWithTime?: number;
+      }[];
+    }[];
+  }): void;
 
   onSwitchTask(listener: (taskId: string) => void): void;
 

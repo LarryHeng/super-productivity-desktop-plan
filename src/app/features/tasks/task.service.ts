@@ -210,6 +210,11 @@ export class TaskService {
     string,
     { contextType: 'TAG' | 'PROJECT'; contextId: string; date: string }
   > = new Map();
+  private _activeActualTimeSegment: {
+    taskId: string;
+    date: string;
+    start: number;
+  } | null = null;
 
   constructor() {
     document.addEventListener(
@@ -249,8 +254,17 @@ export class TaskService {
         }
       });
 
-    // Flush accumulated time when task stops (currentTaskId becomes null or changes)
-    this.currentTaskId$.subscribe(() => {
+    // Flush accumulated time and close/open actual time segments when the active task changes.
+    this.currentTaskId$.subscribe((currentTaskId) => {
+      const now = Date.now();
+      this._closeActualTimeSegment(now);
+      if (currentTaskId) {
+        this._activeActualTimeSegment = {
+          taskId: currentTaskId,
+          date: this._dateService.todayStr(),
+          start: now,
+        };
+      }
       this._flushAccumulatedTimeSpent();
     });
 
@@ -310,6 +324,23 @@ export class TaskService {
           this._unsyncedContexts.clear();
         });
     }
+  }
+
+  private _closeActualTimeSegment(end: number): void {
+    const segment = this._activeActualTimeSegment;
+    this._activeActualTimeSegment = null;
+    if (!segment || end <= segment.start) {
+      return;
+    }
+
+    this._store.dispatch(
+      TimeTrackingActions.addActualTimeSegment({
+        taskId: segment.taskId,
+        date: segment.date,
+        start: segment.start,
+        end,
+      }),
+    );
   }
 
   /**

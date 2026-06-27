@@ -909,6 +909,7 @@
       }
     },
     "PLANNER": {
+      "CURRENT_WEEK": "Return to current week",
       "D": {
         "ADD_PLANNED": {
           "RE_PLAN_ALL": "Reschedule all"
@@ -916,15 +917,20 @@
       },
       "EDIT_REPEATED_TASK": "Edit recurring task \"{{taskName}}\"",
       "NO_TASKS": "No tasks",
+      "NEXT_MONTH": "Next month",
+      "NEXT_WEEK": "Next week",
       "PLAN_VIEW": {
         "NO_DEADLINES": "No deadlines",
         "NO_SCHEDULED_ITEMS": "No scheduled items"
       },
+      "PREVIOUS_MONTH": "Previous month",
+      "PREVIOUS_WEEK": "Previous week",
       "S": {
         "REMOVED_PLAN_DATE": "Removed plan date for task \"{{taskTitle}}\"",
         "TASK_ALREADY_PLANNED": "Task is already planned for {{date}}",
         "TASK_PLANNED_FOR": "Task planned for <strong>{{date}}</strong>{{extra}}"
-      }
+      },
+      "WEEK_NAV": "Week navigation"
     },
     "POMODORO": {
       "BREAK_IS_DONE": "Break is over!"
@@ -2256,7 +2262,10 @@
     "AUTO_BACKUPS": {
       "HELP": "Automatically save all data to your app folder to have it ready if something goes wrong.",
       "LABEL_IS_ENABLED": "Enable automatic backups",
+      "CHOOSE_LINK_TARGET": "Choose backup folder",
+      "LOCATION_CHANGED": "Backup folder changed to: {{path}}",
       "LAST_BACKUP_INFO": "Last backup: {{date}}",
+      "LINK_TARGET_INFO": "Backups are linked to:",
       "LOCATION_INFO": "Backups are saved to:",
       "MAX_BACKUP_FILES": "Maximum backup files",
       "MAX_BACKUP_FILES_DESCRIPTION": "Desktop only. Older automatic backup files are deleted once this limit is exceeded.",
@@ -2332,7 +2341,8 @@
       "TITLE": "Task Widget",
       "IS_ENABLED": "Enable task widget",
       "IS_ALWAYS_SHOW": "Always show task widget (even when main window is visible)",
-      "OPACITY": "Task widget opacity"
+      "OPACITY": "Task widget background visibility",
+      "CONTENT_OPACITY": "Task widget text and controls visibility"
     },
     "IDLE": {
       "HELP": "<div><p>When idle time handling is enabled, a dialog will open after a specified amount of time to check if - and on which - task you want to track your time when you have been idle.</p></div>",
@@ -2479,6 +2489,8 @@
       "IS_LOCAL_REST_API_ENABLED_HINT": "Allows local scripts to control the running app via http://127.0.0.1:3876. Any application running on this computer will be able to read and modify your tasks.",
       "IS_MINIMIZE_TO_TRAY": "Minimize to tray (desktop only)",
       "IS_SHOW_TIP_LONGER": "Show productivity tip on app start a little longer",
+      "GLOBAL_BACKGROUND_IMAGE": "Global app background image",
+      "GLOBAL_BACKGROUND_IMAGE_OPACITY": "Global background overlay opacity",
       "IS_TRAY_SHOW_CURRENT_COUNTDOWN": "Show current countdown in the tray / status menu (macOS only)",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR": "Use custom title bar (Windows/Linux only)",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR_HINT": "Requires restart to take effect.",
@@ -2763,6 +2775,10 @@
     "ARCHIVED_TASKS": {
       "ONE": "{{count}} completed parent task has been archived",
       "OTHER": "{{count}} completed parent tasks have been archived"
+    },
+    "SETTLED_TASKS": {
+      "ONE": "Matrix tags were cleared from {{count}} completed task",
+      "OTHER": "Matrix tags were cleared from {{count}} completed tasks"
     },
     "BREAK_LABEL": "Breaks (nr / time)",
     "CELEBRATE": "Take a moment to <i>celebrate!</i>",

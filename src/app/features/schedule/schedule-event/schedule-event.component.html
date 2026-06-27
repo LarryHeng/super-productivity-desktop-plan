@@ -55,7 +55,9 @@
   <!--- -->
 
   @if (
-    se().type === SVEType.ScheduledTask || se().type === SVEType.ScheduledRepeatProjection
+    se().type === SVEType.ScheduledTask ||
+    se().type === SVEType.ActualTask ||
+    se().type === SVEType.ScheduledRepeatProjection
   ) {
     <div class="time-badge">{{ scheduledClockStr() }}</div>
   }

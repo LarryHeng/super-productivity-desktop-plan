@@ -430,7 +430,7 @@ describe('Planner Selectors - selectPlannerDays', () => {
     expect(result[0].progressPercentage).toBeUndefined();
   });
 
-  it('should include additional days from planner state not in dayDates', () => {
+  it('should only include dates from the requested weekly page', () => {
     const tomorrow = getDbDateStr(new Date(Date.now() + 86400000));
     const task = createMockTask({ id: 't1' });
     const plannerState: PlannerState = {
@@ -442,11 +442,10 @@ describe('Planner Selectors - selectPlannerDays', () => {
     const tasks = createTasksMapFromTasksArray([task]);
     const result = selector.projector(tasks, plannerState, defaultScheduleConfig, 0);
 
-    // Should include both today (from dayDates) and tomorrow (from planner state)
-    expect(result.length).toBe(2);
+    expect(result.length).toBe(1);
     const dayDates = result.map((d) => d.dayDate);
     expect(dayDates).toContain(today);
-    expect(dayDates).toContain(tomorrow);
+    expect(dayDates).not.toContain(tomorrow);
   });
 
   it('should filter out deleted tasks from planner days', () => {

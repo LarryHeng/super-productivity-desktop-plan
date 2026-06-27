@@ -1,7 +1,8 @@
 @use '../../../../styles/_globals.scss' as *;
 
 :host {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: block;
   height: 100%;
 
@@ -16,34 +17,22 @@
 
 .days {
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   box-sizing: border-box;
   padding: var(--s3);
   padding-top: 0;
   gap: var(--s2);
 
-  @include mq(xs) {
-    gap: var(--s3);
+  @media (max-width: 1399px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  @include mq(xs, max) {
-    display: block;
-    width: 100%;
-    max-width: 100%;
+  @media (max-width: 899px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: var(--s2);
   }
-}
-
-.loading-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 260px;
-  padding: 2rem;
 
   @include mq(xs, max) {
-    min-width: 100%;
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 }

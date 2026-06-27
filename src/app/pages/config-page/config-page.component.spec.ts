@@ -16,6 +16,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { LocalBackupService } from '../../imex/local-backup/local-backup.service';
 import { IS_ANDROID_WEB_VIEW_TOKEN } from '../../util/is-android-web-view';
 import { T } from '../../t.const';
+import { IS_ELECTRON_TOKEN } from '../../app.constants';
 
 describe('ConfigPageComponent', () => {
   let component: ConfigPageComponent;
@@ -23,10 +24,17 @@ describe('ConfigPageComponent', () => {
   let mockMatDialog: jasmine.SpyObj<MatDialog>;
   let mockProviderManager: jasmine.SpyObj<SyncProviderManager>;
   let mockLocalBackupService: jasmine.SpyObj<LocalBackupService>;
+  let mockSnackService: jasmine.SpyObj<SnackService>;
+  let mockElectronApi: {
+    getBackupPathInfo: jasmine.Spy;
+    pickBackupLinkTarget: jasmine.Spy;
+  };
+  let originalEaDescriptor: PropertyDescriptor | undefined;
 
   const setup = async (
     isAndroidWebView: boolean = false,
     lastBackupTime: number | null = null,
+    isElectron: boolean = false,
   ): Promise<void> => {
     const mockSyncConfigService = jasmine.createSpyObj(
       'SyncConfigService',
@@ -51,6 +59,24 @@ describe('ConfigPageComponent', () => {
     ]);
     mockLocalBackupService.restoreLatestMobileBackupFromSettings.and.resolveTo();
     mockLocalBackupService.getLastBackupTime.and.returnValue(lastBackupTime);
+    mockSnackService = jasmine.createSpyObj('SnackService', ['open']);
+    mockElectronApi = {
+      getBackupPathInfo: jasmine.createSpy('getBackupPathInfo').and.resolveTo({
+        backupDir: 'C:\\Users\\Larry\\AppData\\Roaming\\superProductivity\\backups',
+        effectiveDir: 'F:\\Documents\\superProductivity\\backups',
+        linkTarget: 'F:\\Documents\\superProductivity\\backups',
+      }),
+      pickBackupLinkTarget: jasmine.createSpy('pickBackupLinkTarget').and.resolveTo({
+        backupDir: 'C:\\Users\\Larry\\AppData\\Roaming\\superProductivity\\backups',
+        effectiveDir: 'F:\\Documents\\superProductivity\\backups',
+        linkTarget: 'F:\\Documents\\superProductivity\\backups',
+      }),
+    };
+    Object.defineProperty(window, 'ea', {
+      configurable: true,
+      writable: true,
+      value: mockElectronApi,
+    });
 
     const mockTranslateService = jasmine.createSpyObj('TranslateService', ['instant']);
     // Mirror real ngx-translate: return the key (with params ignored) so the
@@ -61,9 +87,10 @@ describe('ConfigPageComponent', () => {
       providers: [
         { provide: SyncConfigService, useValue: mockSyncConfigService },
         { provide: IS_ANDROID_WEB_VIEW_TOKEN, useValue: isAndroidWebView },
+        { provide: IS_ELECTRON_TOKEN, useValue: isElectron },
         {
           provide: SnackService,
-          useValue: jasmine.createSpyObj('SnackService', ['open']),
+          useValue: mockSnackService,
         },
         { provide: SyncProviderManager, useValue: mockProviderManager },
         {
@@ -95,7 +122,16 @@ describe('ConfigPageComponent', () => {
   };
 
   beforeEach(async () => {
+    originalEaDescriptor = Object.getOwnPropertyDescriptor(window, 'ea');
     await setup();
+  });
+
+  afterEach(() => {
+    if (originalEaDescriptor) {
+      Object.defineProperty(window, 'ea', originalEaDescriptor);
+    } else {
+      delete (window as Partial<Window>).ea;
+    }
   });
 
   it('should expose an empty syncStatus by default', () => {
@@ -129,6 +165,48 @@ describe('ConfigPageComponent', () => {
     expect(
       mockLocalBackupService.restoreLatestMobileBackupFromSettings,
     ).toHaveBeenCalled();
+  });
+
+  it('should expose Electron automatic backup link target action', async () => {
+    TestBed.resetTestingModule();
+    await setup(false, null, true);
+    await Promise.resolve();
+
+    const automaticBackupsSection = component.globalImexFormCfg.find(
+      (section) => section.key === 'localBackup',
+    );
+    const action = automaticBackupsSection?.actions?.find(
+      (sectionAction) => sectionAction.label === 'GCF.AUTO_BACKUPS.CHOOSE_LINK_TARGET',
+    );
+
+    expect(mockElectronApi.getBackupPathInfo).toHaveBeenCalled();
+    expect(action).toBeTruthy();
+
+    await action?.onClick();
+
+    expect(mockElectronApi.pickBackupLinkTarget).toHaveBeenCalled();
+    expect(mockSnackService.open).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        type: 'SUCCESS',
+        translateParams: {
+          path: 'F:\\Documents\\superProductivity\\backups',
+        },
+      }),
+    );
+  });
+
+  it('shows one physical backup folder instead of presenting the junction as a second backup', async () => {
+    TestBed.resetTestingModule();
+    await setup(false, null, true);
+    await Promise.resolve();
+
+    const section = component.globalImexFormCfg.find((s) => s.key === 'localBackup');
+    const renderedText = JSON.stringify(section?.items ?? []);
+
+    expect(renderedText).toContain('F:\\\\Documents\\\\superProductivity\\\\backups');
+    expect(renderedText).not.toContain(
+      'C:\\\\Users\\\\Larry\\\\AppData\\\\Roaming\\\\superProductivity\\\\backups',
+    );
   });
 
   const findLastBackupLine = (): unknown => {

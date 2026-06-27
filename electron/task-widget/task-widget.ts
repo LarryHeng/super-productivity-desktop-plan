@@ -6,18 +6,14 @@ import { info } from 'electron-log/main';
 import { IPC } from '../shared-with-frontend/ipc-events.const';
 import { loadSimpleStoreAll, saveSimpleStore } from '../simple-store';
 import { IS_MAC } from '../common.const';
+import { getImageDataUrl } from '../image-cache';
 
 let taskWidgetWin: BrowserWindow | null = null;
 let isTaskWidgetEnabled = false;
 let isAlwaysShow = false;
-// Set when the user explicitly reveals the widget via the global shortcut
-// (`globalToggleTaskWidget`) while the main window is visible. Like
-// `isAlwaysShow`, it suppresses the automatic "hide the widget when the main
-// window is shown/focused" behavior — but only until the user hides the widget
-// again (toggles off) or opens the app from the widget. This gives the shortcut
-// a sticky "user-forced visible" effect instead of being immediately undone by
-// the next focus event.
+// Set when the user explicitly reveals the widget via the global shortcut.
 let isUserForcedVisible = false;
+let isUserHidden = false;
 let currentTask: TaskCopy | null = null;
 let isPomodoroEnabled = false;
 let currentPomodoroSessionTime = 0;
@@ -25,26 +21,99 @@ let isFocusModeEnabled = false;
 let currentFocusSessionTime = 0;
 let initTimeoutId: NodeJS.Timeout | null = null;
 let currentOpacity = 95;
+let currentContentOpacity = 100;
+let currentBackgroundImage: string | null = null;
+let currentBackgroundImageOpacity = 45;
+let currentGlobalBackgroundImage: string | null = null;
+let currentGlobalBackgroundImageOpacity = 20;
 let listenersRegistered = false;
 let taskWidgetCreationPromise: Promise<void> | null = null;
 let taskWidgetCreationGeneration = 0;
 let pendingShowAfterCreate = false;
 let pendingShowAfterCreateInactive = false;
+let backgroundResolveGeneration = 0;
+let isTaskWidgetDocumentReady = false;
 
 const TASK_WIDGET_BOUNDS_KEY = 'taskWidgetBounds';
 const LEGACY_BOUNDS_KEY = 'overlayBounds';
+const TASK_WIDGET_SHOW_MAIN_WINDOW = 'task-widget-show-main-window';
+const TASK_WIDGET_COMPLETE_TASK = 'task-widget-complete-task';
+const TASK_WIDGET_SWITCH_TASK = 'task-widget-switch-task';
+const TASK_WIDGET_EXTEND_TASK = 'task-widget-extend-task';
+const TASK_WIDGET_HIDE = 'task-widget-hide';
+const IMAGE_CACHE_PREFIX = 'image:';
 let boundsDebounceTimer: NodeJS.Timeout | null = null;
 
 type ShowTaskWidgetOptions = Readonly<{
   inactive?: boolean;
 }>;
 
+export type TaskWidgetListTask = Readonly<{
+  id: string;
+  title: string;
+  timeEstimate?: number;
+  timeSpent?: number;
+  dueDay?: string;
+  dueWithTime?: number;
+  deadlineDay?: string;
+  deadlineWithTime?: number;
+  isDone?: boolean;
+}>;
+
+export type TaskWidgetTaskLists = Readonly<{
+  panels: ReadonlyArray<
+    Readonly<{
+      id: string;
+      title: string;
+      tasks: TaskWidgetListTask[];
+    }>
+  >;
+}>;
+
+let currentTaskLists: TaskWidgetTaskLists = {
+  panels: [],
+};
+
+const getMainWindow = (): BrowserWindow | undefined =>
+  BrowserWindow.getAllWindows().find((win) => win !== taskWidgetWin);
+
+const normalizeBackgroundImage = (
+  backgroundImage: string | null | undefined,
+): string | null =>
+  typeof backgroundImage === 'string' && backgroundImage.trim().length > 0
+    ? backgroundImage
+    : null;
+
+const normalizeBackgroundImageOpacity = (
+  backgroundImageOpacity: number | null | undefined,
+  fallback: number,
+): number => Math.max(0, Math.min(100, backgroundImageOpacity ?? fallback));
+
+const getEffectiveTaskWidgetBackground = (): Readonly<{
+  image: string | null;
+  imageOpacity: number;
+}> =>
+  currentBackgroundImage
+    ? {
+        image: currentBackgroundImage,
+        imageOpacity: currentBackgroundImageOpacity,
+      }
+    : {
+        image: currentGlobalBackgroundImage,
+        imageOpacity: currentGlobalBackgroundImageOpacity,
+      };
+
 export const updateTaskWidgetEnabled = (isEnabled: boolean): void => {
+  const wasEnabled = isTaskWidgetEnabled;
   isTaskWidgetEnabled = isEnabled;
 
   if (!isEnabled) {
     destroyTaskWidget();
     return;
+  }
+
+  if (!wasEnabled) {
+    isUserHidden = false;
   }
 
   if (!taskWidgetWin && !taskWidgetCreationPromise) {
@@ -54,12 +123,14 @@ export const updateTaskWidgetEnabled = (isEnabled: boolean): void => {
       // updateTaskWidgetOpacity() is a no-op while taskWidgetWin is still null,
       // and on macOS BrowserWindow.setOpacity() defaults to 1 (no CSS fallback).
       if (taskWidgetWin && !taskWidgetWin.isDestroyed()) {
-        updateTaskWidgetOpacity(currentOpacity);
+        updateTaskWidgetOpacity(currentOpacity, currentContentOpacity);
+        updateTaskWidgetBackground(currentBackgroundImage, currentBackgroundImageOpacity);
+        if (isAlwaysShow) {
+          showTaskWidget({ inactive: true });
+        }
       }
       // Request current task state after window is ready
-      const mainWindow = BrowserWindow.getAllWindows().find(
-        (win) => win !== taskWidgetWin,
-      );
+      const mainWindow = getMainWindow();
       if (mainWindow) {
         mainWindow.webContents.send(IPC.REQUEST_CURRENT_TASK_FOR_TASK_WIDGET);
       }
@@ -77,7 +148,7 @@ const clearPendingTaskWidgetCreation = (): void => {
 export const destroyTaskWidget = (): void => {
   // Clear any pending timeouts
   if (initTimeoutId) {
-    clearTimeout(initTimeoutId);
+    clearInterval(initTimeoutId);
     initTimeoutId = null;
   }
 
@@ -90,10 +161,15 @@ export const destroyTaskWidget = (): void => {
   // Disable task widget to prevent close event prevention
   isTaskWidgetEnabled = false;
   isUserForcedVisible = false;
+  isUserHidden = false;
   clearPendingTaskWidgetCreation();
 
   // Remove IPC listeners
-  ipcMain.removeAllListeners('task-widget-show-main-window');
+  ipcMain.removeAllListeners(TASK_WIDGET_SHOW_MAIN_WINDOW);
+  ipcMain.removeAllListeners(TASK_WIDGET_COMPLETE_TASK);
+  ipcMain.removeAllListeners(TASK_WIDGET_SWITCH_TASK);
+  ipcMain.removeAllListeners(TASK_WIDGET_EXTEND_TASK);
+  ipcMain.removeAllListeners(TASK_WIDGET_HIDE);
   listenersRegistered = false;
 
   if (taskWidgetWin && !taskWidgetWin.isDestroyed()) {
@@ -121,6 +197,7 @@ export const destroyTaskWidget = (): void => {
 
     taskWidgetWin = null;
   }
+  isTaskWidgetDocumentReady = false;
 };
 
 const createTaskWidgetWindow = (): Promise<void> => {
@@ -154,7 +231,7 @@ const createTaskWidgetWindowForGeneration = async (
 
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
-  const defaultBounds = { width: 300, height: 80, x: screenWidth - 320, y: 20 };
+  const defaultBounds = { width: 760, height: 420, x: screenWidth - 780, y: 40 };
 
   // Restore persisted bounds or use defaults
   let bounds = defaultBounds;
@@ -215,13 +292,11 @@ const createTaskWidgetWindowForGeneration = async (
     frame: false,
     transparent: !IS_MAC,
     backgroundColor: IS_MAC ? '#00000000' : undefined,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     skipTaskbar: true,
     resizable: true,
-    minWidth: 60,
-    minHeight: 24,
-    maxWidth: 700,
-    maxHeight: 120,
+    minWidth: 420,
+    minHeight: 220,
     minimizable: false,
     maximizable: false,
     closable: true, // Ensure window is closable
@@ -238,14 +313,11 @@ const createTaskWidgetWindowForGeneration = async (
       backgroundThrottling: false, // Prevent throttling when hidden
     },
   });
-
-  taskWidgetWin.loadFile(join(__dirname, 'task-widget.html'));
-
-  // Set visible on all workspaces immediately after creation
-  taskWidgetWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  isTaskWidgetDocumentReady = false;
 
   taskWidgetWin.on('closed', () => {
     taskWidgetWin = null;
+    isTaskWidgetDocumentReady = false;
     // Tie "user-forced visible" to the window's lifetime: once the window is
     // gone the sticky flag has no widget to keep visible, so don't let it
     // linger into a future re-create.
@@ -254,15 +326,42 @@ const createTaskWidgetWindowForGeneration = async (
 
   taskWidgetWin.on('ready-to-show', () => {
     if (!taskWidgetWin || taskWidgetWin.isDestroyed()) return;
-    // Ensure window stays on all workspaces
-    taskWidgetWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
     // Request current task state from main window
-    const mainWindow = BrowserWindow.getAllWindows().find((win) => win !== taskWidgetWin);
+    const mainWindow = getMainWindow();
     if (mainWindow) {
       mainWindow.webContents.send(IPC.REQUEST_CURRENT_TASK_FOR_TASK_WIDGET);
     }
-    // Don't show task widget here - it should only show when main window is minimized
+    if (isAlwaysShow) {
+      showTaskWidget({ inactive: true });
+    }
+  });
+
+  // Electron's BrowserWindow type omits this overload for a non-minimizable
+  // window, but Windows Show Desktop can still emit it.
+  // @ts-ignore
+  taskWidgetWin.on('minimize', (event: Electron.Event) => {
+    event.preventDefault();
+    setImmediate(() => {
+      if (
+        taskWidgetWin &&
+        !taskWidgetWin.isDestroyed() &&
+        isTaskWidgetEnabled &&
+        !isUserHidden
+      ) {
+        taskWidgetWin.restore();
+        taskWidgetWin.showInactive();
+      }
+    });
+  });
+
+  taskWidgetWin.webContents.on('did-finish-load', () => {
+    isTaskWidgetDocumentReady = true;
+    lastCountdownExpiredKey = null;
+    updateTaskWidgetContent();
+    updateTaskWidgetOpacity(currentOpacity, currentContentOpacity);
+    applyEffectiveTaskWidgetBackground();
+    syncTaskWidgetVisibilityWithMainWindow(!!getMainWindow()?.isVisible());
   });
 
   const persistBoundsDebounced = (): void => {
@@ -287,13 +386,30 @@ const createTaskWidgetWindowForGeneration = async (
     e.preventDefault();
   });
 
+  taskWidgetWin.loadFile(join(__dirname, 'task-widget.html'));
+
+  initTimeoutId = setInterval(() => {
+    if (
+      taskWidgetWin &&
+      !taskWidgetWin.isDestroyed() &&
+      isTaskWidgetEnabled &&
+      !isUserHidden &&
+      taskWidgetWin.isMinimized()
+    ) {
+      taskWidgetWin.restore();
+      taskWidgetWin.showInactive();
+    }
+  }, 1000);
+  initTimeoutId.unref?.();
+
   // Don't make window click-through initially to allow dragging
   // The renderer process will handle mouse events dynamically
 
   // Update initial state
   updateTaskWidgetContent();
 
-  updateTaskWidgetOpacity(currentOpacity);
+  updateTaskWidgetOpacity(currentOpacity, currentContentOpacity);
+  updateTaskWidgetBackground(currentBackgroundImage, currentBackgroundImageOpacity);
 
   if (pendingShowAfterCreate) {
     const showInactive = pendingShowAfterCreateInactive;
@@ -308,6 +424,10 @@ const showTaskWidgetWindow = (options: ShowTaskWidgetOptions = {}): void => {
     return;
   }
 
+  if (taskWidgetWin.isMinimized()) {
+    taskWidgetWin.restore();
+  }
+
   if (options.inactive) {
     taskWidgetWin.showInactive();
   } else {
@@ -317,6 +437,10 @@ const showTaskWidgetWindow = (options: ShowTaskWidgetOptions = {}): void => {
 
 export const showTaskWidget = (options: ShowTaskWidgetOptions = {}): void => {
   if (!isTaskWidgetEnabled) {
+    return;
+  }
+
+  if (isUserHidden) {
     return;
   }
 
@@ -333,8 +457,9 @@ export const showTaskWidget = (options: ShowTaskWidgetOptions = {}): void => {
     return;
   }
 
-  // Only show if not already visible
-  if (!taskWidgetWin.isVisible()) {
+  if (taskWidgetWin.isMinimized()) {
+    showTaskWidgetWindow({ inactive: true });
+  } else if (!taskWidgetWin.isVisible()) {
     info('Showing task widget');
     showTaskWidgetWindow(options);
   } else {
@@ -366,7 +491,7 @@ export const hideTaskWidget = (): void => {
  * Toggles the task widget's visibility. Intended for the global shortcut
  * (`globalToggleTaskWidget`): it only acts when the task widget feature is
  * enabled in settings and never changes that persisted enabled/disabled
- * preference — it just shows or hides the existing widget.
+ * preference; it just shows or hides the existing widget.
  */
 export const toggleTaskWidgetVisibility = (): void => {
   if (!isTaskWidgetEnabled) {
@@ -375,11 +500,13 @@ export const toggleTaskWidgetVisibility = (): void => {
 
   if (taskWidgetWin && !taskWidgetWin.isDestroyed() && taskWidgetWin.isVisible()) {
     isUserForcedVisible = false;
+    isUserHidden = true;
     hideTaskWidget();
     return;
   }
 
   isUserForcedVisible = true;
+  isUserHidden = false;
   showTaskWidget({ inactive: true });
 };
 
@@ -389,18 +516,15 @@ const initListeners = (): void => {
   }
   listenersRegistered = true;
 
-  // Listen for show main window request
-  ipcMain.on('task-widget-show-main-window', () => {
-    const mainWindow = BrowserWindow.getAllWindows().find((win) => win !== taskWidgetWin);
+  const showMainWindowFromWidget = (): void => {
+    const mainWindow = getMainWindow();
     if (mainWindow) {
       // Mirror showOrFocus() logic: restore() before show() to handle the case where
       // the window is minimized+hidden (e.g. minimize-to-tray on Linux where
       // event.preventDefault() on 'minimize' has no effect).
       mainWindow.restore();
       mainWindow.show();
-      // Opening the app from the widget is an explicit "I'm going to the app"
-      // gesture, so clear any sticky user-forced visibility and let the widget
-      // follow the normal companion behavior again.
+      mainWindow.maximize();
       isUserForcedVisible = false;
       if (!isAlwaysShow) {
         hideTaskWidget();
@@ -414,6 +538,48 @@ const initListeners = (): void => {
         }
       }, 60);
     }
+  };
+
+  ipcMain.on(TASK_WIDGET_SHOW_MAIN_WINDOW, () => {
+    showMainWindowFromWidget();
+  });
+
+  ipcMain.on(TASK_WIDGET_COMPLETE_TASK, (_ev, taskId: string) => {
+    if (typeof taskId !== 'string' || !taskId) {
+      return;
+    }
+    getMainWindow()?.webContents.send(IPC.TASK_WIDGET_COMPLETE_TASK, taskId);
+  });
+
+  ipcMain.on(TASK_WIDGET_SWITCH_TASK, (_ev, taskId: string) => {
+    if (typeof taskId !== 'string' || !taskId) {
+      return;
+    }
+    getMainWindow()?.webContents.send(IPC.SWITCH_TASK, taskId);
+  });
+
+  ipcMain.on(TASK_WIDGET_EXTEND_TASK, (_ev, taskId: string, additionalTime: number) => {
+    if (
+      typeof taskId !== 'string' ||
+      !taskId ||
+      !Number.isFinite(additionalTime) ||
+      additionalTime < 60_000 ||
+      additionalTime > 24 * 60 * 60 * 1000
+    ) {
+      return;
+    }
+    getMainWindow()?.webContents.send(
+      IPC.TASK_WIDGET_EXTEND_TASK,
+      taskId,
+      additionalTime,
+    );
+  });
+
+  ipcMain.on(TASK_WIDGET_HIDE, () => {
+    isUserForcedVisible = false;
+    isUserHidden = true;
+    getMainWindow()?.webContents.send(IPC.TASK_WIDGET_SET_ENABLED, false);
+    hideTaskWidget();
   });
 };
 
@@ -433,6 +599,22 @@ export const updateTaskWidgetTask = (
   updateTaskWidgetContent();
 };
 
+let lastCountdownExpiredKey: string | null = null;
+
+export const updateTaskWidgetTaskLists = (lists: TaskWidgetTaskLists): void => {
+  currentTaskLists = {
+    panels: Array.isArray(lists.panels)
+      ? lists.panels.map((panel) => ({
+          id: typeof panel.id === 'string' ? panel.id : '',
+          title: typeof panel.title === 'string' ? panel.title : '',
+          tasks: Array.isArray(panel.tasks) ? panel.tasks : [],
+        }))
+      : [],
+  };
+
+  updateTaskWidgetContent();
+};
+
 const updateTaskWidgetContent = (): void => {
   if (!taskWidgetWin || !isTaskWidgetEnabled) {
     return;
@@ -441,6 +623,10 @@ const updateTaskWidgetContent = (): void => {
   let title = '';
   let timeStr = '';
   let mode: 'pomodoro' | 'focus' | 'task' | 'idle' = 'idle';
+
+  if (!currentTask) {
+    lastCountdownExpiredKey = null;
+  }
 
   if (currentTask && currentTask.title) {
     title = currentTask.title;
@@ -458,6 +644,18 @@ const updateTaskWidgetContent = (): void => {
       mode = 'task';
       const remainingTime = Math.max(currentTask.timeEstimate - currentTask.timeSpent, 0);
       timeStr = formatTime(remainingTime);
+      if (remainingTime === 0 && isTaskWidgetDocumentReady) {
+        const expiryKey = `${currentTask.id}:${currentTask.timeEstimate}`;
+        if (lastCountdownExpiredKey !== expiryKey) {
+          lastCountdownExpiredKey = expiryKey;
+          taskWidgetWin.webContents.send('countdown-expired', {
+            taskId: currentTask.id,
+            title: currentTask.title,
+          });
+        }
+      } else {
+        lastCountdownExpiredKey = null;
+      }
     } else if (currentTask.timeSpent) {
       mode = 'task';
       timeStr = formatTime(currentTask.timeSpent);
@@ -468,42 +666,124 @@ const updateTaskWidgetContent = (): void => {
     title,
     time: timeStr,
     mode,
+    panels: currentTaskLists.panels,
   });
 };
 
 export const updateTaskWidgetAlwaysShow = (alwaysShow: boolean): void => {
   isAlwaysShow = alwaysShow;
+  if (alwaysShow && isTaskWidgetEnabled) {
+    isUserHidden = false;
+    showTaskWidget({ inactive: true });
+  }
+};
+
+export const syncTaskWidgetVisibilityWithMainWindow = (
+  isMainWindowVisible: boolean,
+): void => {
+  if (!isTaskWidgetEnabled || isUserHidden) {
+    return;
+  }
+  if (isMainWindowVisible && !isAlwaysShow && !isUserForcedVisible) {
+    hideTaskWidget();
+    return;
+  }
+  showTaskWidget({ inactive: true });
 };
 
 export const getIsTaskWidgetAlwaysShow = (): boolean => isAlwaysShow;
 
 export const getIsTaskWidgetUserForcedVisible = (): boolean => isUserForcedVisible;
 
-export const updateTaskWidgetOpacity = (opacity: number): void => {
+export const updateTaskWidgetOpacity = (
+  opacity: number,
+  contentOpacity: number = currentContentOpacity,
+): void => {
   currentOpacity = opacity;
+  currentContentOpacity = contentOpacity;
   if (!taskWidgetWin || taskWidgetWin.isDestroyed()) {
     return;
   }
-  const clamped = Math.max(0.1, Math.min(1, opacity / 100));
-  if (IS_MAC) {
-    // On Mac the window is solid (transparent: false), so opacity is applied
-    // at the window level rather than via CSS background alpha.
-    taskWidgetWin.setOpacity(clamped);
-  } else {
-    taskWidgetWin.webContents.send('update-opacity', clamped);
+  taskWidgetWin.webContents.send('update-opacity', {
+    backgroundOpacity: Math.max(0.1, Math.min(1, opacity / 100)),
+    contentOpacity: Math.max(0.1, Math.min(1, contentOpacity / 100)),
+  });
+};
+
+const resolveTaskWidgetBackground = async (
+  backgroundImage: string | null,
+): Promise<string | null> => {
+  if (!backgroundImage) {
+    return null;
   }
+  if (backgroundImage.startsWith(IMAGE_CACHE_PREFIX)) {
+    const id = backgroundImage.substring(IMAGE_CACHE_PREFIX.length);
+    return id ? getImageDataUrl(id) : null;
+  }
+  return backgroundImage;
+};
+
+export const updateTaskWidgetBackground = (
+  backgroundImage: string | null | undefined,
+  backgroundImageOpacity: number | null | undefined,
+): void => {
+  currentBackgroundImage = normalizeBackgroundImage(backgroundImage);
+  currentBackgroundImageOpacity = normalizeBackgroundImageOpacity(
+    backgroundImageOpacity,
+    45,
+  );
+
+  applyEffectiveTaskWidgetBackground();
+};
+
+export const updateTaskWidgetGlobalBackground = (
+  backgroundImage: string | null | undefined,
+  backgroundImageOpacity: number | null | undefined,
+): void => {
+  currentGlobalBackgroundImage = normalizeBackgroundImage(backgroundImage);
+  currentGlobalBackgroundImageOpacity = normalizeBackgroundImageOpacity(
+    backgroundImageOpacity,
+    20,
+  );
+
+  applyEffectiveTaskWidgetBackground();
+};
+
+const applyEffectiveTaskWidgetBackground = (): void => {
+  if (!taskWidgetWin || taskWidgetWin.isDestroyed()) {
+    return;
+  }
+
+  const generation = ++backgroundResolveGeneration;
+  const { image } = getEffectiveTaskWidgetBackground();
+  void resolveTaskWidgetBackground(image).then((resolvedImage) => {
+    if (
+      generation !== backgroundResolveGeneration ||
+      !taskWidgetWin ||
+      taskWidgetWin.isDestroyed()
+    ) {
+      return;
+    }
+    taskWidgetWin.webContents.send('update-background', {
+      image: resolvedImage,
+      imageOpacity: Math.max(0.1, Math.min(1, currentOpacity / 100)),
+    });
+  });
 };
 
 // Apply the per-instance task widget settings sent by the renderer.
 const applyTaskWidgetSettings = (cfg: TaskWidgetConfig | undefined): void => {
   const isEnabled = !!cfg?.isEnabled;
-  updateTaskWidgetEnabled(isEnabled);
-  if (isEnabled) {
-    updateTaskWidgetOpacity(cfg?.opacity ?? 95);
-    updateTaskWidgetAlwaysShow(!!cfg?.isAlwaysShow);
-  } else {
+  if (!isEnabled) {
     updateTaskWidgetAlwaysShow(false);
+    updateTaskWidgetEnabled(false);
+    return;
   }
+
+  updateTaskWidgetAlwaysShow(!!cfg?.isAlwaysShow);
+  updateTaskWidgetEnabled(isEnabled);
+  updateTaskWidgetOpacity(cfg?.opacity ?? 95, cfg?.contentOpacity ?? 100);
+  updateTaskWidgetBackground(cfg?.backgroundImage ?? null, cfg?.backgroundImageOpacity);
 };
 
 let taskWidgetSettingsListenerRegistered = false;

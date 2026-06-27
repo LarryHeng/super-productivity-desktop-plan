@@ -17,7 +17,7 @@ import { getWin } from './main-window';
 import { resolveSyncPath, type ResolvedSyncPath } from './sync-path-resolver';
 import { loadSimpleStoreAll, saveSimpleStore } from './simple-store';
 import { assertPathOutside } from './file-path-guard';
-import { getImageDataUrl, importImage } from './image-cache';
+import { getImageDataUrl, importImage, removeCachedImage } from './image-cache';
 
 // SECURITY: file-sync must never read/write/list inside the app's private dir,
 // which holds settings/grants/db — touching it is a privilege-escalation
@@ -368,6 +368,10 @@ export const initLocalFileSyncAdapter = (): void => {
       return getImageDataUrl(id);
     },
   );
+
+  ipcMain.handle(IPC.IMAGE_CACHE_REMOVE, async (_, id: string): Promise<void> => {
+    await removeCachedImage(id);
+  });
 
   ipcMain.handle(
     IPC.SHOW_OPEN_DIALOG,

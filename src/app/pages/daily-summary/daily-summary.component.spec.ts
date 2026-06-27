@@ -134,15 +134,13 @@ describe('DailySummaryComponent', () => {
   });
 
   describe('finishDay()', () => {
-    it('should wait for sync to complete before archiving tasks', async () => {
+    it('should wait for sync to complete before settling tasks', async () => {
       const syncDone$ = new Subject<void>();
       const callOrder: string[] = [];
-      const moveDoneToArchive = jasmine
-        .createSpy('moveDoneToArchive')
-        .and.callFake(() => {
-          callOrder.push('archive');
-          return Promise.resolve();
-        });
+      const settleDoneTasks = jasmine.createSpy('settleDoneTasks').and.callFake(() => {
+        callOrder.push('settle');
+        return Promise.resolve();
+      });
       const finishDayForGood = jasmine.createSpy('finishDayForGood').and.callFake(() => {
         callOrder.push('finish');
         return Promise.resolve();
@@ -158,7 +156,7 @@ describe('DailySummaryComponent', () => {
         _syncWrapperService: {
           afterCurrentSyncDoneOrSyncDisabled$: syncDone$,
         },
-        _moveDoneToArchive: moveDoneToArchive,
+        _settleDoneTasks: settleDoneTasks,
         _finishDayForGood: finishDayForGood,
         _snackService: { open: jasmine.createSpy('open') },
         _matDialog: { open: jasmine.createSpy('open') },
@@ -169,19 +167,19 @@ describe('DailySummaryComponent', () => {
       const finishPromise = DailySummaryComponent.prototype.finishDay.call(receiver);
       await Promise.resolve();
 
-      expect(moveDoneToArchive).not.toHaveBeenCalled();
+      expect(settleDoneTasks).not.toHaveBeenCalled();
       expect(callOrder).toEqual(['before']);
 
       syncDone$.next();
       syncDone$.complete();
       await finishPromise;
 
-      expect(callOrder).toEqual(['before', 'archive', 'finish']);
+      expect(callOrder).toEqual(['before', 'settle', 'finish']);
     });
 
-    it('should not archive when before-finish actions fail', async () => {
-      const moveDoneToArchive = jasmine
-        .createSpy('moveDoneToArchive')
+    it('should not settle when before-finish actions fail', async () => {
+      const settleDoneTasks = jasmine
+        .createSpy('settleDoneTasks')
         .and.resolveTo(undefined);
       const snackOpen = jasmine.createSpy('snackOpen');
       const receiver = {
@@ -193,7 +191,7 @@ describe('DailySummaryComponent', () => {
         _syncWrapperService: {
           afterCurrentSyncDoneOrSyncDisabled$: new Subject<void>(),
         },
-        _moveDoneToArchive: moveDoneToArchive,
+        _settleDoneTasks: settleDoneTasks,
         _finishDayForGood: jasmine.createSpy('finishDayForGood'),
         _snackService: { open: snackOpen },
         _matDialog: { open: jasmine.createSpy('open') },
@@ -203,7 +201,7 @@ describe('DailySummaryComponent', () => {
 
       await DailySummaryComponent.prototype.finishDay.call(receiver);
 
-      expect(moveDoneToArchive).not.toHaveBeenCalled();
+      expect(settleDoneTasks).not.toHaveBeenCalled();
       expect(snackOpen).toHaveBeenCalledWith({
         msg: T.F.SYNC.S.FINISH_DAY_SYNC_ERROR,
         type: 'ERROR',

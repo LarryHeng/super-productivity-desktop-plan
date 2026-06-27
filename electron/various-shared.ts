@@ -1,11 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import { info } from 'electron-log/main';
 import { getWin, getWasMaximizedBeforeHide } from './main-window';
-import {
-  getIsTaskWidgetAlwaysShow,
-  getIsTaskWidgetUserForcedVisible,
-  hideTaskWidget,
-} from './task-widget/task-widget';
 import { setIsQuiting } from './shared-state';
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
@@ -38,12 +33,6 @@ export function showOrFocus(passedWin: BrowserWindow): void {
     win.restore();
     win.show();
     if (getWasMaximizedBeforeHide()) win.maximize();
-  }
-
-  // Hide task widget when main window is shown, unless the user explicitly
-  // pinned it visible via the global shortcut.
-  if (!getIsTaskWidgetAlwaysShow() && !getIsTaskWidgetUserForcedVisible()) {
-    hideTaskWidget();
   }
 
   // focus window afterwards always

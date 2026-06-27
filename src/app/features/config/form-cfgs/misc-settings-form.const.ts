@@ -74,6 +74,24 @@ export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
       },
     },
     {
+      key: 'globalBackgroundImage',
+      type: 'image-input',
+      templateOptions: {
+        label: T.GCF.MISC.GLOBAL_BACKGROUND_IMAGE,
+        description: '* https://some/cool.jpg',
+      },
+    },
+    {
+      key: 'globalBackgroundImageOpacity',
+      type: 'slider',
+      templateOptions: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        label: T.GCF.MISC.GLOBAL_BACKGROUND_IMAGE_OPACITY,
+      },
+    },
+    {
       key: 'isVerticalActionBar',
       type: 'checkbox',
       templateOptions: {

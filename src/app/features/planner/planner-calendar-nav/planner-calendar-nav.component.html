@@ -1,8 +1,28 @@
-<div
-  class="month-label"
-  aria-live="polite"
->
-  {{ monthLabel() }}
+<div class="month-header">
+  <button
+    mat-icon-button
+    type="button"
+    [attr.aria-label]="T.F.PLANNER.PREVIOUS_MONTH | translate"
+    [matTooltip]="T.F.PLANNER.PREVIOUS_MONTH | translate"
+    (click)="shiftMonth(-1)"
+  >
+    <mat-icon>chevron_left</mat-icon>
+  </button>
+  <div
+    class="month-label"
+    aria-live="polite"
+  >
+    {{ monthLabel() }}
+  </div>
+  <button
+    mat-icon-button
+    type="button"
+    [attr.aria-label]="T.F.PLANNER.NEXT_MONTH | translate"
+    [matTooltip]="T.F.PLANNER.NEXT_MONTH | translate"
+    (click)="shiftMonth(1)"
+  >
+    <mat-icon>chevron_right</mat-icon>
+  </button>
 </div>
 
 <div
@@ -38,7 +58,6 @@
             [class.is-today]="day.isToday"
             [class.is-active]="day.dateStr === visibleDayDate()"
             [class.is-past]="day.isPast"
-            [disabled]="day.isPast && !day.isToday"
             (click)="onDayTap(day.dateStr)"
           >
             {{ day.dayOfMonth }}

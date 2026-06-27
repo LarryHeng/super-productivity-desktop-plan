@@ -19,10 +19,8 @@ import { error, log } from 'electron-log/main';
 import { IS_MAC, IS_GNOME_WAYLAND } from './common.const';
 import {
   destroyTaskWidget,
-  getIsTaskWidgetAlwaysShow,
-  getIsTaskWidgetUserForcedVisible,
-  hideTaskWidget,
   showTaskWidget,
+  syncTaskWidgetVisibilityWithMainWindow,
 } from './task-widget/task-widget';
 import { ensureIndicator } from './indicator';
 import { getIsMinimizeToTray, getIsQuiting, setIsQuiting } from './shared-state';
@@ -30,6 +28,7 @@ import { loadSimpleStoreAll } from './simple-store';
 import { SimpleStoreKey } from './shared-with-frontend/simple-store.const';
 import { markGpuStartupSuccess } from './gpu-startup-guard';
 import { isAppOriginUrl } from './navigation-guard';
+import { getMainWindowMinimizeAction } from './window-visibility-policy';
 
 let mainWin: BrowserWindow;
 
@@ -512,34 +511,12 @@ function initWinEventListeners(app: Electron.App): void {
   appCloseHandler(app);
   appMinimizeHandler(app);
 
-  // Handle restore and show events to hide task widget. `getIsTaskWidgetUserForcedVisible()`
-  // keeps the widget up when the user explicitly revealed it via the global shortcut.
-  mainWin.on('restore', () => {
-    if (!getIsTaskWidgetAlwaysShow() && !getIsTaskWidgetUserForcedVisible()) {
-      hideTaskWidget();
-    }
-  });
-
-  mainWin.on('show', () => {
-    if (!getIsTaskWidgetAlwaysShow() && !getIsTaskWidgetUserForcedVisible()) {
-      hideTaskWidget();
-    }
-  });
-
-  mainWin.on('focus', () => {
-    if (
-      mainWin.isVisible() &&
-      !mainWin.isMinimized() &&
-      !getIsTaskWidgetAlwaysShow() &&
-      !getIsTaskWidgetUserForcedVisible()
-    ) {
-      hideTaskWidget();
-    }
-  });
-
-  // Handle hide event to show task widget
+  // Keep the task widget available as a desktop planning panel.
   mainWin.on('hide', () => {
-    showTaskWidget();
+    syncTaskWidgetVisibilityWithMainWindow(false);
+  });
+  mainWin.on('show', () => {
+    syncTaskWidgetVisibilityWithMainWindow(true);
   });
 
   // Handle maximize and unmaximize events to change wasMaximizedBeforeHide flag accordingly
@@ -668,18 +645,11 @@ const appMinimizeHandler = (app: App): void => {
   if (!getIsQuiting()) {
     // TODO find reason for the typing error
     // @ts-ignore
-    mainWin.on('minimize', (event: Event) => {
-      if (getIsMinimizeToTray()) {
-        const indicator = ensureIndicator();
-        if (!indicator) {
-          return;
-        }
-        event.preventDefault();
-        setWasMaximizedBeforeHide(mainWin.isMaximized());
-        mainWin.hide();
-        showTaskWidget();
-      } else {
-        // For regular minimize (not to tray), also show task widget
+    mainWin.on('minimize', (_event: Event) => {
+      const action = getMainWindowMinimizeAction({
+        isMinimizeToTray: getIsMinimizeToTray(),
+      });
+      if (action === 'MINIMIZE') {
         showTaskWidget();
         if (IS_MAC) {
           app.dock?.show();

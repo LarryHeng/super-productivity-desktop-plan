@@ -79,6 +79,7 @@ import {
 } from './simple-counter-summary-item/simple-counter-summary-item.component';
 import { MetricService } from '../../features/metric/metric.service';
 import { isWithinYesterdayMargin } from './is-include-yesterday.util';
+import { DailySettlementService } from '../../features/daily-settlement/daily-settlement.service';
 
 const FINISH_DAY_SYNC_WAIT_TIMEOUT_MS = 30000;
 export const FINISH_DAY_FINAL_SYNC_TIMEOUT_MS = SYNC_WAIT_TIMEOUT_MS;
@@ -131,6 +132,7 @@ export class DailySummaryComponent implements OnInit, OnDestroy, AfterViewInit {
   private readonly _metricService = inject(MetricService);
   private readonly _translateService = inject(TranslateService);
   private readonly _translateStore = inject(TranslateStore);
+  private readonly _dailySettlementService = inject(DailySettlementService);
 
   T: typeof T = T;
   _onDestroy$ = new Subject<void>();
@@ -343,7 +345,7 @@ export class DailySummaryComponent implements OnInit, OnDestroy, AfterViewInit {
   async finishDay(): Promise<void> {
     try {
       await this._beforeFinishDayService.executeActions();
-      // Wait for any ongoing sync to complete before archiving to avoid DB lock errors.
+      // Wait for any ongoing sync to complete before settling to avoid DB lock errors.
       // Use a 30-second timeout to prevent hanging indefinitely if sync is stuck.
       await this._syncWrapperService.afterCurrentSyncDoneOrSyncDisabled$
         .pipe(first(), timeout(FINISH_DAY_SYNC_WAIT_TIMEOUT_MS))
@@ -356,7 +358,7 @@ export class DailySummaryComponent implements OnInit, OnDestroy, AfterViewInit {
           );
         });
     } catch (error) {
-      Log.error('[DailySummary] Failed during pre-archive operations:', error);
+      Log.error('[DailySummary] Failed during pre-settlement operations:', error);
       this._snackService.open({
         msg: T.F.SYNC.S.FINISH_DAY_SYNC_ERROR,
         type: 'ERROR',
@@ -381,18 +383,18 @@ export class DailySummaryComponent implements OnInit, OnDestroy, AfterViewInit {
       if (isConfirm === undefined) {
         return;
       } else if (isConfirm === true) {
-        await this._moveDoneToArchive();
+        await this._settleDoneTasks();
         this._finishDayForGood(() => {
           window.ea.shutdownNow();
         });
       } else if (isConfirm === false) {
-        await this._moveDoneToArchive();
+        await this._settleDoneTasks();
         this._finishDayForGood(() => {
           this._router.navigate(['/active/tasks']);
         });
       }
     } else {
-      await this._moveDoneToArchive();
+      await this._settleDoneTasks();
       this._finishDayForGood(() => {
         this._router.navigate(['/active/tasks']);
       });
@@ -460,36 +462,31 @@ export class DailySummaryComponent implements OnInit, OnDestroy, AfterViewInit {
     );
   }
 
-  private async _moveDoneToArchive(): Promise<void> {
-    const doneTasks = await this.workContextService.doneTasks$.pipe(take(1)).toPromise();
-    Log.log('[DailySummary] Moving done tasks to archive:', {
-      count: doneTasks.length,
-      taskIds: doneTasks.map((t) => t.id),
+  private async _settleDoneTasks(): Promise<void> {
+    const doneTasks =
+      await this._dailySettlementService.clearMatrixTagsFromCompletedTasks();
+    Log.log('[DailySummary] Clearing matrix tags from done tasks:', {
+      count: doneTasks,
     });
 
-    if (doneTasks.length === 0) {
-      Log.log('[DailySummary] No done tasks to archive');
+    if (doneTasks === 0) {
+      Log.log('[DailySummary] No done tasks to settle');
       return;
     }
 
-    // Count parent tasks only (not subtasks)
-    const parentTaskCount = doneTasks.filter((task) => !task.parentId).length;
-
-    // Actually wait for the archive operation to complete
-    await this._taskService.moveToArchive(doneTasks);
-    Log.log('[DailySummary] Archive operation completed');
+    Log.log('[DailySummary] Matrix tag cleanup completed');
 
     // Show snackbar notification
     this._snackService.open({
       msg: getPluralKey(
         this._translateService,
         this._translateStore,
-        parentTaskCount,
-        'PDS.ARCHIVED_TASKS',
+        doneTasks,
+        'PDS.SETTLED_TASKS',
       ),
-      translateParams: { count: parentTaskCount },
+      translateParams: { count: doneTasks },
       type: 'SUCCESS',
-      ico: 'archive',
+      ico: 'label_off',
     });
   }
 

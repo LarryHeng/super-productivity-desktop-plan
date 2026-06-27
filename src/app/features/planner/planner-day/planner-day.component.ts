@@ -75,6 +75,10 @@ export class PlannerDayComponent {
     return this.day?.dayDate;
   }
 
+  @HostBinding('class.is-today') get isToday(): boolean {
+    return !!this.day?.isToday;
+  }
+
   protected readonly T = T;
   protected readonly SCHEDULE_ITEM_TYPE = ScheduleItemType;
   protected readonly dragDelayForTouch = dragDelayForTouch;

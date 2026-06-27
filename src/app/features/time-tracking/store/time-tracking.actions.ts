@@ -57,6 +57,12 @@ export const TimeTrackingActions = createActionGroup({
       duration: number;
       isFromTrackingReminder: boolean;
     }>(),
+    'Add actual time segment': props<{
+      taskId: string;
+      date: string;
+      start: number;
+      end: number;
+    }>(),
     'Update whole State': props<{
       newState: TimeTrackingState;
     }>(),

@@ -34,5 +34,23 @@ export const TASK_WIDGET_FORM_CFG: ConfigFormSection<TaskWidgetConfig> = {
         label: T.GCF.TASK_WIDGET.OPACITY,
       },
     },
+    {
+      key: 'contentOpacity',
+      type: 'slider',
+      templateOptions: {
+        type: 'number',
+        min: 10,
+        max: 100,
+        label: T.GCF.TASK_WIDGET.CONTENT_OPACITY,
+      },
+    },
+    {
+      key: 'backgroundImage',
+      type: 'image-input',
+      templateOptions: {
+        label: T.F.PROJECT.FORM_THEME.L_BACKGROUND_IMAGE_LIGHT,
+        description: '* https://some/cool.jpg',
+      },
+    },
   ] as LimitedFormlyFieldConfig<TaskWidgetConfig>[],
 };

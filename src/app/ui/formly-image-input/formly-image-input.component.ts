@@ -49,7 +49,7 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
   // Guard against double-click while the main-side dialog + import is in
   // flight. A second click would otherwise queue a second IPC that opens
   // a second dialog after the first resolves and orphan all but the last
-  // selected import in `userData/bg-images/`.
+  // selected import in the main-owned background image cache.
   readonly isPickerBusy = signal(false);
 
   get isUnsplashAvailable(): boolean {
@@ -83,6 +83,10 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
     } finally {
       this.isPickerBusy.set(false);
     }
+  }
+
+  clearImage(): void {
+    this.formControl.setValue(null);
   }
 
   onFileSelected(event: Event): void {

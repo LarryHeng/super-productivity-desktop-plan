@@ -10,7 +10,7 @@ import {
   WEEKS_SHOWN,
 } from './planner-calendar-gesture-handler';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
-import { getWeekRange } from '../../../util/get-week-range';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('PlannerCalendarNavComponent', () => {
   let fixture: ComponentFixture<PlannerCalendarNavComponent>;
@@ -41,7 +41,7 @@ describe('PlannerCalendarNavComponent', () => {
     );
 
     TestBed.configureTestingModule({
-      imports: [PlannerCalendarNavComponent],
+      imports: [PlannerCalendarNavComponent, TranslateModule.forRoot()],
       providers: [
         { provide: GlobalConfigService, useValue: mockGlobalConfigService },
         {
@@ -57,7 +57,7 @@ describe('PlannerCalendarNavComponent', () => {
   });
 
   describe('weeks computed', () => {
-    it('should generate a 5-week calendar grid with 7 days per week', () => {
+    it('should generate a month calendar grid with 7 days per week', () => {
       const weeks = component.weeks();
 
       expect(weeks.length).toBe(WEEKS_SHOWN);
@@ -66,14 +66,27 @@ describe('PlannerCalendarNavComponent', () => {
       }
     });
 
-    it('should start the grid from the week containing today', () => {
+    it('should start the grid from the Monday week containing the first day of the month', () => {
       const weeks = component.weeks();
       const firstDateStr = weeks[0][0].dateStr;
-      const firstDate = parseDbDateStr(firstDateStr);
-      const todayDate = parseDbDateStr('2026-02-16');
-      const weekRange = getWeekRange(todayDate, 1);
+      expect(firstDateStr).toBe('2026-01-26');
+    });
 
-      expect(firstDate.getTime()).toBe(weekRange.start.getTime());
+    it('should not shift a month that starts on Monday into the previous week', () => {
+      mockTodayDateStr.set('2026-06-15');
+      fixture.detectChanges();
+
+      expect(component.weeks()[0][0].dateStr).toBe('2026-06-01');
+    });
+
+    it('should keep Monday as the first day even if localization is set to Sunday', () => {
+      mockLocalization.set({ firstDayOfWeek: 0 });
+      fixture.detectChanges();
+
+      const weeks = component.weeks();
+      const firstDate = parseDbDateStr(weeks[0][0].dateStr);
+
+      expect(firstDate.getDay()).toBe(1);
     });
 
     it('should mark today correctly using todayDateStr signal', () => {
@@ -147,8 +160,13 @@ describe('PlannerCalendarNavComponent', () => {
   });
 
   describe('activeWeekIndex computed', () => {
-    it('should return 0 when visibleDayDate is not set', () => {
-      expect(component.activeWeekIndex()).toBe(0);
+    it('should return the week containing today when visibleDayDate is not set', () => {
+      const weeks = component.weeks();
+      const todayRow = weeks.findIndex((week) =>
+        week.some((day) => day.dateStr === '2026-02-16'),
+      );
+
+      expect(component.activeWeekIndex()).toBe(todayRow);
     });
 
     it('should return correct index based on visibleDayDate', () => {
@@ -160,11 +178,15 @@ describe('PlannerCalendarNavComponent', () => {
       expect(component.activeWeekIndex()).toBe(2);
     });
 
-    it('should return 0 when visibleDayDate is not found in any week', () => {
-      fixture.componentRef.setInput('visibleDayDate', '2099-12-31');
+    it('should switch to the month page for a visibleDayDate outside the current grid', () => {
+      const targetDay = '2099-12-31';
+      fixture.componentRef.setInput('visibleDayDate', targetDay);
       fixture.detectChanges();
 
-      expect(component.activeWeekIndex()).toBe(0);
+      const targetRow = component
+        .weeks()
+        .findIndex((week) => week.some((day) => day.dateStr === targetDay));
+      expect(component.activeWeekIndex()).toBe(targetRow);
     });
 
     it('should return the index of the first week containing visibleDayDate', () => {
@@ -193,7 +215,7 @@ describe('PlannerCalendarNavComponent', () => {
 
     it('should reflect the middle day of the active week when collapsed', () => {
       const weeks = component.weeks();
-      const midDay = weeks[0][3];
+      const midDay = weeks[component.activeWeekIndex()][3];
       const midDate = parseDbDateStr(midDay.dateStr);
       const expected = midDate.toLocaleDateString(undefined, {
         month: 'long',
@@ -221,6 +243,14 @@ describe('PlannerCalendarNavComponent', () => {
   });
 
   describe('maxHeight computed', () => {
+    it('should start expanded when defaultExpanded input is true', () => {
+      fixture.componentRef.setInput('defaultExpanded', true);
+      fixture.detectChanges();
+
+      expect(component.isExpanded()).toBeTrue();
+      expect(component.maxHeight()).toBe(MAX_HEIGHT);
+    });
+
     it('should return MIN_HEIGHT when collapsed', () => {
       component.isExpanded.set(false);
       expect(component.maxHeight()).toBe(MIN_HEIGHT);
@@ -249,7 +279,11 @@ describe('PlannerCalendarNavComponent', () => {
     });
 
     it('should return 0 when collapsed and activeWeekIndex is 0', () => {
+      const firstWeekDay = component.weeks()[0][0].dateStr;
+      fixture.componentRef.setInput('visibleDayDate', firstWeekDay);
       component.isExpanded.set(false);
+      fixture.detectChanges();
+
       expect(component.weekOffset()).toBe(0);
     });
   });
@@ -259,7 +293,7 @@ describe('PlannerCalendarNavComponent', () => {
       expect(component.dayLabels().length).toBe(7);
     });
 
-    it('should start from Monday when firstDayOfWeek is 1', () => {
+    it('should start from Monday', () => {
       mockLocalization.set({ firstDayOfWeek: 1 });
       fixture.detectChanges();
 
@@ -273,7 +307,7 @@ describe('PlannerCalendarNavComponent', () => {
       expect(unique.size).toBe(7);
     });
 
-    it('should start from Sunday when firstDayOfWeek is 0', () => {
+    it('should keep Monday start when firstDayOfWeek is 0', () => {
       mockLocalization.set({ firstDayOfWeek: 0 });
       fixture.detectChanges();
 
@@ -281,6 +315,7 @@ describe('PlannerCalendarNavComponent', () => {
       expect(labels.length).toBe(7);
       const unique = new Set(labels);
       expect(unique.size).toBe(7);
+      expect(labels[0]).toBe(component.dayLabels()[0]);
     });
 
     it('should use default first day of week when localization config is undefined', () => {
@@ -292,7 +327,7 @@ describe('PlannerCalendarNavComponent', () => {
       expect(labels.length).toBe(7);
     });
 
-    it('should produce different first label for different firstDayOfWeek values', () => {
+    it('should ignore localization firstDayOfWeek for planner month pages', () => {
       mockLocalization.set({ firstDayOfWeek: 0 });
       fixture.detectChanges();
       const sundayLabels = [...component.dayLabels()];
@@ -301,8 +336,7 @@ describe('PlannerCalendarNavComponent', () => {
       fixture.detectChanges();
       const mondayLabels = [...component.dayLabels()];
 
-      // The rotation should differ: first label should be different
-      expect(sundayLabels[0]).toBe(mondayLabels[6]);
+      expect(sundayLabels).toEqual(mondayLabels);
     });
   });
 
@@ -358,6 +392,16 @@ describe('PlannerCalendarNavComponent', () => {
 
       expect(pressedBtn).toBeTruthy();
       expect(pressedBtn!.getAttribute('aria-label')).toBe('2026-02-18');
+    });
+
+    it('keeps historical dates enabled for review', () => {
+      mockTodayDateStr.set('2026-02-18');
+      fixture.detectChanges();
+
+      const pastBtn = fixture.nativeElement.querySelector(
+        '[aria-label="2026-02-16"]',
+      ) as HTMLButtonElement;
+      expect(pastBtn.disabled).toBeFalse();
     });
   });
 });

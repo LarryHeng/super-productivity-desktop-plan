@@ -10,7 +10,7 @@ import {
 } from './schedule.model';
 import { SVEType } from './schedule.const';
 import { PlannerDayMap } from '../planner/planner.model';
-import { TaskWithDueTime, TaskWithSubTasks } from '../tasks/task.model';
+import { TaskCopy, TaskWithDueTime, TaskWithSubTasks } from '../tasks/task.model';
 import { TaskRepeatCfg } from '../task-repeat-cfg/task-repeat-cfg.model';
 import { ScheduleConfig } from '../config/global-config.model';
 import { mapToScheduleDays } from './map-schedule-data/map-to-schedule-days';
@@ -25,6 +25,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { TaskService } from '../tasks/task.service';
 import { startWith } from 'rxjs/operators';
 import { parseDbDateStr } from '../../util/parse-db-date-str';
+import { selectTimeTrackingState } from '../time-tracking/store/time-tracking.selectors';
+import { selectTaskEntities } from '../tasks/store/task.selectors';
+import { appendActualTimeSegmentsToScheduleDays } from './map-schedule-data/append-actual-time-segments-to-schedule-days';
+import { TimeTrackingState } from '../time-tracking/time-tracking.model';
 
 @Injectable({
   providedIn: 'root',
@@ -42,6 +46,8 @@ export class ScheduleService {
   );
   private _timelineConfig = toSignal(this._store.select(selectTimelineConfig));
   private _plannerDayMap = toSignal(this._store.select(selectPlannerDayMap));
+  private _timeTrackingState = toSignal(this._store.select(selectTimeTrackingState));
+  private _taskEntities = toSignal(this._store.select(selectTaskEntities));
   private _calendarEvents = toSignal(this._calendarIntegrationService.calendarEvents$, {
     initialValue: [],
   });
@@ -56,6 +62,8 @@ export class ScheduleService {
       const taskRepeatCfgs = this._taskRepeatCfgs();
       const timelineCfg = this._timelineConfig();
       const plannerDayMap = this._plannerDayMap();
+      const timeTrackingState = this._timeTrackingState();
+      const taskEntities = this._taskEntities();
       const calendarEvents = this._calendarEvents();
       const currentTaskId = this._taskService.currentTaskId() ?? null;
 
@@ -67,6 +75,8 @@ export class ScheduleService {
         plannerDayMap,
         timelineCfg,
         currentTaskId,
+        timeTrackingState,
+        taskEntities,
       });
     });
   }
@@ -82,13 +92,15 @@ export class ScheduleService {
       plannerDayMap,
       timelineCfg,
       currentTaskId = null,
+      timeTrackingState,
+      taskEntities,
     } = params;
 
     if (!timelineTasks || !taskRepeatCfgs || !plannerDayMap) {
       return [];
     }
 
-    return mapToScheduleDays(
+    const days = mapToScheduleDays(
       now,
       daysToShow,
       timelineTasks.unPlanned,
@@ -101,6 +113,12 @@ export class ScheduleService {
       timelineCfg?.isWorkStartEndEnabled ? createWorkStartEndCfg(timelineCfg) : undefined,
       timelineCfg?.isLunchBreakEnabled ? createLunchBreakCfg(timelineCfg) : undefined,
       realNow,
+    );
+
+    return appendActualTimeSegmentsToScheduleDays(
+      days,
+      timeTrackingState?.taskSegments,
+      taskEntities as Record<string, TaskCopy | Readonly<TaskCopy> | undefined>,
     );
   }
 
@@ -127,6 +145,8 @@ export class ScheduleService {
     const taskRepeatCfgs = this._taskRepeatCfgs();
     const timelineCfg = this._timelineConfig();
     const plannerDayMap = this._plannerDayMap();
+    const timeTrackingState = this._timeTrackingState();
+    const taskEntities = this._taskEntities();
     const hiddenProviderIds = this._hiddenCalendarProviders.hiddenProviderIds();
     const calendarEvents = hiddenProviderIds.length
       ? this._calendarEvents()
@@ -149,6 +169,8 @@ export class ScheduleService {
       plannerDayMap,
       timelineCfg,
       currentTaskId: params.currentTaskId,
+      timeTrackingState,
+      taskEntities,
     });
   }
 
@@ -302,6 +324,7 @@ const isTaskWithPlannedForDay = (
     ev.type === SVEType.SplitTaskPlannedForDay ||
     ev.type === SVEType.SplitTask ||
     ev.type === SVEType.ScheduledTask ||
+    ev.type === SVEType.ActualTask ||
     ev.type === SVEType.Task) &&
   ev.data != null &&
   'plannedForDay' in ev.data &&
@@ -314,6 +337,7 @@ const isTaskEventWithPlannedForDay = (
     ev.type === SVEType.SplitTaskPlannedForDay ||
     ev.type === SVEType.SplitTask ||
     ev.type === SVEType.ScheduledTask ||
+    ev.type === SVEType.ActualTask ||
     ev.type === SVEType.Task) &&
   typeof ev.plannedForDay === 'string';
 
@@ -377,4 +401,6 @@ export interface BuildScheduleDaysParams {
   plannerDayMap: PlannerDayMap | undefined | null;
   timelineCfg?: ScheduleConfig | null;
   currentTaskId?: string | null;
+  timeTrackingState?: TimeTrackingState | null;
+  taskEntities?: Record<string, TaskCopy | Readonly<TaskCopy> | undefined> | null;
 }

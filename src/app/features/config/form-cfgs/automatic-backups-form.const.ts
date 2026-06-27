@@ -17,6 +17,7 @@ export const getAutomaticBackUpFormCfg = (
   // verbatim and has no interpolation; non-key strings pass through translate
   // unchanged, matching how the Electron backupPath link is rendered (#7901).
   lastBackupInfo?: string,
+  linkTargetPath?: string | null,
 ): ConfigFormSection<LocalBackupConfig> => ({
   title: T.GCF.AUTO_BACKUPS.TITLE,
   key: 'localBackup',
@@ -51,6 +52,26 @@ export const getAutomaticBackUpFormCfg = (
             templateOptions: {
               tag: 'p',
               text: `<a href="file://${backupPath}" target="_blank">${backupPath}</a>`,
+            },
+          },
+        ]
+      : []),
+    ...(linkTargetPath
+      ? [
+          {
+            type: 'tpl',
+            className: `tpl`,
+            templateOptions: {
+              tag: 'p',
+              text: T.GCF.AUTO_BACKUPS.LINK_TARGET_INFO,
+            },
+          },
+          {
+            type: 'tpl',
+            className: `tpl`,
+            templateOptions: {
+              tag: 'p',
+              text: `<a href="file://${linkTargetPath}" target="_blank">${linkTargetPath}</a>`,
             },
           },
         ]

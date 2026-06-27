@@ -4,12 +4,21 @@ import { IS_ELECTRON } from '../../app.constants';
 import { Log } from '../../core/log';
 
 const STORAGE_KEY = 'sp_task_widget_settings';
+const IMAGE_CACHE_PREFIX = 'image:';
 
 const DEFAULT_TASK_WIDGET_CONFIG: Required<TaskWidgetConfig> = {
   isEnabled: false,
-  isAlwaysShow: false,
+  isAlwaysShow: true,
   opacity: 95,
+  contentOpacity: 100,
+  backgroundImage: null,
+  backgroundImageOpacity: 45,
 };
+
+const getCachedImageId = (value: string | null | undefined): string | null =>
+  typeof value === 'string' && value.startsWith(IMAGE_CACHE_PREFIX)
+    ? value.substring(IMAGE_CACHE_PREFIX.length) || null
+    : null;
 
 /**
  * The task widget settings live in localStorage rather than the synced global
@@ -31,9 +40,13 @@ export class TaskWidgetSettingsService {
   }
 
   update(partial: Partial<TaskWidgetConfig>): void {
+    const prev = this._settings();
     const next: Required<TaskWidgetConfig> = { ...this._settings(), ...partial };
     this._settings.set(next);
     this._persistToStorage(next);
+    if (Object.prototype.hasOwnProperty.call(partial, 'backgroundImage')) {
+      this._cleanupReplacedCachedImage(prev.backgroundImage, next.backgroundImage);
+    }
     if (IS_ELECTRON) {
       this._notifyElectron(next);
     }
@@ -66,5 +79,19 @@ export class TaskWidgetSettingsService {
   private _notifyElectron(value: Required<TaskWidgetConfig>): void {
     if (typeof window === 'undefined' || !window.ea) return;
     window.ea.updateTaskWidgetSettings(value);
+  }
+
+  private _cleanupReplacedCachedImage(
+    prevImage: string | null | undefined,
+    nextImage: string | null | undefined,
+  ): void {
+    const prevId = getCachedImageId(prevImage);
+    const nextId = getCachedImageId(nextImage);
+    if (!prevId || prevId === nextId || !IS_ELECTRON || typeof window === 'undefined') {
+      return;
+    }
+    void window.ea?.imageCacheRemove(prevId).catch((e) => {
+      Log.err('Failed to remove previous task widget background image', e);
+    });
   }
 }

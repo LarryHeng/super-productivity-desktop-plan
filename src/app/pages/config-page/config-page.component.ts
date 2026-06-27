@@ -20,6 +20,7 @@ import {
   GLOBAL_TASKS_FORM_CONFIG,
 } from '../../features/config/global-config-form-config.const';
 import {
+  ConfigSectionAction,
   ConfigFormConfig,
   GlobalConfigFormSectionKey,
   GlobalConfigSectionKey,
@@ -32,7 +33,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ProjectCfgFormKey } from '../../features/project/project.model';
 import { T } from '../../t.const';
 import { versions } from '../../../environments/versions';
-import { IS_ELECTRON } from '../../app.constants';
+import { IS_ELECTRON_TOKEN } from '../../app.constants';
 import { IS_ANDROID_WEB_VIEW_TOKEN } from '../../util/is-android-web-view';
 import { getAutomaticBackUpFormCfg } from '../../features/config/form-cfgs/automatic-backups-form.const';
 import { getAppVersionStr } from '../../util/get-app-version-str';
@@ -95,6 +96,7 @@ export class ConfigPageComponent implements OnInit {
   private readonly _localBackupService = inject(LocalBackupService);
   private readonly _translateService = inject(TranslateService);
   private readonly _isAndroidWebView = inject(IS_ANDROID_WEB_VIEW_TOKEN);
+  private readonly _isElectron = inject(IS_ELECTRON_TOKEN);
 
   readonly configService = inject(GlobalConfigService);
   readonly syncSettingsService = inject(SyncConfigService);
@@ -181,14 +183,8 @@ export class ConfigPageComponent implements OnInit {
           this._lastBackupInfo(),
         ),
       ];
-    } else if (IS_ELECTRON) {
-      window.ea.getBackupPath().then((backupPath) => {
-        this.globalImexFormCfg = [
-          ...this.globalImexFormCfg,
-          getAutomaticBackUpFormCfg(backupPath),
-        ];
-        this._cd.detectChanges();
-      });
+    } else if (this._isElectron) {
+      void this._loadElectronAutomaticBackupFormCfg();
     }
 
     // Use effect to react to plugin shortcuts changes for live updates
@@ -214,6 +210,55 @@ export class ConfigPageComponent implements OnInit {
     return this._translateService.instant(T.GCF.AUTO_BACKUPS.LAST_BACKUP_INFO, {
       date: new Date(ts).toLocaleString(),
     });
+  }
+
+  private async _loadElectronAutomaticBackupFormCfg(): Promise<void> {
+    const backupInfo = await window.ea.getBackupPathInfo();
+    this._setAutomaticBackupFormCfg(
+      getAutomaticBackUpFormCfg(backupInfo.effectiveDir, this._electronBackupActions()),
+    );
+  }
+
+  private _setAutomaticBackupFormCfg(section: ConfigFormConfig[number]): void {
+    this.globalImexFormCfg = [
+      ...this.globalImexFormCfg.filter((s) => s.key !== 'localBackup'),
+      section,
+    ];
+    this._cd.detectChanges();
+  }
+
+  private _electronBackupActions(): ConfigSectionAction[] {
+    return [
+      {
+        label: T.GCF.AUTO_BACKUPS.CHOOSE_LINK_TARGET,
+        icon: 'folder_open',
+        onClick: async () => {
+          const result = await window.ea.pickBackupLinkTarget();
+          if (result && 'error' in result) {
+            this._snackService.open({
+              type: 'ERROR',
+              msg: result.error,
+              isSkipTranslate: true,
+            });
+            return;
+          }
+          if (result) {
+            this._setAutomaticBackupFormCfg(
+              getAutomaticBackUpFormCfg(
+                result.effectiveDir,
+                this._electronBackupActions(),
+              ),
+            );
+            this._snackService.open({
+              type: 'SUCCESS',
+              msg: T.GCF.AUTO_BACKUPS.LOCATION_CHANGED,
+              translateParams: { path: result.effectiveDir },
+              ico: 'folder_open',
+            });
+          }
+        },
+      },
+    ];
   }
 
   ngOnInit(): void {

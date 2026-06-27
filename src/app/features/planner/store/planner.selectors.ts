@@ -112,21 +112,13 @@ export const selectPlannerDays = (
     selectTimelineConfig,
     selectStartOfNextDayDiffMs,
     (activeTasks, plannerState, scheduleConfig, startOfNextDayDiffMs): PlannerDay[] => {
-      const allDatesWithData = Object.keys(plannerState.days);
-      const dayDatesToUse = [
-        ...dayDates,
-        ...allDatesWithData
-          .filter((d) => plannerState.days[d].length && !dayDates.includes(d))
-          .sort((a, b) => a.localeCompare(b)),
-      ];
-
       // Pre-compute deadline tasks grouped by day (O(N) once, then O(1) per day)
       const deadlineMap = groupDeadlineTasksByDay(
         activeTasks.values(),
         startOfNextDayDiffMs,
       );
 
-      return dayDatesToUse.map((dayDate) =>
+      return dayDates.map((dayDate) =>
         getPlannerDay(
           dayDate,
           todayStr,

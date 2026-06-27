@@ -130,7 +130,8 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
       evt.type === SVEType.SplitTask ||
       evt.type === SVEType.TaskPlannedForDay ||
       evt.type === SVEType.SplitTaskPlannedForDay ||
-      evt.type === SVEType.ScheduledTask
+      evt.type === SVEType.ScheduledTask ||
+      evt.type === SVEType.ActualTask
     ) {
       return evt.data as TaskCopy;
     }
@@ -356,6 +357,7 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
       case SVEType.CalendarEvent:
         return 'CAL_PROJECTION';
       case SVEType.ScheduledTask:
+      case SVEType.ActualTask:
         return 'SCHEDULED_TASK';
       case SVEType.LunchBreak:
         return 'LUNCH_BREAK';

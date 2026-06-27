@@ -1,4 +1,10 @@
-import { BoardPanelCfg, BoardSortField } from './boards.model';
+import {
+  BoardPanelCfg,
+  BoardPanelCfgScheduledState,
+  BoardPanelCfgTaskDoneState,
+  BoardPanelCfgTaskTypeFilter,
+  BoardSortField,
+} from './boards.model';
 import { TaskCopy } from '../tasks/task.model';
 import { dateStrToUtcDate } from '../../util/date-str-to-utc-date';
 
@@ -183,4 +189,94 @@ export const buildComparator = (
     default:
       return NO_OP_COMPARATOR;
   }
+};
+
+const isTaskInBacklog = (
+  task: Readonly<TaskCopy>,
+  allBacklogTaskIds: ReadonlySet<string>,
+): boolean => allBacklogTaskIds.has(task.parentId || task.id);
+
+export const filterTasksForPanel = (
+  allTasks: readonly TaskCopy[],
+  panelCfg: BoardPanelCfg,
+  allBacklogTaskIds: ReadonlySet<string> = new Set<string>(),
+): TaskCopy[] => {
+  const orderedTasks: TaskCopy[] = [];
+  const nonOrderedTasks: TaskCopy[] = [];
+
+  const allFilteredTasks = allTasks.filter((task) => {
+    let isTaskIncluded = true;
+    const taskTagIds = task.tagIds ?? [];
+
+    if (panelCfg.includedTagIds?.length) {
+      isTaskIncluded =
+        panelCfg.includedTagsMatch === 'any'
+          ? panelCfg.includedTagIds.some((tagId) => taskTagIds.includes(tagId))
+          : panelCfg.includedTagIds.every((tagId) => taskTagIds.includes(tagId));
+    }
+
+    if (panelCfg.excludedTagIds?.length) {
+      const hit =
+        panelCfg.excludedTagsMatch === 'all'
+          ? panelCfg.excludedTagIds.every((tagId) => taskTagIds.includes(tagId))
+          : panelCfg.excludedTagIds.some((tagId) => taskTagIds.includes(tagId));
+      isTaskIncluded = isTaskIncluded && !hit;
+    }
+
+    if (panelCfg.isParentTasksOnly) {
+      isTaskIncluded = isTaskIncluded && !task.parentId;
+    }
+
+    if (panelCfg.taskDoneState === BoardPanelCfgTaskDoneState.Done) {
+      isTaskIncluded = isTaskIncluded && task.isDone;
+    }
+
+    if (panelCfg.taskDoneState === BoardPanelCfgTaskDoneState.UnDone) {
+      isTaskIncluded = isTaskIncluded && !task.isDone;
+    }
+
+    if (
+      panelCfg.projectIds &&
+      panelCfg.projectIds.length > 0 &&
+      !isAllProjects(panelCfg.projectIds)
+    ) {
+      isTaskIncluded = isTaskIncluded && panelCfg.projectIds.includes(task.projectId);
+    }
+
+    if (panelCfg.scheduledState === BoardPanelCfgScheduledState.Scheduled) {
+      isTaskIncluded = isTaskIncluded && !!(task.dueWithTime || task.dueDay);
+    }
+
+    if (panelCfg.scheduledState === BoardPanelCfgScheduledState.NotScheduled) {
+      isTaskIncluded = isTaskIncluded && !task.dueWithTime && !task.dueDay;
+    }
+
+    if (panelCfg.backlogState === BoardPanelCfgTaskTypeFilter.OnlyBacklog) {
+      isTaskIncluded = isTaskIncluded && isTaskInBacklog(task, allBacklogTaskIds);
+    }
+
+    if (panelCfg.backlogState === BoardPanelCfgTaskTypeFilter.NoBacklog) {
+      isTaskIncluded = isTaskIncluded && !isTaskInBacklog(task, allBacklogTaskIds);
+    }
+
+    return isTaskIncluded;
+  });
+
+  allFilteredTasks.forEach((task) => {
+    const index = panelCfg.taskIds.indexOf(task.id);
+    if (index > -1) {
+      orderedTasks[index] = task;
+    } else {
+      nonOrderedTasks.push(task);
+    }
+  });
+  const merged = [...orderedTasks, ...nonOrderedTasks].filter((t) => !!t);
+
+  if (panelCfg.sortBy) {
+    const dir = panelCfg.sortDir === 'desc' ? -1 : 1;
+    const cmp = buildComparator(panelCfg.sortBy);
+    merged.sort((a, b) => dir * cmp(a, b));
+  }
+
+  return merged;
 };

@@ -6,6 +6,12 @@
   touch-action: none;
 }
 
+.month-header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+}
+
 .month-label {
   font-size: 15px;
   font-weight: 500;
@@ -56,14 +62,6 @@
     border-color: var(--c-primary);
     background: var(--c-primary);
     color: var(--text-on-primary, #fff);
-  }
-
-  &.is-past {
-    opacity: 0.35;
-  }
-
-  &:disabled {
-    cursor: default;
   }
 }
 

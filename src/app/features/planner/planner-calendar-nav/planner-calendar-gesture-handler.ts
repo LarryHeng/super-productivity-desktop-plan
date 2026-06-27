@@ -1,5 +1,5 @@
 export const ROW_HEIGHT = 40;
-export const WEEKS_SHOWN = 5;
+export const WEEKS_SHOWN = 6;
 export const DAYS_IN_VIEW = WEEKS_SHOWN * 7;
 export const MIN_HEIGHT = ROW_HEIGHT;
 export const MAX_HEIGHT = ROW_HEIGHT * WEEKS_SHOWN;
@@ -228,7 +228,7 @@ export class CalendarGestureHandler {
         if (Math.abs(velocity) > SNAP_VELOCITY) {
           snapExpanded = velocity > 0;
         } else {
-          snapExpanded = currentHeight > SNAP_MIDPOINT;
+          snapExpanded = currentHeight >= SNAP_MIDPOINT;
         }
         this.snapTo(snapExpanded);
       }

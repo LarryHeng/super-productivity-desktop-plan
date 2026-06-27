@@ -1,6 +1,13 @@
-import { buildComparator, rewriteTagIdsForPanel, sanitizePanelCfg } from './boards.util';
+import {
+  buildComparator,
+  filterTasksForPanel,
+  rewriteTagIdsForPanel,
+  sanitizePanelCfg,
+} from './boards.util';
 import { BoardPanelCfg } from './boards.model';
 import { TaskCopy } from '../tasks/task.model';
+import { DEFAULT_BOARDS } from './boards.const';
+import { IMPORTANT_TAG, URGENT_TAG } from '../tag/tag.const';
 
 const basePanel: any = {
   id: 'p1',
@@ -322,5 +329,52 @@ describe('rewriteTagIdsForPanel', () => {
     // Act + Assert — would throw if mutated
     expect(() => rewriteTagIdsForPanel(tags, panel)).not.toThrow();
     expect(tags).toEqual(['x', 'y']);
+  });
+});
+
+describe('filterTasksForPanel', () => {
+  const mkTask = (
+    id: string,
+    tagIds: string[],
+    overrides: Partial<TaskCopy> = {},
+  ): TaskCopy =>
+    ({
+      id,
+      title: id,
+      tagIds,
+      projectId: 'p1',
+      timeSpentOnDay: {},
+      attachments: [],
+      timeEstimate: 0,
+      timeSpent: 0,
+      isDone: false,
+      created: 1,
+      subTaskIds: [],
+      ...overrides,
+    }) as TaskCopy;
+
+  it('uses the default Eisenhower matrix panel rules to group tasks by urgent and important tags', () => {
+    const eisenhower = DEFAULT_BOARDS.find((board) => board.id === 'EISENHOWER_MATRIX')!;
+    const tasks = [
+      mkTask('both', [URGENT_TAG.id, IMPORTANT_TAG.id]),
+      mkTask('important-only', [IMPORTANT_TAG.id]),
+      mkTask('urgent-only', [URGENT_TAG.id]),
+      mkTask('neither', []),
+      mkTask('child-both', [URGENT_TAG.id, IMPORTANT_TAG.id], { parentId: 'both' }),
+    ];
+
+    const tasksByPanelId = Object.fromEntries(
+      eisenhower.panels.map((panel) => [
+        panel.id,
+        filterTasksForPanel(tasks, panel).map((task) => task.id),
+      ]),
+    );
+
+    expect(tasksByPanelId).toEqual({
+      URGENT_AND_IMPORTANT: ['both'],
+      NOT_URGENT_AND_IMPORTANT: ['important-only'],
+      URGENT_AND_NOT_IMPORTANT: ['urgent-only'],
+      NOT_URGENT_AND_NOT_IMPORTANT: ['neither'],
+    });
   });
 });

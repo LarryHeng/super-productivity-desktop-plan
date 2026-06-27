@@ -46,6 +46,8 @@ export type MiscConfig = Readonly<{
   // number: one of DefaultStartPage. string: project id.
   defaultStartPage?: number | string;
   unsplashApiKey?: string | null;
+  globalBackgroundImage?: string | null;
+  globalBackgroundImageOpacity?: number;
 
   // @todo: remove deprecated items in future major releases, after giving users time to migrate
   isConfirmBeforeTaskDelete?: boolean; // Deprecated
@@ -288,6 +290,10 @@ export type TaskWidgetConfig = Readonly<{
   isEnabled?: boolean;
   isAlwaysShow?: boolean;
   opacity?: number;
+  contentOpacity?: number;
+  backgroundImage?: string | null;
+  /** @deprecated Background visibility is controlled by opacity. */
+  backgroundImageOpacity?: number;
 }>;
 
 export type ClipboardImagesConfig = Readonly<{

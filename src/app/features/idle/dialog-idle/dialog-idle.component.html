@@ -53,6 +53,7 @@
           <select-task
             (taskChange)="onTaskChange($event)"
             [isIncludeDoneTasks]="true"
+            [isShowSuggestionsWithoutSearch]="true"
             [initialTask]="selectedTask"
             [initialTitle]="newTaskTitle"
           ></select-task>
@@ -124,6 +125,7 @@
                   class="split-task-select"
                   (taskChange)="onSplitTaskChange(item, $event)"
                   [isIncludeDoneTasks]="true"
+                  [isShowSuggestionsWithoutSearch]="true"
                   [initialTask]="item.task"
                   [initialTitle]="item.title"
                 ></select-task>

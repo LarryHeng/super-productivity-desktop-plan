@@ -30,6 +30,12 @@ export interface TTWorkContextData {
   bt?: number;
 }
 
+export interface TTActualTaskSegment {
+  taskId: string;
+  start: number;
+  end: number;
+}
+
 /*
 project:
   [projectId]:
@@ -50,11 +56,18 @@ export type TTWorkSessionByDateMap = TTDateMap<TTWorkContextData>;
 // Work context (project/tag) mapped to their session data by date
 export type TTWorkContextSessionMap = TTModelIdMap<TTWorkSessionByDateMap>;
 
+export type TTActualTaskSegmentByDateMap = TTDateMap<TTActualTaskSegment[]>;
+
 // Main state container
 export interface TimeTrackingState {
   project: TTWorkContextSessionMap;
   tag: TTWorkContextSessionMap;
+  taskSegments?: TTActualTaskSegmentByDateMap;
   // somehow can't be optional for ngrx
+}
+
+export interface TimeTrackingFeatureState extends TimeTrackingState {
+  taskSegments: TTActualTaskSegmentByDateMap;
 }
 
 export const isWorkContextData = (obj: unknown): obj is TTWorkContextData =>

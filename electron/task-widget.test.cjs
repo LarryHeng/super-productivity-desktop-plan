@@ -10,6 +10,7 @@ const taskWidgetModulePath = path.resolve(__dirname, 'task-widget/task-widget.ts
 
 let createdWindows = [];
 let loadSimpleStoreAllImpl;
+let ipcHandlers;
 
 const createDeferred = () => {
   let resolve;
@@ -23,8 +24,20 @@ const createDeferred = () => {
 };
 
 class FakeWebContents {
-  on() {}
-  send() {}
+  constructor() {
+    this.sent = [];
+    this._handlers = new Map();
+  }
+  on(eventName, handler) {
+    this._handlers.set(eventName, handler);
+  }
+  emit(eventName) {
+    const handler = this._handlers.get(eventName);
+    if (handler) handler();
+  }
+  send(channel, ...args) {
+    this.sent.push({ channel, args });
+  }
   focus() {}
   isDestroyed() {
     return false;
@@ -33,11 +46,15 @@ class FakeWebContents {
 }
 
 class FakeBrowserWindow {
-  constructor() {
+  constructor(options = {}) {
+    this.options = options;
     this._visible = false;
     this.showCount = 0;
     this.showInactiveCount = 0;
     this.hideCount = 0;
+    this.restoreCount = 0;
+    this.maximizeCount = 0;
+    this._minimized = false;
     this._handlers = new Map();
     this.webContents = new FakeWebContents();
     createdWindows.push(this);
@@ -69,6 +86,9 @@ class FakeBrowserWindow {
   isVisible() {
     return this._visible;
   }
+  isMinimized() {
+    return this._minimized;
+  }
   show() {
     this._visible = true;
     this.showCount += 1;
@@ -76,6 +96,14 @@ class FakeBrowserWindow {
   showInactive() {
     this._visible = true;
     this.showInactiveCount += 1;
+  }
+  focus() {}
+  restore() {
+    this._minimized = false;
+    this.restoreCount += 1;
+  }
+  maximize() {
+    this.maximizeCount += 1;
   }
   hide() {
     this._visible = false;
@@ -88,7 +116,10 @@ const installMocks = () => {
     if (request === 'electron') {
       return {
         BrowserWindow: FakeBrowserWindow,
-        ipcMain: { on: () => {}, removeAllListeners: () => {} },
+        ipcMain: {
+          on: (channel, handler) => ipcHandlers.set(channel, handler),
+          removeAllListeners: (channel) => ipcHandlers.delete(channel),
+        },
         screen: {
           getPrimaryDisplay: () => ({ workAreaSize: { width: 1920, height: 1080 } }),
           getDisplayMatching: () => ({
@@ -100,10 +131,27 @@ const installMocks = () => {
     if (request === 'electron-log/main') {
       return { info: () => {} };
     }
+    if (request.endsWith('ipc-events.const')) {
+      return {
+        IPC: {
+          REQUEST_CURRENT_TASK_FOR_TASK_WIDGET: 'REQUEST_CURRENT_TASK_FOR_TASK_WIDGET',
+          TASK_WIDGET_COMPLETE_TASK: 'TASK_WIDGET_COMPLETE_TASK',
+          TASK_WIDGET_SET_ENABLED: 'TASK_WIDGET_SET_ENABLED',
+          TASK_WIDGET_EXTEND_TASK: 'TASK_WIDGET_EXTEND_TASK',
+          SWITCH_TASK: 'SWITCH_TASK',
+          UPDATE_TASK_WIDGET_SETTINGS: 'UPDATE_TASK_WIDGET_SETTINGS',
+        },
+      };
+    }
     if (request.endsWith('simple-store')) {
       return {
         loadSimpleStoreAll: () => loadSimpleStoreAllImpl(),
         saveSimpleStore: () => {},
+      };
+    }
+    if (request.endsWith('image-cache')) {
+      return {
+        getImageDataUrl: async (id) => `data:image/png;base64,${id}`,
       };
     }
     if (request.endsWith('common.const')) {
@@ -122,6 +170,7 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 test.beforeEach(() => {
   createdWindows = [];
+  ipcHandlers = new Map();
   loadSimpleStoreAllImpl = async () => ({});
   installMocks();
 });
@@ -209,7 +258,7 @@ test('disabling clears the sticky flag even when the widget window is absent', (
   // taskWidgetWin is still null (the "absent window" / async re-create gap).
   mod.updateTaskWidgetEnabled(true);
 
-  // User hits the shortcut during that gap — the flag is set without a window.
+  // User hits the shortcut during that gap, so the flag is set without a window.
   mod.toggleTaskWidgetVisibility();
   assert.equal(createdWindows.length, 0, 'no window exists yet');
   assert.equal(
@@ -294,4 +343,256 @@ test('the closed event clears the sticky flag so it does not outlive the window'
     false,
     'closing the window clears the sticky flag',
   );
+});
+
+test('shortcut-hidden widget stays hidden until the user reveals it again', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.showTaskWidget();
+  assert.equal(win.isVisible(), true, 'widget starts visible for the hide action');
+
+  mod.toggleTaskWidgetVisibility();
+  assert.equal(win.isVisible(), false, 'hide button hides the widget');
+
+  mod.showTaskWidget();
+  assert.equal(
+    win.isVisible(),
+    false,
+    'automatic show requests should not undo an explicit user hide',
+  );
+
+  mod.toggleTaskWidgetVisibility();
+  assert.equal(win.isVisible(), true, 'shortcut reveal brings the widget back');
+});
+
+test('enabled task widget creates a desktop planning panel with a useful lower bound', async () => {
+  const mod = loadModule();
+
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  assert.equal(createdWindows.length, 1, 'enabling should create the widget window');
+  const options = createdWindows[0].options;
+  assert.ok(options.width >= 700, 'default width should fit matrix columns');
+  assert.ok(options.height >= 360, 'default height should fit a planning panel');
+  assert.ok(options.minWidth >= 420, 'min width should keep the panel usable');
+  assert.ok(options.minHeight >= 220, 'min height should keep the panel usable');
+  assert.equal(
+    options.alwaysOnTop,
+    false,
+    'desktop widget should be covered by normal app windows',
+  );
+  assert.equal(options.maxHeight, undefined, 'panel height should not be capped');
+});
+
+test('updateTaskWidgetTaskLists sends Eisenhower matrix panels to the renderer', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.updateTaskWidgetTaskLists({
+    panels: [
+      {
+        id: 'URGENT_AND_IMPORTANT',
+        title: 'Urgent & Important',
+        tasks: [{ id: 'task-1', title: 'Matrix task', timeEstimate: 0, timeSpent: 0 }],
+      },
+    ],
+  });
+
+  const update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-content')
+    .at(-1);
+  assert.equal(update.args[0].panels.length, 1);
+  assert.equal(update.args[0].panels[0].id, 'URGENT_AND_IMPORTANT');
+  assert.equal(update.args[0].panels[0].tasks[0].id, 'task-1');
+});
+
+test('task widget completion requests are forwarded to the main renderer', async () => {
+  const mainWin = new FakeBrowserWindow();
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  ipcHandlers.get('task-widget-complete-task')({}, 'task-1');
+
+  assert.deepEqual(mainWin.webContents.sent.at(-1), {
+    channel: 'TASK_WIDGET_COMPLETE_TASK',
+    args: ['task-1'],
+  });
+});
+
+test('task widget open requests restore, show, and maximize the main app', async () => {
+  const mainWin = new FakeBrowserWindow();
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  ipcHandlers.get('task-widget-show-main-window')();
+
+  assert.equal(mainWin.restoreCount, 1);
+  assert.equal(mainWin.showCount, 1);
+  assert.equal(mainWin.maximizeCount, 1);
+});
+
+test('task widget hide requests the renderer to disable the widget setting', async () => {
+  const mainWin = new FakeBrowserWindow();
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[1];
+  mod.showTaskWidget();
+  assert.equal(win.isVisible(), true, 'widget should be visible before hiding');
+
+  ipcHandlers.get('task-widget-hide')();
+
+  assert.deepEqual(mainWin.webContents.sent.at(-1), {
+    channel: 'TASK_WIDGET_SET_ENABLED',
+    args: [false],
+  });
+});
+
+test('task widget falls back to the global background when no widget background is set', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.updateTaskWidgetGlobalBackground('image:global-bg', 33);
+  await flush();
+
+  const update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-background')
+    .at(-1);
+
+  assert.deepEqual(update.args[0], {
+    image: 'data:image/png;base64,global-bg',
+    imageOpacity: 0.95,
+  });
+});
+
+test('task widget own background overrides the global fallback', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.updateTaskWidgetBackground('image:widget-bg', 44);
+  await flush();
+  mod.updateTaskWidgetGlobalBackground('image:global-bg', 33);
+  await flush();
+
+  const update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-background')
+    .at(-1);
+
+  assert.deepEqual(update.args[0], {
+    image: 'data:image/png;base64,widget-bg',
+    imageOpacity: 0.95,
+  });
+});
+
+test('task widget replays appearance and background after its document loads', async () => {
+  const mod = loadModule();
+  mod.initTaskWidgetSettingsListener();
+
+  ipcHandlers.get('UPDATE_TASK_WIDGET_SETTINGS')(
+    {},
+    {
+      isEnabled: true,
+      isAlwaysShow: true,
+      opacity: 72,
+      contentOpacity: 64,
+      backgroundImage: 'image:widget-bg',
+    },
+  );
+  await flush();
+
+  const win = createdWindows[0];
+  win.webContents.sent = [];
+  win.webContents.emit('did-finish-load');
+  await flush();
+
+  assert.deepEqual(
+    win.webContents.sent.find((msg) => msg.channel === 'update-opacity')?.args[0],
+    {
+      backgroundOpacity: 0.72,
+      contentOpacity: 0.64,
+    },
+  );
+  assert.deepEqual(
+    win.webContents.sent.find((msg) => msg.channel === 'update-background')?.args[0],
+    {
+      image: 'data:image/png;base64,widget-bg',
+      imageOpacity: 0.72,
+    },
+  );
+  assert.equal(win.showInactiveCount > 0, true);
+});
+
+test('task widget restores itself when Windows Show Desktop minimizes it', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetAlwaysShow(true);
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  win._minimized = true;
+  const event = {
+    preventDefaultCalled: false,
+    preventDefault() {
+      this.preventDefaultCalled = true;
+    },
+  };
+  win._handlers.get('minimize')(event);
+  await flush();
+
+  assert.equal(event.preventDefaultCalled, true);
+  assert.equal(win.restoreCount, 1);
+  assert.equal(win.showInactiveCount > 0, true);
+});
+
+test('task countdown expiry is emitted only once for the same estimate', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  win.webContents.emit('did-finish-load');
+  const task = {
+    id: 'task-1',
+    title: 'Timed task',
+    timeEstimate: 30 * 60 * 1000,
+    timeSpent: 30 * 60 * 1000,
+  };
+  mod.updateTaskWidgetTask(task, false, 0, false, 0);
+  mod.updateTaskWidgetTask(task, false, 0, false, 0);
+
+  const expiryMessages = win.webContents.sent.filter(
+    (msg) => msg.channel === 'countdown-expired',
+  );
+  assert.equal(expiryMessages.length, 1);
+  assert.deepEqual(expiryMessages[0].args[0], {
+    taskId: 'task-1',
+    title: 'Timed task',
+  });
+});
+
+test('task widget extension requests are forwarded to the main renderer', async () => {
+  const mainWin = new FakeBrowserWindow();
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  ipcHandlers.get('task-widget-extend-task')({}, 'task-1', 15 * 60 * 1000);
+
+  assert.deepEqual(mainWin.webContents.sent.at(-1), {
+    channel: 'TASK_WIDGET_EXTEND_TASK',
+    args: ['task-1', 15 * 60 * 1000],
+  });
 });

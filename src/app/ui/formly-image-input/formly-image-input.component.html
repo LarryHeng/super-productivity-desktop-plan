@@ -27,6 +27,18 @@
       {{ T.F.PROJECT.FORM_THEME.BTN_SELECT_IMAGE | translate }}
     </button>
   }
+  @if (formControl.value) {
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="clearImage()"
+      [disabled]="props.readonly"
+      class="clear-button"
+    >
+      <mat-icon>close</mat-icon>
+      {{ T.G.CLEAR | translate }}
+    </button>
+  }
   @if (isUnsplashAvailable) {
     <button
       mat-stroked-button

@@ -72,41 +72,29 @@ export const plannerReducer = createReducer(
     },
   })),
 
-  on(
-    PlannerActions.cleanupOldAndUndefinedPlannerTasks,
-    (state, { today, allTaskIds }) => {
-      const daysCopy = { ...state.days };
-      const todayDate = new Date(today);
-      // Use Set for O(1) lookup instead of O(n) .includes() in filter
-      const allTaskIdSet = new Set(allTaskIds);
-      let wasChanged = false;
-      Object.keys(daysCopy).forEach((day) => {
-        // NOTE: also deletes today
-        if (new Date(day) <= todayDate) {
-          delete daysCopy[day];
-          wasChanged = true;
-        }
-        // remove all deleted tasks if day was not deleted
-        if (!!daysCopy[day]) {
-          const newDayVal = daysCopy[day].filter((id) => allTaskIdSet.has(id));
-          if (newDayVal.length !== daysCopy[day].length) {
-            daysCopy[day] = newDayVal;
-            wasChanged = true;
-          }
-        }
-      });
-      if (!wasChanged) {
-        return state;
+  on(PlannerActions.cleanupOldAndUndefinedPlannerTasks, (state, { allTaskIds }) => {
+    const daysCopy = { ...state.days };
+    // Use Set for O(1) lookup instead of O(n) .includes() in filter
+    const allTaskIdSet = new Set(allTaskIds);
+    let wasChanged = false;
+    Object.keys(daysCopy).forEach((day) => {
+      const newDayVal = daysCopy[day].filter((id) => allTaskIdSet.has(id));
+      if (newDayVal.length !== daysCopy[day].length) {
+        daysCopy[day] = newDayVal;
+        wasChanged = true;
       }
+    });
+    if (!wasChanged) {
+      return state;
+    }
 
-      return {
-        ...state,
-        days: {
-          ...daysCopy,
-        },
-      };
-    },
-  ),
+    return {
+      ...state,
+      days: {
+        ...daysCopy,
+      },
+    };
+  }),
 
   // NOTE: transferTask is now handled in planner-shared.reducer.ts
 

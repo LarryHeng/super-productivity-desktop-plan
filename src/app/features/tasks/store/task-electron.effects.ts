@@ -10,7 +10,11 @@ import {
   throttleTime,
   withLatestFrom,
 } from 'rxjs/operators';
-import { selectCurrentTask, selectTaskEntities } from './task.selectors';
+import {
+  selectAllTasksInActiveProjects,
+  selectCurrentTask,
+  selectTaskEntities,
+} from './task.selectors';
 import { selectTodayTaskIds } from '../../work-context/store/work-context.selectors';
 import { GlobalConfigService } from '../../config/global-config.service';
 import { selectIsOverlayShown } from '../../focus-mode/store/focus-mode.selectors';
@@ -32,6 +36,13 @@ import { TaskService } from '../task.service';
 import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { LOCAL_ACTIONS } from '../../../util/local-actions.token';
 import { TaskLog } from '../../../core/log';
+import { combineLatest } from 'rxjs';
+import {
+  buildEisenhowerTaskWidgetPanels,
+  mapTaskForTaskWidget,
+} from './task-widget-panels.util';
+import { TranslateService } from '@ngx-translate/core';
+import { TaskWidgetSettingsService } from '../../config/task-widget-settings.service';
 
 // TODO send message to electron when current task changes here
 
@@ -42,6 +53,8 @@ export class TaskElectronEffects {
   private _configService = inject(GlobalConfigService);
   private _focusModeService = inject(FocusModeService);
   private _taskService = inject(TaskService);
+  private _translateService = inject(TranslateService);
+  private _taskWidgetSettingsService = inject(TaskWidgetSettingsService);
 
   // -----------------------------------------------------------------------------------
   // NOTE: IS_ELECTRON checks not necessary, since we check before importing this module
@@ -79,26 +92,72 @@ export class TaskElectronEffects {
     });
 
     window.ea.onSwitchTask((taskId) => {
-      this._taskService.setCurrentId(taskId);
+      if (typeof taskId !== 'string' || !taskId) {
+        return;
+      }
+      if (this._taskService.currentTaskId() === taskId) {
+        this._taskService.pauseCurrent();
+      } else {
+        this._taskService.setCurrentId(taskId);
+      }
+    });
+
+    window.ea.on(IPC.TASK_WIDGET_COMPLETE_TASK, (_ev, taskId) => {
+      if (typeof taskId !== 'string' || !taskId) {
+        return;
+      }
+      if (this._taskService.currentTaskId() === taskId) {
+        this._taskService.pauseCurrent();
+      }
+      this._store$.dispatch(
+        TaskSharedActions.updateTask({
+          task: { id: taskId, changes: { isDone: true } },
+        }),
+      );
+    });
+
+    window.ea.on(IPC.TASK_WIDGET_SET_ENABLED, (_ev, isEnabled) => {
+      this._taskWidgetSettingsService.update({ isEnabled: !!isEnabled });
+    });
+
+    window.ea.on(IPC.TASK_WIDGET_EXTEND_TASK, (_ev, taskId, additionalTime) => {
+      if (
+        typeof taskId !== 'string' ||
+        !taskId ||
+        typeof additionalTime !== 'number' ||
+        additionalTime < 60_000 ||
+        additionalTime > 24 * 60 * 60 * 1000
+      ) {
+        return;
+      }
+      this._store$.pipe(select(selectTaskEntities), take(1)).subscribe((taskEntities) => {
+        const task = taskEntities[taskId];
+        if (!task) return;
+        this._taskService.update(taskId, {
+          timeEstimate: Math.max(task.timeEstimate, task.timeSpent) + additionalTime,
+        });
+      });
     });
   }
 
-  syncTodayTasksToElectron$ = createEffect(
+  syncTaskListsToElectron$ = createEffect(
     () =>
-      this._store$.pipe(
-        select(selectTodayTaskIds),
-        withLatestFrom(this._store$.pipe(select(selectTaskEntities))),
-        tap(([todayTaskIds, taskEntities]) => {
+      combineLatest([
+        this._store$.pipe(select(selectTodayTaskIds)),
+        this._store$.pipe(select(selectTaskEntities)),
+        this._store$.pipe(select(selectAllTasksInActiveProjects)),
+      ]).pipe(
+        tap(([todayTaskIds, taskEntities, allTasks]) => {
           const tasks = todayTaskIds
             .map((id) => taskEntities[id])
             .filter((t) => !!t && !t.isDone)
-            .map((t) => ({
-              id: t!.id,
-              title: t!.title,
-              timeEstimate: t!.timeEstimate,
-              timeSpent: t!.timeSpent,
-            }));
+            .map((t) => mapTaskForTaskWidget(t!));
           window.ea.updateTodayTasks(tasks);
+          window.ea.updateTaskWidgetTasks({
+            panels: buildEisenhowerTaskWidgetPanels(allTasks, (title) =>
+              this._translateService.instant(title),
+            ),
+          });
         }),
       ),
     { dispatch: false },
@@ -121,6 +180,7 @@ export class TaskElectronEffects {
           // Keep tray time in sync during focus-mode breaks and focus sessions
           // without an active task (addTimeSpent is gated on currentTask.id).
           tick,
+          TaskSharedActions.updateTask,
         ),
         // addTimeSpent and tick both fire every 1s during an active-task focus
         // session (same shared globalInterval source), so collapse them into a

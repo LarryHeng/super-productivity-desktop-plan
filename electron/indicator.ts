@@ -16,6 +16,7 @@ import { release } from 'os';
 import {
   initTaskWidgetSettingsListener,
   updateTaskWidgetTask,
+  updateTaskWidgetTaskLists,
 } from './task-widget/task-widget';
 import { getWin } from './main-window';
 
@@ -392,6 +393,12 @@ function initListeners(): void {
         _lastTodayTasksStr = todayTasksStr;
       }
     }
+  });
+
+  ipcMain.on(IPC.TASK_WIDGET_TASKS_UPDATED, (_ev: IpcMainEvent, taskLists: any) => {
+    updateTaskWidgetTaskLists({
+      panels: Array.isArray(taskLists?.panels) ? taskLists.panels : [],
+    });
   });
 
   // ipcMain.on(IPC.POMODORO_UPDATE, (ev, params) => {

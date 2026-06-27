@@ -17,6 +17,7 @@ import { GlobalConfigState } from '../../src/app/features/config/global-config.m
 import { saveSimpleStore } from '../simple-store';
 import { SimpleStoreKey } from '../shared-with-frontend/simple-store.const';
 import { updateLocalRestApiConfig } from '../local-rest-api';
+import { updateTaskWidgetGlobalBackground } from '../task-widget/task-widget';
 
 // On Linux, packaged builds ship a shell wrapper (`superproductivity`) next
 // to the Electron ELF (`superproductivity-bin`) that injects
@@ -48,6 +49,10 @@ export const initAppControlIpc = (): void => {
     setIsTrayShowCurrentCountdown(!!cfg.misc.isTrayShowCurrentCountdown);
     refreshIndicator();
     updateLocalRestApiConfig(cfg);
+    updateTaskWidgetGlobalBackground(
+      cfg.misc.globalBackgroundImage ?? null,
+      cfg.misc.globalBackgroundImageOpacity,
+    );
 
     if (cfg.misc.isUseCustomWindowTitleBar !== undefined) {
       await saveSimpleStore(

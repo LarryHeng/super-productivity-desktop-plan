@@ -47,6 +47,10 @@ const ea: ElectronAPI = {
   // ------
   getUserDataPath: () => _invoke('GET_PATH', 'userData') as Promise<string>,
   getBackupPath: () => _invoke('GET_BACKUP_PATH') as Promise<string>,
+  getBackupPathInfo: () =>
+    _invoke('GET_BACKUP_PATH_INFO') as ReturnType<ElectronAPI['getBackupPathInfo']>,
+  pickBackupLinkTarget: () =>
+    _invoke('PICK_BACKUP_LINK_TARGET') as ReturnType<ElectronAPI['pickBackupLinkTarget']>,
   checkBackupAvailable: () =>
     _invoke('BACKUP_IS_AVAILABLE') as Promise<false | LocalBackupMeta>,
   loadBackupData: (backupPath) =>
@@ -83,6 +87,7 @@ const ea: ElectronAPI = {
     >,
   imageCacheGetDataUrl: (id: string) =>
     _invoke('IMAGE_CACHE_GET_DATA_URL', id) as Promise<string | null>,
+  imageCacheRemove: (id: string) => _invoke('IMAGE_CACHE_REMOVE', id) as Promise<void>,
   // STANDARD
   // --------
   setZoomFactor: (zoomFactor: number) => {
@@ -231,6 +236,7 @@ const ea: ElectronAPI = {
   exec: (command: string) => _send('EXEC', command),
 
   updateTodayTasks: (tasks: any[]) => _send('TODAY_TASKS_UPDATED', tasks),
+  updateTaskWidgetTasks: (tasks) => _send('TASK_WIDGET_TASKS_UPDATED', tasks),
 
   onSwitchTask: (listener: (taskId: string) => void) => {
     // We register the listener directly without using standard 'on' method

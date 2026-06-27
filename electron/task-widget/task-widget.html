@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Super Productivity Task Widget</title>
+    <title>Super Productivity Desktop Plan</title>
     <link
       rel="stylesheet"
       href="task-widget.css"
@@ -10,16 +10,67 @@
   </head>
   <body>
     <div id="task-widget-container">
-      <div id="content">
-        <div id="task-title">No active task</div>
-        <div id="time-display">--:--</div>
-      </div>
-      <button
-        id="show-main"
-        title="Show main window"
+      <div id="widget-bg"></div>
+      <header id="widget-header">
+        <div id="active-task">
+          <span id="active-label">Active</span>
+          <span id="task-title">No active task</span>
+          <span id="time-display">--:--</span>
+        </div>
+        <div id="widget-actions">
+          <button
+            id="show-main"
+            title="Show main window"
+            aria-label="Show main window"
+          >
+            open
+          </button>
+          <button
+            id="hide-widget"
+            title="Hide widget"
+            aria-label="Hide widget"
+          >
+            x
+          </button>
+        </div>
+      </header>
+
+      <main id="matrix-grid"></main>
+      <section
+        id="extend-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="extend-dialog-title"
+        hidden
       >
-        ▲
-      </button>
+        <div class="extend-dialog-panel">
+          <h2 id="extend-dialog-title">任务时间已到</h2>
+          <p><span id="extend-task-title"></span> 是否需要延时？</p>
+          <label for="extend-minutes">延时分钟数</label>
+          <input
+            id="extend-minutes"
+            type="number"
+            min="1"
+            max="1440"
+            step="1"
+            value="15"
+          />
+          <div class="extend-actions">
+            <button
+              id="extend-cancel"
+              type="button"
+            >
+              暂不延时
+            </button>
+            <button
+              id="extend-confirm"
+              type="button"
+            >
+              确认延时
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
     <script src="task-widget-renderer.js"></script>
   </body>

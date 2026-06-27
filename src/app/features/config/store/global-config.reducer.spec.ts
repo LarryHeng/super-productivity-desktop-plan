@@ -513,8 +513,8 @@ describe('GlobalConfigReducer', () => {
         }),
       );
 
-      expect(result.misc.startOfNextDay).toBe(0);
-      expect(result.misc.startOfNextDayTime).toBe('00:00');
+      expect(result.misc.startOfNextDay).toBe(4);
+      expect(result.misc.startOfNextDayTime).toBe('04:00');
     });
 
     it('should repair invalid legacy numeric startOfNextDay to the default day boundary', () => {
@@ -534,8 +534,8 @@ describe('GlobalConfigReducer', () => {
         }),
       );
 
-      expect(result.misc.startOfNextDay).toBe(0);
-      expect(result.misc.startOfNextDayTime).toBe('00:00');
+      expect(result.misc.startOfNextDay).toBe(4);
+      expect(result.misc.startOfNextDayTime).toBe('04:00');
     });
 
     it('should update shared sync config properties while preserving local-only ones', () => {

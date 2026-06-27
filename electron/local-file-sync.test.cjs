@@ -18,11 +18,13 @@ require('ts-node/register/transpile-only');
 const modPath = path.resolve(__dirname, 'local-file-sync.ts');
 const simpleStorePath = path.resolve(__dirname, 'simple-store.ts');
 const syncPathResolverPath = path.resolve(__dirname, 'sync-path-resolver.ts');
+const imageCachePath = path.resolve(__dirname, 'image-cache.ts');
 const originalModuleLoad = Module._load;
 
 let handlers = {};
 let userDataDir;
 let externalDir;
+let imageCacheDir;
 let nextDialogResult = { canceled: true, filePaths: [] };
 
 const installMocks = () => {
@@ -42,6 +44,9 @@ const installMocks = () => {
     if (/[/\\]main-window$/.test(request)) {
       return { getWin: () => ({}) };
     }
+    if (/[/\\]image-cache$/.test(request)) {
+      return originalModuleLoad.call(this, imageCachePath, parent, isMain);
+    }
     return originalModuleLoad.call(this, request, parent, isMain);
   };
 };
@@ -50,6 +55,7 @@ const resetCaches = () => {
   delete require.cache[modPath];
   delete require.cache[simpleStorePath];
   delete require.cache[syncPathResolverPath];
+  delete require.cache[imageCachePath];
   handlers = {};
 };
 
@@ -70,6 +76,8 @@ const configureSyncFolder = async (folder) => {
 test.beforeEach(() => {
   userDataDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'sp-ud-')));
   externalDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'sp-ext-')));
+  imageCacheDir = path.join(externalDir, 'bg-images');
+  process.env.SP_IMAGE_CACHE_DIR = imageCacheDir;
   installMocks();
   load();
 });
@@ -77,6 +85,7 @@ test.beforeEach(() => {
 test.afterEach(() => {
   Module._load = originalModuleLoad;
   resetCaches();
+  delete process.env.SP_IMAGE_CACHE_DIR;
   fs.rmSync(userDataDir, { recursive: true, force: true });
   fs.rmSync(externalDir, { recursive: true, force: true });
 });
@@ -318,6 +327,16 @@ test('IMAGE_PICK_AND_IMPORT opens dialog, imports the chosen file, returns an id
   const imported = await handlers['IMAGE_PICK_AND_IMPORT']({}, undefined);
   assert.ok(imported);
   assert.match(imported.id, /^[a-f0-9]{32}$/);
+  assert.equal(
+    fs.existsSync(path.join(imageCacheDir, `${imported.id}.png`)),
+    true,
+    'image cache should use the configured external cache dir',
+  );
+  assert.equal(
+    fs.existsSync(path.join(userDataDir, 'bg-images', `${imported.id}.png`)),
+    false,
+    'image cache should not grow userData by default in the custom build',
+  );
   const url = await handlers['IMAGE_CACHE_GET_DATA_URL']({}, imported.id);
   assert.match(url, /^data:image\/png;base64,/);
 });
@@ -347,7 +366,7 @@ test('IMAGE_PICK_AND_IMPORT does not delete the prior cached image during replac
   nextDialogResult = { canceled: false, filePaths: [oldPicked] };
   const oldImport = await handlers['IMAGE_PICK_AND_IMPORT']({}, undefined);
   assert.ok(oldImport);
-  const oldCachePath = path.join(userDataDir, 'bg-images', `${oldImport.id}.png`);
+  const oldCachePath = path.join(imageCacheDir, `${oldImport.id}.png`);
   assert.equal(fs.existsSync(oldCachePath), true);
 
   const newPicked = path.join(externalDir, 'new.png');
@@ -366,4 +385,21 @@ test('IMAGE_PICK_AND_IMPORT does not delete the prior cached image during replac
 test('IMAGE_CACHE_GET_DATA_URL returns null for unknown ids', async () => {
   const result = await handlers['IMAGE_CACHE_GET_DATA_URL']({}, 'a'.repeat(32));
   assert.equal(result, null);
+});
+
+test('IMAGE_CACHE_REMOVE deletes an imported cached image', async () => {
+  const picked = path.join(externalDir, 'cleanup.png');
+  fs.writeFileSync(picked, 'cleanup-bytes');
+  nextDialogResult = { canceled: false, filePaths: [picked] };
+
+  const imported = await handlers['IMAGE_PICK_AND_IMPORT']({});
+  assert.ok(imported);
+  assert.match(
+    await handlers['IMAGE_CACHE_GET_DATA_URL']({}, imported.id),
+    /^data:image\/png;base64,/,
+  );
+
+  await handlers['IMAGE_CACHE_REMOVE']({}, imported.id);
+
+  assert.equal(await handlers['IMAGE_CACHE_GET_DATA_URL']({}, imported.id), null);
 });

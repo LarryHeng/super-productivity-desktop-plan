@@ -1,10 +1,15 @@
-import { app, ipcMain, IpcMainEvent } from 'electron';
+import { app, dialog, ipcMain, IpcMainEvent } from 'electron';
 import {
+  cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
+  rmSync,
   statSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'fs';
@@ -15,17 +20,134 @@ import { error, log } from 'electron-log/main';
 import type { AppDataCompleteLegacy } from '../src/app/imex/sync/sync.model';
 import type { AppDataComplete } from '../src/app/op-log/model/model-config';
 import { getBackupTimestamp } from './shared-with-frontend/get-backup-timestamp';
-import { isPathInsideDir } from './file-path-guard';
+import { assertPathOutside, isPathInsideDir } from './file-path-guard';
 import {
   DEFAULT_MAX_BACKUP_FILES,
   selectBackupFilesToDelete,
 } from './shared-with-frontend/backup-file-cleanup.util';
+import { getWin } from './main-window';
+import { saveSimpleStore } from './simple-store';
+import { SimpleStoreKey } from './shared-with-frontend/simple-store.const';
 
 export const BACKUP_DIR = path.join(app.getPath('userData'), `backups`);
 export const BACKUP_DIR_WINSTORE = BACKUP_DIR.replace(
   'Roaming',
   `Local\\Packages\\53707johannesjo.SuperProductivity_ch45amy23cdv6\\LocalCache\\Roaming`,
 );
+
+export interface BackupPathInfo {
+  backupDir: string;
+  effectiveDir: string;
+  linkTarget: string | null;
+}
+
+const normalizeForCompare = (p: string): string =>
+  process.platform === 'win32' ? p.toLowerCase() : p;
+
+const safeRealpath = (p: string): string => {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return path.resolve(p);
+  }
+};
+
+export interface BackupPathSelectionError {
+  error: string;
+}
+
+const createSafeBackupError = (): BackupPathSelectionError => ({
+  error: 'Backup folder could not be changed.',
+});
+
+export const getBackupPathInfo = (): BackupPathInfo => {
+  const backupDir = BACKUP_DIR;
+  if (!existsSync(backupDir)) {
+    return {
+      backupDir,
+      effectiveDir: backupDir,
+      linkTarget: null,
+    };
+  }
+
+  const effectiveDir = safeRealpath(backupDir);
+  const linkTarget =
+    lstatSync(backupDir).isSymbolicLink() &&
+    normalizeForCompare(effectiveDir) !== normalizeForCompare(path.resolve(backupDir))
+      ? effectiveDir
+      : null;
+
+  return {
+    backupDir,
+    effectiveDir: linkTarget ?? backupDir,
+    linkTarget,
+  };
+};
+
+const copyEntriesToTarget = (sourceDir: string, targetDir: string): void => {
+  mkdirSync(targetDir, { recursive: true });
+  for (const entryName of readdirSync(sourceDir)) {
+    const sourcePath = path.join(sourceDir, entryName);
+    let targetPath = path.join(targetDir, entryName);
+    if (existsSync(targetPath)) {
+      const parsed = path.parse(entryName);
+      targetPath = path.join(
+        targetDir,
+        `${parsed.name}.migrated-${Date.now()}${parsed.ext}`,
+      );
+    }
+    cpSync(sourcePath, targetPath, { recursive: true, force: false });
+  }
+};
+
+const replaceBackupDirWithLink = (targetDir: string): void => {
+  const backupDir = BACKUP_DIR;
+  const parentDir = path.dirname(backupDir);
+  mkdirSync(parentDir, { recursive: true });
+
+  if (existsSync(backupDir)) {
+    const stats = lstatSync(backupDir);
+    if (stats.isDirectory() && !stats.isSymbolicLink()) {
+      copyEntriesToTarget(backupDir, targetDir);
+    }
+    rmSync(backupDir, { recursive: true, force: true });
+  }
+
+  symlinkSync(targetDir, backupDir, process.platform === 'win32' ? 'junction' : 'dir');
+};
+
+export const pickBackupLinkTarget = async (): Promise<
+  BackupPathInfo | BackupPathSelectionError | undefined
+> => {
+  const win = getWin();
+  const dialogOptions: Electron.OpenDialogOptions = {
+    title: 'Select backup folder',
+    defaultPath: getBackupPathInfo().effectiveDir,
+    properties: ['openDirectory', 'createDirectory'],
+  };
+  const result = win
+    ? await dialog.showOpenDialog(win, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions);
+
+  if (result.canceled || !result.filePaths.length) {
+    return undefined;
+  }
+
+  try {
+    const selectedPath = result.filePaths[0];
+    mkdirSync(selectedPath, { recursive: true });
+    const targetDir = realpathSync.native(selectedPath);
+
+    assertPathOutside(app.getPath('userData'), targetDir);
+    replaceBackupDirWithLink(targetDir);
+    await saveSimpleStore(SimpleStoreKey.BACKUP_LINK_TARGET, targetDir);
+
+    return getBackupPathInfo();
+  } catch (e) {
+    error(e);
+    return createSafeBackupError();
+  }
+};
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
 export function initBackupAdapter(): void {
@@ -34,6 +156,13 @@ export function initBackupAdapter(): void {
 
   // BACKUP
   ipcMain.on(IPC.BACKUP, backupData);
+
+  ipcMain.handle(IPC.GET_BACKUP_PATH_INFO, (): BackupPathInfo => getBackupPathInfo());
+  ipcMain.handle(
+    IPC.PICK_BACKUP_LINK_TARGET,
+    (): Promise<BackupPathInfo | BackupPathSelectionError | undefined> =>
+      pickBackupLinkTarget(),
+  );
 
   // IS_BACKUP_AVAILABLE
   ipcMain.handle(IPC.BACKUP_IS_AVAILABLE, (): LocalBackupMeta | false => {

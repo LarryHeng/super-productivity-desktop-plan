@@ -167,7 +167,8 @@
     color: var(--c-primary);
   }
 
-  &.ScheduledTask {
+  &.ScheduledTask,
+  &.ActualTask {
     border-radius: 0;
 
     .ico {
@@ -193,6 +194,10 @@
       color: var(--text-color);
       border-color: var(--c-primary);
     }
+  }
+
+  &.ActualTask {
+    border-left: 3px solid var(--c-primary);
   }
 }
 

@@ -1,4 +1,8 @@
-import { getBackgroundImageBlur, getBackgroundOverlayOpacity } from './app.component';
+import {
+  getBackgroundImageBlur,
+  getBackgroundOverlayOpacity,
+  getResolvedBackgroundOverlayOpacity,
+} from './app.component';
 
 describe('AppComponent theme helpers', () => {
   describe('getBackgroundOverlayOpacity()', () => {
@@ -31,6 +35,28 @@ describe('AppComponent theme helpers', () => {
     it('should normalize configured blur values', () => {
       expect(getBackgroundImageBlur({ theme: { backgroundImageBlur: 12 } })).toBe(12);
       expect(getBackgroundImageBlur({ theme: { backgroundImageBlur: -5 } })).toBe(0);
+    });
+  });
+
+  describe('getResolvedBackgroundOverlayOpacity()', () => {
+    it('uses the global background opacity when a global background is set', () => {
+      expect(
+        getResolvedBackgroundOverlayOpacity(
+          { theme: { backgroundOverlayOpacity: 65 } },
+          'image:global',
+          35,
+        ),
+      ).toBe(0.35);
+    });
+
+    it('falls back to the active context opacity when global background is empty', () => {
+      expect(
+        getResolvedBackgroundOverlayOpacity(
+          { theme: { backgroundOverlayOpacity: 65 } },
+          '',
+          35,
+        ),
+      ).toBe(0.65);
     });
   });
 });

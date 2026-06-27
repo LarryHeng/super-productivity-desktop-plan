@@ -13,10 +13,8 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { DEFAULT_FIRST_DAY_OF_WEEK } from '../../../core/locale.constants';
-import { GlobalConfigService } from '../../config/global-config.service';
 import { GlobalTrackingIntervalService } from '../../../core/global-tracking-interval/global-tracking-interval.service';
-import { getWeekRange } from '../../../util/get-week-range';
+import { getPlannerWeekStart } from '../util/get-planner-week-start';
 import { getWeekdaysMin } from '../../../util/get-weekdays-min';
 import { getDbDateStr } from '../../../util/get-db-date-str';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
@@ -28,6 +26,13 @@ import {
   ROW_HEIGHT,
   WEEKS_SHOWN,
 } from './planner-calendar-gesture-handler';
+import { MatIcon } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
+import { MatTooltip } from '@angular/material/tooltip';
+import { TranslatePipe } from '@ngx-translate/core';
+import { T } from '../../../t.const';
+
+const PLANNER_FIRST_DAY_OF_WEEK = 1;
 
 interface CalendarDay {
   dateStr: string;
@@ -42,35 +47,31 @@ interface CalendarDay {
   templateUrl: './planner-calendar-nav.component.html',
   styleUrl: './planner-calendar-nav.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MatIcon, MatIconButton, MatTooltip, TranslatePipe],
 })
 export class PlannerCalendarNavComponent {
-  private _globalConfigService = inject(GlobalConfigService);
   private _globalTrackingIntervalService = inject(GlobalTrackingIntervalService);
   private _cdr = inject(ChangeDetectorRef);
   private _elRef = inject(ElementRef);
   private _destroyRef = inject(DestroyRef);
   private _gesture!: CalendarGestureHandler;
 
-  private _firstDayOfWeek = computed(() => {
-    const cfg = this._globalConfigService.localization()?.firstDayOfWeek;
-    return cfg !== null && cfg !== undefined ? cfg : DEFAULT_FIRST_DAY_OF_WEEK;
-  });
-
   visibleDayDate = input<string | null>(null);
   daysWithTasks = input<ReadonlySet<string>>(new Set());
+  defaultExpanded = input(false);
   dayTapped = output<string>();
 
   isExpanded = signal(false);
   private _anchorWeekStart = signal<string | null>(null);
   private _displayedRow = signal<number | null>(null);
   private _weeksEl = viewChild<ElementRef<HTMLElement>>('weeksContainer');
+  protected readonly T = T;
 
   dayLabels = computed(() => {
-    const firstDay = this._firstDayOfWeek();
     const allDays = getWeekdaysMin();
     const ordered: string[] = [];
     for (let i = 0; i < 7; i++) {
-      ordered.push(allDays[(firstDay + i) % 7]);
+      ordered.push(allDays[(PLANNER_FIRST_DAY_OF_WEEK + i) % 7]);
     }
     return ordered;
   });
@@ -82,7 +83,7 @@ export class PlannerCalendarNavComponent {
 
     const weekStart = anchor
       ? parseDbDateStr(anchor)
-      : getWeekRange(parseDbDateStr(todayStr), this._firstDayOfWeek()).start;
+      : this._getMonthAnchor(parseDbDateStr(todayStr));
 
     const weeks: CalendarDay[][] = [];
     const cursor = new Date(weekStart);
@@ -107,8 +108,8 @@ export class PlannerCalendarNavComponent {
   activeWeekIndex = computed(() => {
     const override = this._displayedRow();
     if (override !== null) return override;
-    const visibleDay = this.visibleDayDate();
-    if (!visibleDay) return 0;
+    const visibleDay =
+      this.visibleDayDate() || this._globalTrackingIntervalService.todayDateStr();
     const allWeeks = this.weeks();
     for (let i = 0; i < allWeeks.length; i++) {
       if (allWeeks[i].some((d) => d.dateStr === visibleDay)) {
@@ -148,11 +149,20 @@ export class PlannerCalendarNavComponent {
     this.dayTapped.emit(dateStr);
   }
 
+  shiftMonth(offset: 1 | -1): void {
+    this._shiftToMonth(offset);
+  }
+
   constructor() {
+    effect(() => {
+      if (this.defaultExpanded()) {
+        this.isExpanded.set(true);
+      }
+    });
+
     effect(() => {
       const visibleDay =
         this.visibleDayDate() || this._globalTrackingIntervalService.todayDateStr();
-      const firstDayOfWeek = this._firstDayOfWeek();
       const visibleDate = parseDbDateStr(visibleDay);
       const anchor = untracked(() => this._anchorWeekStart());
 
@@ -164,8 +174,7 @@ export class PlannerCalendarNavComponent {
           return;
         }
       }
-      const range = getWeekRange(visibleDate, firstDayOfWeek);
-      this._anchorWeekStart.set(getDbDateStr(range.start));
+      this._anchorWeekStart.set(getDbDateStr(this._getMonthAnchor(visibleDate)));
     });
 
     effect(() => {
@@ -192,7 +201,7 @@ export class PlannerCalendarNavComponent {
     if (isDown) {
       if (!this.isExpanded()) {
         this._gesture.snapTo(true, this.activeWeekIndex());
-      } else if (!this._isAtPastLimit()) {
+      } else {
         this._gesture.slideContent(1, () => this._shiftToMonth(-1), 'y');
       }
     } else {
@@ -204,7 +213,6 @@ export class PlannerCalendarNavComponent {
 
   private _handleHorizontalSwipe(dir: 1 | -1): void {
     if (this.isExpanded()) {
-      if (dir === -1 && this._isAtPastLimit()) return;
       this._gesture.slideContent(dir, () => this._shiftToMonth(dir), 'x');
     } else {
       this._slideCollapsedWeek(dir);
@@ -213,13 +221,6 @@ export class PlannerCalendarNavComponent {
 
   private _slideCollapsedWeek(dir: 1 | -1): void {
     const currentRow = this.activeWeekIndex();
-    // Prevent navigating before today's week
-    if (dir === -1) {
-      if (this.weeks()[currentRow]?.some((d) => d.isToday)) return;
-      // If already at the past limit and would need to shift the anchor, block it
-      if (currentRow === 0 && this._isAtPastLimit()) return;
-    }
-
     const targetRow = currentRow + dir;
 
     if (targetRow >= 0 && targetRow < WEEKS_SHOWN) {
@@ -228,7 +229,7 @@ export class PlannerCalendarNavComponent {
       this._gesture.slideContent(
         dir,
         () => {
-          this._shiftAnchor(DAYS_IN_VIEW);
+          this._shiftToMonth(1);
           this._displayedRow.set(0);
         },
         'x',
@@ -237,41 +238,12 @@ export class PlannerCalendarNavComponent {
       this._gesture.slideContent(
         dir,
         () => {
-          const oldAnchorStr = this._anchorWeekStart();
-          this._shiftAnchor(-DAYS_IN_VIEW);
-          const newAnchorStr = this._anchorWeekStart();
-          if (oldAnchorStr && newAnchorStr) {
-            const diffDays = Math.round(
-              (parseDbDateStr(oldAnchorStr).getTime() -
-                parseDbDateStr(newAnchorStr).getTime()) /
-                86_400_000,
-            );
-            this._displayedRow.set(
-              Math.max(0, Math.min(WEEKS_SHOWN - 1, Math.floor(diffDays / 7) - 1)),
-            );
-          } else {
-            this._displayedRow.set(WEEKS_SHOWN - 1);
-          }
+          this._shiftToMonth(-1);
+          this._displayedRow.set(WEEKS_SHOWN - 1);
         },
         'x',
       );
     }
-  }
-
-  private _isAtPastLimit(): boolean {
-    const todayWeekStart = this._getTodayWeekStart();
-    const currentAnchor = this._anchorWeekStart();
-    const anchorDate = currentAnchor ? parseDbDateStr(currentAnchor) : todayWeekStart;
-    return anchorDate <= todayWeekStart;
-  }
-
-  private _shiftAnchor(dayOffset: number): void {
-    const todayWeekStart = this._getTodayWeekStart();
-    const currentAnchor = this._anchorWeekStart();
-    const anchorDate = currentAnchor ? parseDbDateStr(currentAnchor) : todayWeekStart;
-    const newAnchor = new Date(anchorDate);
-    newAnchor.setDate(newAnchor.getDate() + dayOffset);
-    this._setAnchorClamped(newAnchor, todayWeekStart);
   }
 
   private _shiftToMonth(dir: 1 | -1): void {
@@ -280,18 +252,11 @@ export class PlannerCalendarNavComponent {
     const midDate = parseDbDateStr(midWeek[Math.floor(midWeek.length / 2)].dateStr);
     // Use day=1 to avoid overflow (e.g. Jan 31 + 1 month → Mar 3)
     const firstOfMonth = new Date(midDate.getFullYear(), midDate.getMonth() + dir, 1);
-    const weekStart = getWeekRange(firstOfMonth, this._firstDayOfWeek()).start;
-    this._setAnchorClamped(weekStart, this._getTodayWeekStart());
+    this._anchorWeekStart.set(getDbDateStr(this._getMonthAnchor(firstOfMonth)));
   }
 
-  private _getTodayWeekStart(): Date {
-    return getWeekRange(
-      parseDbDateStr(this._globalTrackingIntervalService.todayDateStr()),
-      this._firstDayOfWeek(),
-    ).start;
-  }
-
-  private _setAnchorClamped(target: Date, floor: Date): void {
-    this._anchorWeekStart.set(getDbDateStr(target < floor ? floor : target));
+  private _getMonthAnchor(date: Date): Date {
+    const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+    return getPlannerWeekStart(firstOfMonth);
   }
 }

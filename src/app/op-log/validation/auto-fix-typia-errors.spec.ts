@@ -4,6 +4,7 @@ import type { IValidation } from 'typia';
 import { initialTaskState } from '../../features/tasks/store/task.reducer';
 import { DEFAULT_TASK } from '../../features/tasks/task.model';
 import { OP_LOG_SYNC_LOGGER } from '../core/sync-logger.adapter';
+import { DEFAULT_GLOBAL_CONFIG } from '../../features/config/default-global-config.const';
 
 const createTypiaError = (
   path: string,
@@ -87,7 +88,9 @@ describe('autoFixTypiaErrors', () => {
       createTypiaError('$input.globalConfig.misc.startOfNextDay', 'number'),
     ]);
     expect(result.globalConfig.misc.startOfNextDay).not.toEqual(111);
-    expect(result.globalConfig.misc.startOfNextDay).toEqual(0);
+    expect(result.globalConfig.misc.startOfNextDay).toEqual(
+      DEFAULT_GLOBAL_CONFIG.misc.startOfNextDay,
+    );
   });
 
   it('should sanitize null to undefined if model requests it', () => {

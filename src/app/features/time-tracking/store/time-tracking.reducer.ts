@@ -3,8 +3,8 @@ import {
   updateWorkContextData,
   syncTimeTracking,
 } from './time-tracking.actions';
-import { createFeature, createReducer, on } from '@ngrx/store';
-import { TimeTrackingState } from '../time-tracking.model';
+import { Action, ActionReducer, createFeature, createReducer, on } from '@ngrx/store';
+import { TimeTrackingFeatureState, TimeTrackingState } from '../time-tracking.model';
 import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 import { AppDataComplete } from '../../../op-log/model/model-config';
 import { roundTsToMinutes } from '../../../util/round-ts-to-minutes';
@@ -13,21 +13,41 @@ import { TODAY_TAG } from '../../tag/tag.const';
 export const TIME_TRACKING_FEATURE_KEY = 'timeTracking' as const;
 
 // export const initialTimeTrackingState: TimeTrackingState = {
-export const initialTimeTrackingState: TimeTrackingState = {
+export const initialTimeTrackingState: TimeTrackingFeatureState = {
   tag: {},
   project: {},
+  taskSegments: {},
   // lastFlush: 0,
 } as const;
 
-export const timeTrackingReducer = createReducer(
+const normalizeTimeTrackingState = (
+  state: TimeTrackingState | undefined,
+): TimeTrackingFeatureState | undefined =>
+  state && !state.taskSegments
+    ? {
+        ...initialTimeTrackingState,
+        ...state,
+        taskSegments: state.taskSegments ?? {},
+      }
+    : (state as TimeTrackingFeatureState | undefined);
+
+const timeTrackingReducerInternal = createReducer(
   initialTimeTrackingState,
 
-  on(loadAllData, (state, { appDataComplete }) =>
-    (appDataComplete as AppDataComplete).timeTracking
-      ? (appDataComplete as AppDataComplete).timeTracking
-      : state,
-  ),
-  on(TimeTrackingActions.updateWholeState, (state, { newState }) => newState),
+  on(loadAllData, (state, { appDataComplete }) => {
+    const loadedState = (appDataComplete as AppDataComplete).timeTracking;
+    return loadedState
+      ? {
+          ...initialTimeTrackingState,
+          ...loadedState,
+          taskSegments: loadedState.taskSegments ?? {},
+        }
+      : state;
+  }),
+  on(TimeTrackingActions.updateWholeState, (state, { newState }) => ({
+    ...newState,
+    taskSegments: newState.taskSegments ?? {},
+  })),
 
   on(TimeTrackingActions.addTimeSpent, (state, { task, date }) => {
     const isUpdateProject = !!task.projectId;
@@ -68,6 +88,42 @@ export const timeTrackingReducer = createReducer(
     };
   }),
 
+  on(TimeTrackingActions.addActualTimeSegment, (state, { taskId, date, start, end }) => {
+    if (
+      !taskId ||
+      !date ||
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      end <= start
+    ) {
+      return state;
+    }
+
+    const existingSegments = state.taskSegments?.[date] ?? [];
+    const isDuplicate = existingSegments.some(
+      (segment) =>
+        segment.taskId === taskId && segment.start === start && segment.end === end,
+    );
+    if (isDuplicate) {
+      return state;
+    }
+
+    return {
+      ...state,
+      taskSegments: {
+        ...(state.taskSegments ?? {}),
+        [date]: [
+          ...existingSegments,
+          {
+            taskId,
+            start,
+            end,
+          },
+        ],
+      },
+    };
+  }),
+
   on(updateWorkContextData, (state, { ctx, date, updates }) => {
     const prop = ctx.type === 'TAG' ? 'tag' : 'project';
 
@@ -102,7 +158,18 @@ export const timeTrackingReducer = createReducer(
   }),
 );
 
+export const timeTrackingReducer = (
+  state: TimeTrackingState | undefined,
+  action: Action,
+): TimeTrackingFeatureState =>
+  timeTrackingReducerInternal(normalizeTimeTrackingState(state), action);
+
+const timeTrackingFeatureReducer: ActionReducer<TimeTrackingFeatureState> = (
+  state,
+  action,
+) => timeTrackingReducer(state, action);
+
 export const timeTrackingFeature = createFeature({
   name: TIME_TRACKING_FEATURE_KEY,
-  reducer: timeTrackingReducer,
+  reducer: timeTrackingFeatureReducer,
 });

@@ -223,6 +223,7 @@ describe('Task Selectors', () => {
     // (e.g., provideMockStore). overrideSelector calls setResult() which persists
     // across tests and is NOT cleared by release() — only clearResult() clears it.
     fromSelectors.selectTaskFeatureState.clearResult();
+    fromSelectors.selectTaskEntities.clearResult();
     fromSelectors.selectTaskById.clearResult();
     fromSelectors.selectAllTasksWithSubTasks.clearResult();
     fromSelectors.selectAllRepeatableTaskWithSubTasks.clearResult();
@@ -238,6 +239,7 @@ describe('Task Selectors', () => {
     selectArrayOfArchivedProjectIds.clearResult();
     selectArchivedProjectIds.clearResult();
     fromSelectors.selectTaskFeatureState.release();
+    fromSelectors.selectTaskEntities.release();
     fromSelectors.selectTaskById.release();
     fromSelectors.selectAllTasksWithSubTasks.release();
     fromSelectors.selectAllRepeatableTaskWithSubTasks.release();

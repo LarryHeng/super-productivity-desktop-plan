@@ -47,6 +47,7 @@ import { FlexibleConnectedPositionStrategy } from '@angular/cdk/overlay';
 import { LS } from '../persistence/storage-keys.const';
 import { Log } from '../log';
 import { LayoutService } from '../../core-ui/layout/layout.service';
+import { selectBackgroundImageSource } from './background-image-selection.util';
 
 interface NavigationBarPlugin {
   setColor(options: { color: string; style: 'LIGHT' | 'DARK' }): Promise<void>;
@@ -138,9 +139,15 @@ export class GlobalThemeService {
   private _backgroundImgObs$: Observable<string | null | undefined> = combineLatest([
     this._workContextService.currentTheme$,
     this._isDarkThemeObs$,
+    toObservable(this._globalConfigService.misc),
   ]).pipe(
-    map(([theme, isDarkMode]) =>
-      isDarkMode ? theme.backgroundImageDark : theme.backgroundImageLight,
+    map(([theme, isDarkMode, misc]) =>
+      selectBackgroundImageSource({
+        globalBackgroundImage: misc?.globalBackgroundImage,
+        contextBackgroundImageDark: theme.backgroundImageDark,
+        contextBackgroundImageLight: theme.backgroundImageLight,
+        isDarkMode,
+      }),
     ),
     distinctUntilChanged(),
   );

@@ -8,6 +8,8 @@ import { LayoutService } from '../../core-ui/layout/layout.service';
 import { selectTaskFeatureState } from '../tasks/store/task.selectors';
 import { signal } from '@angular/core';
 import { PlannerDay } from './planner.model';
+import { GlobalTrackingIntervalService } from '../../core/global-tracking-interval/global-tracking-interval.service';
+import { selectPlannerState } from './store/planner.selectors';
 
 describe('PlannerComponent', () => {
   let fixture: ComponentFixture<PlannerComponent>;
@@ -38,8 +40,14 @@ describe('PlannerComponent', () => {
       'loadMoreDays',
       'resetScrollState',
       'ensureDayLoaded',
+      'showWeekContaining',
+      'showCurrentWeek',
+      'shiftWeek',
     ]);
     mockPlannerService.days$ = days$;
+    Object.defineProperty(mockPlannerService, 'selectedWeekStart$', {
+      value: new BehaviorSubject('2026-02-16'),
+    });
     mockPlannerService.isLoadingMore$ = new BehaviorSubject<boolean>(false);
 
     mockDateService = jasmine.createSpyObj('DateService', ['todayStr']);
@@ -55,11 +63,19 @@ describe('PlannerComponent', () => {
         { provide: PlannerService, useValue: mockPlannerService },
         { provide: DateService, useValue: mockDateService },
         { provide: LayoutService, useValue: mockLayoutService },
+        {
+          provide: GlobalTrackingIntervalService,
+          useValue: { todayDateStr: () => '2026-02-16' },
+        },
         provideMockStore({
           selectors: [
             {
               selector: selectTaskFeatureState,
               value: { ids: ['task-1', 'task-2'], entities: {} },
+            },
+            {
+              selector: selectPlannerState,
+              value: { days: {}, addPlannedTasksDialogLastShown: undefined },
             },
           ],
         }),
@@ -149,6 +165,18 @@ describe('PlannerComponent', () => {
       const result = component.daysWithTasks();
 
       expect(result.size).toBe(0);
+    });
+
+    it('includes planned dates outside the currently displayed week', () => {
+      const store = TestBed.inject(MockStore);
+      store.overrideSelector(selectPlannerState, {
+        days: { ['2026-04-22']: ['task-1'] },
+        addPlannedTasksDialogLastShown: undefined,
+      });
+      store.refreshState();
+      fixture.detectChanges();
+
+      expect(component.daysWithTasks().has('2026-04-22')).toBeTrue();
     });
   });
 });

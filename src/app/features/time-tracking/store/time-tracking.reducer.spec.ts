@@ -26,13 +26,17 @@ describe('TimeTracking Reducer', () => {
     } as Partial<AppDataComplete> as AppDataComplete;
     const action = loadAllData({ appDataComplete });
     const result = timeTrackingReducer(initialTimeTrackingState, action);
-    expect(result).toEqual(appDataComplete.timeTracking);
+    expect(result).toEqual({
+      ...appDataComplete.timeTracking,
+      taskSegments: {},
+    });
   });
 
   it('should update the whole state', () => {
     const newState = {
       project: { '1': { '2023-01-01': { s: 1, e: 2, b: 3, bt: 4 } } },
       tag: { '2': { '2023-01-02': { s: 5, e: 6, b: 7, bt: 8 } } },
+      taskSegments: {},
     };
     const action = TimeTrackingActions.updateWholeState({ newState });
     const result = timeTrackingReducer(initialTimeTrackingState, action);
@@ -181,6 +185,40 @@ describe('TimeTracking Reducer', () => {
       // Tags should have entries
       expect(result.tag['tag-1'][date].s).toBeDefined();
       expect(result.tag['TODAY'][date].s).toBeDefined();
+    });
+  });
+
+  describe('addActualTimeSegment', () => {
+    it('should append an actual task time segment for a date', () => {
+      const action = TimeTrackingActions.addActualTimeSegment({
+        taskId: 'task-1',
+        date: '2026-06-27',
+        start: 1_000,
+        end: 2_000,
+      });
+
+      const result = timeTrackingReducer(initialTimeTrackingState, action);
+
+      expect(result.taskSegments?.['2026-06-27']).toEqual([
+        {
+          taskId: 'task-1',
+          start: 1_000,
+          end: 2_000,
+        },
+      ]);
+    });
+
+    it('should ignore invalid actual time segments', () => {
+      const action = TimeTrackingActions.addActualTimeSegment({
+        taskId: 'task-1',
+        date: '2026-06-27',
+        start: 2_000,
+        end: 2_000,
+      });
+
+      const result = timeTrackingReducer(initialTimeTrackingState, action);
+
+      expect(result).toBe(initialTimeTrackingState);
     });
   });
 

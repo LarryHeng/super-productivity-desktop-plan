@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { plannerInitialState, plannerReducer } from './planner.reducer';
 import { PlannerActions } from './planner.actions';
 import { DEFAULT_TASK } from '../../tasks/task.model';
@@ -53,6 +54,29 @@ describe('Planner Reducer', () => {
         days: {
           someDay: ['1', '2'],
         },
+      });
+    });
+  });
+
+  describe('cleanupOldAndUndefinedPlannerTasks', () => {
+    it('keeps historical days and only removes task ids that no longer exist', () => {
+      const result = plannerReducer(
+        {
+          ...plannerInitialState,
+          days: {
+            '2026-06-20': ['existing', 'deleted'],
+            '2026-06-27': ['existing'],
+          },
+        },
+        PlannerActions.cleanupOldAndUndefinedPlannerTasks({
+          today: '2026-06-27',
+          allTaskIds: ['existing'],
+        }),
+      );
+
+      expect(result.days).toEqual({
+        '2026-06-20': ['existing'],
+        '2026-06-27': ['existing'],
       });
     });
   });

@@ -70,6 +70,39 @@ test('importImage copies a valid image and returns an opaque id', async () => {
   }
 });
 
+test('uses a bg-images sibling next to an externally linked backups folder', async () => {
+  const externalRoot = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-external-data-')),
+  );
+  const backupTarget = path.join(externalRoot, 'backups');
+  const sourceDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-src-')),
+  );
+  try {
+    await fs.mkdir(backupTarget);
+    await fs.writeFile(
+      path.join(userDataDir, 'simpleSettings'),
+      JSON.stringify({ backupLinkTarget: backupTarget }),
+    );
+    const cache = load();
+    const src = await mkPng(sourceDir);
+    const result = await cache.importImage(src);
+
+    assert.ok(result);
+    assert.equal(
+      fsModule.existsSync(path.join(externalRoot, 'bg-images', `${result.id}.png`)),
+      true,
+    );
+    assert.equal(
+      fsModule.existsSync(path.join(userDataDir, 'bg-images', `${result.id}.png`)),
+      false,
+    );
+  } finally {
+    await fs.rm(sourceDir, { recursive: true, force: true });
+    await fs.rm(externalRoot, { recursive: true, force: true });
+  }
+});
+
 test('importImage accepts avif and bmp (restored legacy formats)', async () => {
   const cache = load();
   const sourceDir = fsModule.realpathSync.native(

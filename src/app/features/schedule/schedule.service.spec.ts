@@ -13,6 +13,8 @@ import { HiddenCalendarProvidersService } from '../calendar-integration/hidden-c
 import { TaskService } from '../tasks/task.service';
 import { ScheduleCalendarMapEntry, ScheduleEvent } from './schedule.model';
 import { SVEType } from './schedule.const';
+import { selectTaskEntities } from '../tasks/store/task.selectors';
+import { selectTimeTrackingState } from '../time-tracking/store/time-tracking.selectors';
 
 describe('ScheduleService', () => {
   let service: ScheduleService;
@@ -35,6 +37,8 @@ describe('ScheduleService', () => {
               value: { isWorkStartEndEnabled: false, isLunchBreakEnabled: false },
             },
             { selector: selectPlannerDayMap, value: {} },
+            { selector: selectTimeTrackingState, value: { project: {}, tag: {} } },
+            { selector: selectTaskEntities, value: {} },
           ],
         }),
         {
@@ -645,6 +649,8 @@ describe('ScheduleService – calendar visibility filter', () => {
               value: { isWorkStartEndEnabled: false, isLunchBreakEnabled: false },
             },
             { selector: selectPlannerDayMap, value: {} },
+            { selector: selectTimeTrackingState, value: { project: {}, tag: {} } },
+            { selector: selectTaskEntities, value: {} },
           ],
         }),
         { provide: CalendarIntegrationService, useValue: { calendarEvents$ } },

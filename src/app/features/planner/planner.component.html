@@ -1,12 +1,47 @@
-@if (layoutService.isXs()) {
-  <planner-calendar-nav
-    [visibleDayDate]="planView.visibleDayDate()"
-    [daysWithTasks]="daysWithTasks()"
-    (dayTapped)="planView.scrollToDay($event)"
-  />
-}
+<planner-calendar-nav
+  [visibleDayDate]="planView.visibleDayDate()"
+  [daysWithTasks]="daysWithTasks()"
+  [defaultExpanded]="!layoutService.isXs()"
+  (dayTapped)="planView.scrollToDay($event)"
+/>
+<nav
+  class="week-nav"
+  [attr.aria-label]="T.F.PLANNER.WEEK_NAV | translate"
+>
+  <button
+    mat-icon-button
+    type="button"
+    [attr.aria-label]="T.F.PLANNER.PREVIOUS_WEEK | translate"
+    [matTooltip]="T.F.PLANNER.PREVIOUS_WEEK | translate"
+    (click)="planView.shiftWeek(-1)"
+  >
+    <mat-icon>chevron_left</mat-icon>
+  </button>
+  <span>{{ weekLabel() }}</span>
+  <button
+    mat-icon-button
+    type="button"
+    [attr.aria-label]="T.F.PLANNER.NEXT_WEEK | translate"
+    [matTooltip]="T.F.PLANNER.NEXT_WEEK | translate"
+    (click)="planView.shiftWeek(1)"
+  >
+    <mat-icon>chevron_right</mat-icon>
+  </button>
+</nav>
 <planner-plan-view
   #planView
   cdkDropListGroup
   cdkScrollable
 />
+@if (!isCurrentWeek()) {
+  <button
+    class="return-current-week"
+    mat-fab
+    type="button"
+    [attr.aria-label]="T.F.PLANNER.CURRENT_WEEK | translate"
+    [matTooltip]="T.F.PLANNER.CURRENT_WEEK | translate"
+    (click)="planView.showCurrentWeek()"
+  >
+    <mat-icon>today</mat-icon>
+  </button>
+}

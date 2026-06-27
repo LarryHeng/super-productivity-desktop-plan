@@ -87,6 +87,15 @@ describe('FormlyImageInputComponent', () => {
     expect(snackService.open).not.toHaveBeenCalled();
   });
 
+  it('clears the selected image', () => {
+    formControl.setValue(`image:${'e'.repeat(32)}`);
+    const setValueSpy = spyOn(formControl, 'setValue').and.callThrough();
+
+    component.clearImage();
+
+    expect(setValueSpy).toHaveBeenCalledWith(null);
+  });
+
   it('rejects oversized files with snack', () => {
     const largeBytes = new Uint8Array(257 * 1024);
     const file = new File([largeBytes], 'large.png', { type: 'image/png' });

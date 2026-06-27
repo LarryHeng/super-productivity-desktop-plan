@@ -18,8 +18,11 @@ describe('TaskWidgetSettingsService', () => {
 
     expect(service.settings()).toEqual({
       isEnabled: false,
-      isAlwaysShow: false,
+      isAlwaysShow: true,
       opacity: 95,
+      contentOpacity: 100,
+      backgroundImage: null,
+      backgroundImageOpacity: 45,
     });
   });
 
@@ -30,8 +33,11 @@ describe('TaskWidgetSettingsService', () => {
 
     expect(service.settings()).toEqual({
       isEnabled: true,
-      isAlwaysShow: false,
+      isAlwaysShow: true,
       opacity: 70,
+      contentOpacity: 100,
+      backgroundImage: null,
+      backgroundImageOpacity: 45,
     });
   });
 
@@ -42,13 +48,19 @@ describe('TaskWidgetSettingsService', () => {
 
     expect(service.settings()).toEqual({
       isEnabled: true,
-      isAlwaysShow: false,
+      isAlwaysShow: true,
       opacity: 50,
+      contentOpacity: 100,
+      backgroundImage: null,
+      backgroundImageOpacity: 45,
     });
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
       isEnabled: true,
-      isAlwaysShow: false,
+      isAlwaysShow: true,
       opacity: 50,
+      contentOpacity: 100,
+      backgroundImage: null,
+      backgroundImageOpacity: 45,
     });
   });
 
@@ -59,8 +71,11 @@ describe('TaskWidgetSettingsService', () => {
 
     expect(service.settings()).toEqual({
       isEnabled: false,
-      isAlwaysShow: false,
+      isAlwaysShow: true,
       opacity: 95,
+      contentOpacity: 100,
+      backgroundImage: null,
+      backgroundImageOpacity: 45,
     });
   });
 });
