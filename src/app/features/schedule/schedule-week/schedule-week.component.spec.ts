@@ -82,6 +82,59 @@ describe('ScheduleWeekComponent', () => {
       fixture.nativeElement.querySelector('.over-budget-count')?.textContent.trim(),
     ).toBe('2');
   });
+
+  it('should lock actual tracked segments while keeping planned tasks draggable', () => {
+    const plannedEvent = createTaskEvent('planned-task', '2026-05-11', false);
+    const actualEvent: ScheduleEvent = {
+      ...createTaskEvent('actual-task', '2026-05-11', false),
+      id: 'actual-actual-task-1-2',
+      type: SVEType.ActualTask,
+    };
+
+    expect(fixture.componentInstance.canDragEvent(plannedEvent)).toBe(true);
+    expect(fixture.componentInstance.canDragEvent(actualEvent)).toBe(false);
+  });
+
+  it('positions the current-time line in the actual today column', () => {
+    fixture.componentRef.setInput('daysToShow', [
+      '2026-05-11',
+      '2026-05-12',
+      '2026-05-13',
+      '2026-05-14',
+      '2026-05-15',
+      '2026-05-16',
+      '2026-05-17',
+    ]);
+    fixture.componentRef.setInput('todayDateStr', '2026-05-14');
+    fixture.componentRef.setInput('currentTimeRow', 120.5);
+
+    fixture.detectChanges();
+
+    const currentTime = fixture.nativeElement.querySelector('.current-time');
+    expect(currentTime.style.gridColumn).toBe('5');
+  });
+
+  it('highlights the today header and complete day column', () => {
+    fixture.componentRef.setInput('daysToShow', [
+      '2026-05-11',
+      '2026-05-12',
+      '2026-05-13',
+      '2026-05-14',
+      '2026-05-15',
+      '2026-05-16',
+      '2026-05-17',
+    ]);
+    fixture.componentRef.setInput('todayDateStr', '2026-05-14');
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('.week-header .day.today').length).toBe(
+      1,
+    );
+    expect(
+      fixture.nativeElement.querySelectorAll('.grid-container .col.today').length,
+    ).toBe(2);
+  });
 });
 
 @Component({

@@ -1,0 +1,52 @@
+<div class="month-grid-actions">
+  <button
+    mat-button
+    type="button"
+    data-testid="return-to-today"
+    (click)="todaySelected.emit()"
+  >
+    <mat-icon>today</mat-icon>
+    <span>{{ T.F.SCHEDULE.RETURN_TO_TODAY | translate }}</span>
+  </button>
+</div>
+
+<div
+  class="month-grid-container"
+  [style.--nr-of-weeks]="weeksToShow()"
+>
+  @for (header of weekdayHeaders(); track $index) {
+    <div class="weekday-header is-translucent">{{ header }}</div>
+  }
+
+  @for (day of daysToShow(); track day; let dayIndex = $index) {
+    @if (getWeekIndex(dayIndex) < weeksToShow()) {
+      @let dayData = dayMap().get(day);
+      <button
+        type="button"
+        class="month-day-cell {{ getDayClass(day) }}"
+        [attr.data-day]="day"
+        [attr.aria-label]="day"
+        [style.grid-row]="getWeekIndex(dayIndex) + 2"
+        [style.grid-column]="getDayIndex(dayIndex) + 1"
+        (click)="daySelected.emit(day)"
+      >
+        <div class="month-day-header">
+          <span class="month-day-number">{{ day | localeDate: 'd' }}</span>
+          @if (dayData?.total) {
+            <span class="month-day-total">{{ dayData!.total }}</span>
+          }
+        </div>
+        <div class="month-day-items">
+          @for (item of dayData?.items ?? []; track item.id) {
+            <div class="month-day-item">
+              <span class="month-item-title">{{ item.title }}</span>
+              @if (item.meta) {
+                <span class="month-item-meta">{{ item.meta }}</span>
+              }
+            </div>
+          }
+        </div>
+      </button>
+    }
+  }
+</div>

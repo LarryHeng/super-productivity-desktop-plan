@@ -334,24 +334,20 @@ export class IdleEffects {
           const taskItems = itemsWithMappedIdleTime.filter(
             (item: IdleTrackItem) => item.type === 'TASK',
           );
-          let taskItemId: string | undefined;
           taskItems.forEach((taskItem) => {
             if (typeof taskItem.title === 'string') {
-              taskItemId = this._taskService.add(taskItem.title, false, {
+              const taskId = this._taskService.add(taskItem.title, false, {
                 timeSpent: taskItem.time,
                 timeSpentOnDay: {
                   [this._dateService.todayStr()]: taskItem.time,
                 },
               });
+              this._taskService.addActualTimeSegment(taskId, taskItem.time);
             } else if (taskItem.task) {
-              taskItemId = taskItem.task.id;
               this._taskService.addTimeSpentAndSync(taskItem.task, taskItem.time);
+              this._taskService.addActualTimeSegment(taskItem.task.id, taskItem.time);
             }
           });
-
-          if (taskItems.length === 1 && taskItemId) {
-            this._taskService.setCurrentId(taskItemId);
-          }
         },
       ),
       // unset idle at the end

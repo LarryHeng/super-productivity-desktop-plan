@@ -1116,6 +1116,7 @@
       "NEXT_WEEK": "Next Week",
       "PREVIOUS_MONTH": "Previous Month",
       "PREVIOUS_WEEK": "Previous Week",
+      "RETURN_TO_TODAY": "Return to Today",
       "VIEW_MONTH": "View Month",
       "VIEW_WEEK": "View Week",
       "NO_TASKS": "Currently there are no tasks. Please add some tasks via the plus (+) button in the top bar.",
@@ -2529,7 +2530,9 @@
       "USE_ALARM_STYLE_REMINDERS_DESCRIPTION": "When enabled, reminders use louder alarm sounds and more intrusive notifications. Recommended for critical reminders."
     },
     "SCHEDULE": {
+      "ACTUAL_TIME_MERGE_GAP_DESCRIPTION": "Actual blocks for the same task separated by up to this duration are displayed as one block. Maximum 30 minutes.",
       "HELP": "The schedule feature provides you with a quick overview over how your planned tasks play out over time. You can find it in the left hand menu under <a href='#/schedule'>'Schedule'</a>. ",
+      "L_ACTUAL_TIME_MERGE_GAP": "Actual block merge gap (minutes)",
       "L_IS_LUNCH_BREAK_ENABLED": "Enable lunch break",
       "L_IS_WORK_START_END_ENABLED": "Limit unscheduled task flow to specific work times",
       "L_LUNCH_BREAK_END": "Lunch break end",
@@ -2697,7 +2700,7 @@
     "PROJECT_MENU": "Project Menu",
     "PROJECT_SETTINGS": "Project Settings",
     "PROJECTS": "Projects",
-    "SCHEDULE": "Schedule",
+    "SCHEDULE": "Timeline",
     "SEARCH": "Search",
     "SETTINGS": "Settings",
     "SHARE_TASK_LIST_MARKDOWN": "Share Task List",

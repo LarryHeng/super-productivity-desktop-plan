@@ -1,11 +1,12 @@
 import { BrowserWindow, ipcMain, screen } from 'electron';
+import { execFile } from 'node:child_process';
 import { join } from 'path';
 import { TaskCopy } from '../../src/app/features/tasks/task.model';
 import { TaskWidgetConfig } from '../../src/app/features/config/global-config.model';
 import { info } from 'electron-log/main';
 import { IPC } from '../shared-with-frontend/ipc-events.const';
 import { loadSimpleStoreAll, saveSimpleStore } from '../simple-store';
-import { IS_MAC } from '../common.const';
+import { IS_MAC, IS_WINDOWS } from '../common.const';
 import { getImageDataUrl } from '../image-cache';
 
 let taskWidgetWin: BrowserWindow | null = null;
@@ -33,6 +34,7 @@ let pendingShowAfterCreate = false;
 let pendingShowAfterCreateInactive = false;
 let backgroundResolveGeneration = 0;
 let isTaskWidgetDocumentReady = false;
+let windowsDesktopMediaSourceIdPromise: Promise<string | null> | null = null;
 
 const TASK_WIDGET_BOUNDS_KEY = 'taskWidgetBounds';
 const LEGACY_BOUNDS_KEY = 'overlayBounds';
@@ -42,6 +44,9 @@ const TASK_WIDGET_SWITCH_TASK = 'task-widget-switch-task';
 const TASK_WIDGET_EXTEND_TASK = 'task-widget-extend-task';
 const TASK_WIDGET_HIDE = 'task-widget-hide';
 const IMAGE_CACHE_PREFIX = 'image:';
+const WINDOWS_DESKTOP_LAYER_REFRESH_MS = 500;
+const WINDOWS_DESKTOP_HANDLE_COMMAND =
+  'Add-Type -MemberDefinition \'[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern System.IntPtr GetShellWindow();\' -Name ShellWindow -Namespace Native; [Native.ShellWindow]::GetShellWindow().ToInt64()';
 let boundsDebounceTimer: NodeJS.Timeout | null = null;
 
 type ShowTaskWidgetOptions = Readonly<{
@@ -76,6 +81,75 @@ let currentTaskLists: TaskWidgetTaskLists = {
 
 const getMainWindow = (): BrowserWindow | undefined =>
   BrowserWindow.getAllWindows().find((win) => win !== taskWidgetWin);
+
+const getWindowsDesktopMediaSourceId = (): Promise<string | null> => {
+  if (!IS_WINDOWS) {
+    return Promise.resolve(null);
+  }
+
+  if (!windowsDesktopMediaSourceIdPromise) {
+    windowsDesktopMediaSourceIdPromise = new Promise((resolve) => {
+      execFile(
+        'powershell.exe',
+        [
+          '-NoLogo',
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          WINDOWS_DESKTOP_HANDLE_COMMAND,
+        ],
+        {
+          encoding: 'utf8',
+          timeout: 5_000,
+          windowsHide: true,
+        },
+        (error, stdout) => {
+          const handle = stdout?.trim();
+          if (error || !handle || !/^\d+$/.test(handle) || handle === '0') {
+            windowsDesktopMediaSourceIdPromise = null;
+            info('Unable to resolve the Windows desktop shell window');
+            resolve(null);
+            return;
+          }
+          resolve(`window:${handle}:0`);
+        },
+      );
+    });
+  }
+
+  return windowsDesktopMediaSourceIdPromise;
+};
+
+const maintainTaskWidgetDesktopLayer = async (): Promise<void> => {
+  const win = taskWidgetWin;
+  if (
+    !IS_WINDOWS ||
+    !win ||
+    win.isDestroyed() ||
+    !isTaskWidgetEnabled ||
+    isUserHidden ||
+    !win.isVisible()
+  ) {
+    return;
+  }
+
+  const desktopMediaSourceId = await getWindowsDesktopMediaSourceId();
+  if (
+    !desktopMediaSourceId ||
+    taskWidgetWin !== win ||
+    win.isDestroyed() ||
+    !win.isVisible()
+  ) {
+    return;
+  }
+
+  try {
+    win.moveAbove(desktopMediaSourceId);
+  } catch (error) {
+    windowsDesktopMediaSourceIdPromise = null;
+    info('Unable to maintain task widget desktop layer', error);
+  }
+};
 
 const normalizeBackgroundImage = (
   backgroundImage: string | null | undefined,
@@ -393,13 +467,15 @@ const createTaskWidgetWindowForGeneration = async (
       taskWidgetWin &&
       !taskWidgetWin.isDestroyed() &&
       isTaskWidgetEnabled &&
-      !isUserHidden &&
-      taskWidgetWin.isMinimized()
+      !isUserHidden
     ) {
-      taskWidgetWin.restore();
-      taskWidgetWin.showInactive();
+      if (taskWidgetWin.isMinimized()) {
+        taskWidgetWin.restore();
+        taskWidgetWin.showInactive();
+      }
+      void maintainTaskWidgetDesktopLayer();
     }
-  }, 1000);
+  }, WINDOWS_DESKTOP_LAYER_REFRESH_MS);
   initTimeoutId.unref?.();
 
   // Don't make window click-through initially to allow dragging
@@ -433,6 +509,7 @@ const showTaskWidgetWindow = (options: ShowTaskWidgetOptions = {}): void => {
   } else {
     taskWidgetWin.show();
   }
+  void maintainTaskWidgetDesktopLayer();
 };
 
 export const showTaskWidget = (options: ShowTaskWidgetOptions = {}): void => {
@@ -675,6 +752,8 @@ export const updateTaskWidgetAlwaysShow = (alwaysShow: boolean): void => {
   if (alwaysShow && isTaskWidgetEnabled) {
     isUserHidden = false;
     showTaskWidget({ inactive: true });
+  } else if (isTaskWidgetEnabled) {
+    syncTaskWidgetVisibilityWithMainWindow(!!getMainWindow()?.isVisible());
   }
 };
 

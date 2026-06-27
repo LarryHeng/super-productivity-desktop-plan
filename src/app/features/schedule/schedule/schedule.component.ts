@@ -280,15 +280,14 @@ export class ScheduleComponent {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
+    const seconds = now.getSeconds();
+    const milliseconds = now.getMilliseconds();
 
-    const hoursToday = hours + minutes / 60;
-    return Math.round(hoursToday * FH);
+    const hoursToday = hours + minutes / 60 + seconds / 3600 + milliseconds / 3_600_000;
+    return hoursToday * FH;
   });
 
   goToPreviousPeriod(): void {
-    // Never navigate into the past — the displayed range must include today or later
-    if (this.isViewingToday()) return;
-
     const currentDate = this._selectedDate() || new Date();
     const selectedView = this._currentTimeViewMode();
 
@@ -305,14 +304,7 @@ export class ScheduleComponent {
       previousPeriod.setDate(currentDate.getDate() - daysToSkip);
       previousPeriod.setHours(0, 0, 0, 0);
 
-      // If going back would land on or before today, snap to "today view" (null)
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      if (previousPeriod.getTime() <= todayMidnight.getTime()) {
-        this._selectedDate.set(null);
-      } else {
-        this._selectedDate.set(previousPeriod);
-      }
+      this._selectedDate.set(previousPeriod);
     }
   }
 
@@ -341,6 +333,11 @@ export class ScheduleComponent {
 
   goToToday(): void {
     this._selectedDate.set(null); // Resets to "today" mode
+  }
+
+  onMonthDaySelected(day: string): void {
+    this._selectedDate.set(parseDbDateStr(day));
+    this.selectTimeView('week');
   }
 
   // Tracks whether the scroll-wrapper has been scrolled horizontally. Used

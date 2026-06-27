@@ -300,15 +300,13 @@ describe('ScheduleComponent', () => {
       expect(newDate?.getHours()).toBe(0); // Normalized to midnight
     });
 
-    it('should not navigate backward when already viewing today', () => {
-      // Arrange - viewing today (null selected date)
+    it('should navigate into history when already viewing today', () => {
       component['_selectedDate'].set(null);
 
-      // Act
       component.goToPreviousPeriod();
 
-      // Assert - prev nav is disabled when today is in view
-      expect(component['_selectedDate']()).toBeNull();
+      expect(component['_selectedDate']()).not.toBeNull();
+      expect(component['_selectedDate']()!.getTime()).toBeLessThan(Date.now());
     });
 
     it('should go to previous month in month view', () => {
@@ -573,6 +571,26 @@ describe('ScheduleComponent', () => {
     });
   });
 
+  describe('month and week linkage', () => {
+    it('opens the Monday-based week containing the selected month date', () => {
+      mockLayoutService.selectedTimeView.set('month');
+
+      component.onMonthDaySelected('2026-06-25');
+      component.daysToShow();
+
+      expect(mockLayoutService.selectedTimeView()).toBe('week');
+      expect(mockScheduleService.getDaysToShow).toHaveBeenCalledWith(
+        7,
+        jasmine.any(Date),
+      );
+      const selectedDate = mockScheduleService.getDaysToShow.calls.mostRecent()
+        .args[1] as Date;
+      expect(selectedDate.getFullYear()).toBe(2026);
+      expect(selectedDate.getMonth()).toBe(5);
+      expect(selectedDate.getDate()).toBe(25);
+    });
+  });
+
   describe('currentTimeRow computed', () => {
     it('should return null when not viewing today', () => {
       // Arrange - view a future range that doesn't contain today
@@ -614,6 +632,24 @@ describe('ScheduleComponent', () => {
       expect(timeRow).not.toBeNull();
       expect(timeRow).toBeGreaterThanOrEqual(0);
       expect(timeRow).toBeLessThanOrEqual(288); // 24 hours * 12 rows per hour
+    });
+
+    it('should preserve seconds as an in-row offset for a smooth current-time line', () => {
+      jasmine.clock().install();
+      try {
+        jasmine.clock().mockDate(new Date(2026, 0, 20, 10, 2, 30));
+        component['_selectedDate'].set(new Date(2026, 0, 21));
+        component['_selectedDate'].set(null);
+        (
+          mockScheduleService.scheduleRefreshTick as unknown as ReturnType<
+            typeof signal<number>
+          >
+        ).set(1);
+
+        expect(component.currentTimeRow()).toBe(120.5);
+      } finally {
+        jasmine.clock().uninstall();
+      }
     });
   });
 

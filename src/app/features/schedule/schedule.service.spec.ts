@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { discardPeriodicTasks, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ScheduleService } from './schedule.service';
 import { DateService } from '../../core/date/date.service';
@@ -61,15 +61,17 @@ describe('ScheduleService', () => {
       expect(result.length).toBe(5);
     });
 
-    it('should return days starting from today when referenceDate is null', () => {
+    it('should return days starting from Monday of the current week', () => {
       const result = service.getDaysToShow(3, null);
-      expect(result[0]).toBe(dateService.todayStr());
+      const firstDay = new Date(`${result[0]}T00:00:00`);
+      expect(firstDay.getDay()).toBe(1);
     });
 
-    it('should return days starting from referenceDate (rolling)', () => {
+    it('should return Monday through Sunday for the week containing referenceDate', () => {
       const referenceDate = new Date(2028, 5, 15); // Thu Jun 15, 2028
       const result = service.getDaysToShow(7, referenceDate);
-      expect(result[0]).toBe(dateService.todayStr(referenceDate.getTime()));
+      expect(result[0]).toBe('2028-06-12');
+      expect(result[6]).toBe('2028-06-18');
       expect(result.length).toBe(7);
     });
 
@@ -85,13 +87,24 @@ describe('ScheduleService', () => {
     });
 
     it('should handle transition across months', () => {
-      const referenceDate = new Date(2028, 0, 30); // Jan 30, 2028
+      const referenceDate = new Date(2028, 1, 1); // Tue Feb 1, 2028
       const result = service.getDaysToShow(5, referenceDate);
       expect(result.length).toBe(5);
-      const lastDay = new Date(result[4]);
+      expect(result[0]).toBe('2028-01-31');
+      const lastDay = new Date(`${result[4]}T00:00:00`);
       expect(lastDay.getMonth()).toBe(1); // February
     });
   });
+
+  it('refreshes active timing data every second', fakeAsync(() => {
+    const timedService = TestBed.runInInjectionContext(() => new ScheduleService());
+    const initialTick = timedService.scheduleRefreshTick();
+
+    tick(1001);
+
+    expect(timedService.scheduleRefreshTick()).toBeGreaterThan(initialTick);
+    discardPeriodicTasks();
+  }));
 
   describe('getMonthDaysToShow', () => {
     it('should return correct number of days', () => {

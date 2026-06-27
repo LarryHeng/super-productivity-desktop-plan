@@ -43,7 +43,9 @@ describe('PlannerComponent', () => {
       'showWeekContaining',
       'showCurrentWeek',
       'shiftWeek',
+      'getDaysForDates$',
     ]);
+    mockPlannerService.getDaysForDates$.and.returnValue(days$);
     mockPlannerService.days$ = days$;
     Object.defineProperty(mockPlannerService, 'selectedWeekStart$', {
       value: new BehaviorSubject('2026-02-16'),
@@ -97,6 +99,15 @@ describe('PlannerComponent', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  it('opens the selected month date in its Monday-based week', () => {
+    component.selectPlannerView('month');
+
+    component.onMonthDaySelected('2026-06-25');
+
+    expect(mockPlannerService.showWeekContaining).toHaveBeenCalledOnceWith('2026-06-25');
+    expect(component.isMonthView()).toBeFalse();
   });
 
   describe('daysWithTasks', () => {

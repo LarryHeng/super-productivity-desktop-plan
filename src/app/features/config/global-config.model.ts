@@ -226,6 +226,7 @@ export type SyncConfig = Readonly<{
 }>;
 
 export type ScheduleConfig = Readonly<{
+  actualTimeMergeGapMinutes?: number;
   isWorkStartEndEnabled: boolean;
   workStart: string;
   workEnd: string;

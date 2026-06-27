@@ -859,6 +859,33 @@ describe('TaskService', () => {
     });
   });
 
+  describe('addActualTimeSegment', () => {
+    it('records a completed interval ending at the supplied time', () => {
+      const end = new Date(2026, 0, 5, 12, 0).getTime();
+      const duration = 15 * 60 * 1000;
+
+      service.addActualTimeSegment('task-1', duration, end);
+
+      expect(store.dispatch).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          type: '[TimeTracking] Add actual time segment',
+          taskId: 'task-1',
+          date: '2026-01-05',
+          start: end - duration,
+          end,
+        }),
+      );
+    });
+
+    it('does not record a non-positive interval', () => {
+      (store.dispatch as jasmine.Spy).calls.reset();
+
+      service.addActualTimeSegment('task-1', 0);
+
+      expect(store.dispatch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('removeTimeSpent', () => {
     it('should dispatch removeTimeSpent action', () => {
       service.removeTimeSpent('task-1', 30000);

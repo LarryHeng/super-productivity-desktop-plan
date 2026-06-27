@@ -1,13 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Component, Input } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { ScheduleMonthComponent } from './schedule-month.component';
 import { ScheduleService } from '../schedule.service';
 import { DateTimeFormatService } from '../../../core/date-time-format/date-time-format.service';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
-import { ScheduleEventComponent } from '../schedule-event/schedule-event.component';
 import { ScheduleEvent } from '../schedule.model';
 import { SVEType } from '../schedule.const';
+import { TranslateModule } from '@ngx-translate/core';
 
 describe('ScheduleMonthComponent', () => {
   let component: ScheduleMonthComponent;
@@ -20,27 +19,24 @@ describe('ScheduleMonthComponent', () => {
       'getDayClass',
       'getEventsForDay',
       'getEventDayStr',
+      'getTodayStr',
     ]);
     mockScheduleService.getDayClass.and.returnValue('');
     mockScheduleService.getEventsForDay.and.returnValue([]);
     mockScheduleService.getEventDayStr.and.returnValue(null);
+    mockScheduleService.getTodayStr.and.returnValue('2026-06-27');
 
     mockDateTimeFormatService = jasmine.createSpyObj('DateTimeFormatService', ['-'], {
       currentLocale: () => 'en-US',
     });
 
     await TestBed.configureTestingModule({
-      imports: [ScheduleMonthComponent],
+      imports: [ScheduleMonthComponent, TranslateModule.forRoot()],
       providers: [
         { provide: ScheduleService, useValue: mockScheduleService },
         { provide: DateTimeFormatService, useValue: mockDateTimeFormatService },
       ],
-    })
-      .overrideComponent(ScheduleMonthComponent, {
-        remove: { imports: [ScheduleEventComponent] },
-        add: { imports: [ScheduleEventStubComponent] },
-      })
-      .compileComponents();
+    }).compileComponents();
 
     fixture = TestBed.createComponent(ScheduleMonthComponent);
     component = fixture.componentInstance;
@@ -154,26 +150,29 @@ describe('ScheduleMonthComponent', () => {
     });
   });
 
-  describe('month event drag behavior', () => {
-    it('should render month events with drag disabled', () => {
-      // Arrange
+  describe('actual work summaries', () => {
+    it('renders the aggregated task duration instead of a schedule time block', () => {
       const scheduleEvent = createTaskScheduleEvent('task-1', '2026-01-15');
       fixture.componentRef.setInput('daysToShow', ['2026-01-15']);
-      mockScheduleService.getEventsForDay.and.returnValue([scheduleEvent]);
+      fixture.componentRef.setInput('events', [scheduleEvent]);
 
-      // Act
       fixture.detectChanges();
 
-      // Assert
-      const eventDebugEl = fixture.debugElement.query(
-        By.directive(ScheduleEventStubComponent),
-      );
-      const scheduleEventCmp =
-        eventDebugEl.componentInstance as ScheduleEventStubComponent;
-      expect(scheduleEventCmp.event).toBe(scheduleEvent);
-      expect(scheduleEventCmp.isMonthView).toBe(true);
-      expect(scheduleEventCmp.cdkDragDisabled).toBe(true);
+      const text = fixture.nativeElement.textContent;
+      expect(text).toContain('Task task-1');
+      expect(text).toContain('1 hr');
+      expect(text).not.toMatch(/\d{1,2}:\d{2}/);
     });
+  });
+
+  it('uses the shared translucent month template with a return-to-today action', () => {
+    fixture.componentRef.setInput('daysToShow', ['2026-06-27']);
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css('month-grid'))).not.toBeNull();
+    expect(
+      fixture.debugElement.query(By.css('[data-testid="return-to-today"]')),
+    ).not.toBeNull();
   });
 
   describe('getDayClass', () => {
@@ -241,6 +240,19 @@ describe('ScheduleMonthComponent', () => {
       expect(prevMonthClass).toBe('other-month');
       expect(currentMonthClass).toBe('');
       expect(nextMonthClass).toBe('other-month');
+    });
+  });
+
+  describe('day selection', () => {
+    it('emits the clicked date so the parent can open its week', () => {
+      const selectedDays: string[] = [];
+      fixture.componentRef.setInput('daysToShow', ['2026-06-25']);
+      component.daySelected.subscribe((day) => selectedDays.push(day));
+      fixture.detectChanges();
+
+      fixture.debugElement.query(By.css('[data-day="2026-06-25"]')).nativeElement.click();
+
+      expect(selectedDays).toEqual(['2026-06-25']);
     });
   });
 
@@ -423,25 +435,15 @@ describe('ScheduleMonthComponent', () => {
   });
 });
 
-@Component({
-  selector: 'schedule-event',
-  standalone: true,
-  template: '',
-})
-class ScheduleEventStubComponent {
-  @Input() event?: ScheduleEvent;
-  @Input() isMonthView?: boolean;
-  @Input() cdkDragDisabled?: boolean;
-}
-
 const createTaskScheduleEvent = (id: string, plannedForDay: string): ScheduleEvent => ({
   id,
-  type: SVEType.TaskPlannedForDay,
+  type: SVEType.ActualTask,
   style: '',
   startHours: 10,
   timeLeftInHours: 1,
   data: {
     id,
+    title: `Task ${id}`,
   } as ScheduleEvent['data'],
   plannedForDay,
 });

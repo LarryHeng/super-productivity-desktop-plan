@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, Signal } from '@angular/core';
 import { DateService } from '../../core/date/date.service';
-import { interval } from 'rxjs';
+import { timer } from 'rxjs';
 import {
   ScheduleCalendarMapEntry,
   ScheduleDay,
@@ -23,12 +23,14 @@ import { CalendarIntegrationService } from '../calendar-integration/calendar-int
 import { HiddenCalendarProvidersService } from '../calendar-integration/hidden-calendar-providers.service';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TaskService } from '../tasks/task.service';
-import { startWith } from 'rxjs/operators';
 import { parseDbDateStr } from '../../util/parse-db-date-str';
 import { selectTimeTrackingState } from '../time-tracking/store/time-tracking.selectors';
 import { selectTaskEntities } from '../tasks/store/task.selectors';
 import { appendActualTimeSegmentsToScheduleDays } from './map-schedule-data/append-actual-time-segments-to-schedule-days';
-import { TimeTrackingState } from '../time-tracking/time-tracking.model';
+import {
+  TimeTrackingState,
+  TTActiveTaskSegment,
+} from '../time-tracking/time-tracking.model';
 
 @Injectable({
   providedIn: 'root',
@@ -51,7 +53,7 @@ export class ScheduleService {
   private _calendarEvents = toSignal(this._calendarIntegrationService.calendarEvents$, {
     initialValue: [],
   });
-  scheduleRefreshTick = toSignal(interval(2 * 60 * 1000).pipe(startWith(0)), {
+  scheduleRefreshTick = toSignal(timer(0, 1000), {
     initialValue: 0,
   });
 
@@ -66,6 +68,8 @@ export class ScheduleService {
       const taskEntities = this._taskEntities();
       const calendarEvents = this._calendarEvents();
       const currentTaskId = this._taskService.currentTaskId() ?? null;
+      const activeActualTimeSegment =
+        this._taskService.activeActualTimeSegment?.() ?? null;
 
       return this.buildScheduleDays({
         daysToShow: daysToShow(),
@@ -75,6 +79,7 @@ export class ScheduleService {
         plannerDayMap,
         timelineCfg,
         currentTaskId,
+        activeActualTimeSegment,
         timeTrackingState,
         taskEntities,
       });
@@ -92,6 +97,7 @@ export class ScheduleService {
       plannerDayMap,
       timelineCfg,
       currentTaskId = null,
+      activeActualTimeSegment = null,
       timeTrackingState,
       taskEntities,
     } = params;
@@ -119,6 +125,9 @@ export class ScheduleService {
       days,
       timeTrackingState?.taskSegments,
       taskEntities as Record<string, TaskCopy | Readonly<TaskCopy> | undefined>,
+      activeActualTimeSegment,
+      realNow ?? now,
+      timelineCfg?.actualTimeMergeGapMinutes,
     );
   }
 
@@ -147,6 +156,7 @@ export class ScheduleService {
     const plannerDayMap = this._plannerDayMap();
     const timeTrackingState = this._timeTrackingState();
     const taskEntities = this._taskEntities();
+    const activeActualTimeSegment = this._taskService.activeActualTimeSegment?.() ?? null;
     const hiddenProviderIds = this._hiddenCalendarProviders.hiddenProviderIds();
     const calendarEvents = hiddenProviderIds.length
       ? this._calendarEvents()
@@ -169,17 +179,23 @@ export class ScheduleService {
       plannerDayMap,
       timelineCfg,
       currentTaskId: params.currentTaskId,
+      activeActualTimeSegment,
       timeTrackingState,
       taskEntities,
     });
   }
 
   getDaysToShow(nrOfDaysToShow: number, referenceDate: Date | null = null): string[] {
-    const today = referenceDate ? referenceDate.getTime() : new Date().getTime();
+    const weekStart = referenceDate ? new Date(referenceDate) : new Date();
+    weekStart.setHours(0, 0, 0, 0);
+    const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - daysSinceMonday);
+
     const daysToShow: string[] = [];
     for (let i = 0; i < nrOfDaysToShow; i++) {
-      // eslint-disable-next-line no-mixed-operators
-      daysToShow.push(this._dateService.todayStr(today + i * 24 * 60 * 60 * 1000));
+      const day = new Date(weekStart);
+      day.setDate(weekStart.getDate() + i);
+      daysToShow.push(this._dateService.todayStr(day.getTime()));
     }
     return daysToShow;
   }
@@ -401,6 +417,7 @@ export interface BuildScheduleDaysParams {
   plannerDayMap: PlannerDayMap | undefined | null;
   timelineCfg?: ScheduleConfig | null;
   currentTaskId?: string | null;
+  activeActualTimeSegment?: TTActiveTaskSegment | null;
   timeTrackingState?: TimeTrackingState | null;
   taskEntities?: Record<string, TaskCopy | Readonly<TaskCopy> | undefined> | null;
 }

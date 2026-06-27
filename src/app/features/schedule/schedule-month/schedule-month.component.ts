@@ -4,19 +4,25 @@ import {
   computed,
   inject,
   input,
+  output,
 } from '@angular/core';
 import { ScheduleEvent } from '../schedule.model';
-import { ScheduleEventComponent } from '../schedule-event/schedule-event.component';
 import { safeFormatDate } from 'src/app/util/safe-format-date';
 import { T } from '../../../t.const';
 import { ScheduleService } from '../schedule.service';
 import { LocaleDatePipe } from 'src/app/ui/pipes/locale-date.pipe';
 import { DateTimeFormatService } from 'src/app/core/date-time-format/date-time-format.service';
 import { parseDbDateStr } from 'src/app/util/parse-db-date-str';
+import {
+  buildScheduleMonthSummary,
+  formatWorkedDuration,
+} from './schedule-month-summary.util';
+import { MonthGridComponent } from '../../../ui/month-grid/month-grid.component';
+import { MonthGridDay } from '../../../ui/month-grid/month-grid.model';
 
 @Component({
   selector: 'schedule-month',
-  imports: [ScheduleEventComponent, LocaleDatePipe, LocaleDatePipe],
+  imports: [LocaleDatePipe, MonthGridComponent],
   templateUrl: './schedule-month.component.html',
   styleUrl: './schedule-month.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +36,26 @@ export class ScheduleMonthComponent {
   readonly daysToShow = input<string[]>([]);
   readonly weeksToShow = input<number>(6);
   readonly firstDayOfWeek = input<number>(1);
+  readonly daySelected = output<string>();
+  readonly todaySelected = output<void>();
+  readonly daySummaries = computed(() => buildScheduleMonthSummary(this.events() ?? []));
+  readonly todayDate = this._scheduleService.getTodayStr();
+  readonly gridDays = computed<MonthGridDay[]>(() => {
+    const summaries = this.daySummaries();
+    return this.daysToShow().map((dayDate) => {
+      const summary = summaries[dayDate];
+      return {
+        dayDate,
+        total: summary ? this.formatDuration(summary.totalDurationMs) : undefined,
+        items:
+          summary?.tasks.map((task) => ({
+            id: task.taskId,
+            title: task.title,
+            meta: this.formatDuration(task.durationMs),
+          })) ?? [],
+      };
+    });
+  });
 
   // Generate weekday headers based on firstDayOfWeek setting
   readonly weekdayHeaders = computed(() => {
@@ -77,6 +103,14 @@ export class ScheduleMonthComponent {
 
   getDayIndex(dayIndex: number): number {
     return dayIndex % 7;
+  }
+
+  selectDay(day: string): void {
+    this.daySelected.emit(day);
+  }
+
+  formatDuration(durationMs: number): string {
+    return formatWorkedDuration(durationMs, this._dateTimeFormatService.currentLocale());
   }
 
   getEventsForDay(day: string): ScheduleEvent[] {

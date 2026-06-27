@@ -92,6 +92,19 @@ export class ScheduleWeekComponent implements OnInit, AfterViewInit, OnDestroy {
   workStartEnd = input<{ workStartRow: number; workEndRow: number } | null>(null);
   currentTimeRow = input<number | null>(null);
   todayDateStr = input<string | undefined>(undefined);
+  todayColumn = computed(() => {
+    const today = this.todayDateStr();
+    const dayIndex = today ? this.daysToShow().indexOf(today) : -1;
+    return dayIndex === -1 ? null : dayIndex + 2;
+  });
+  currentTimeGridRow = computed(() => {
+    const row = this.currentTimeRow();
+    return row === null ? null : Math.floor(row) + 1;
+  });
+  currentTimeOffsetPercent = computed(() => {
+    const row = this.currentTimeRow();
+    return row === null ? 0 : (row - Math.floor(row)) * 100;
+  });
   isCtrlPressed = signal<boolean>(false);
   isTaskDragActive = input<boolean>(false);
   scheduleRowHeightPx = signal<number>(readStoredScheduleRowHeight());

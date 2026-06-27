@@ -8,6 +8,18 @@ export const SCHEDULE_FORM_CFG: ConfigFormSection<ScheduleConfig> = {
   key: 'schedule',
   items: [
     {
+      key: 'actualTimeMergeGapMinutes',
+      type: 'slider',
+      templateOptions: {
+        type: 'number',
+        min: 0,
+        max: 30,
+        step: 1,
+        label: T.GCF.SCHEDULE.L_ACTUAL_TIME_MERGE_GAP,
+        description: T.GCF.SCHEDULE.ACTUAL_TIME_MERGE_GAP_DESCRIPTION,
+      },
+    },
+    {
       key: 'isWorkStartEndEnabled',
       type: 'checkbox',
       templateOptions: {

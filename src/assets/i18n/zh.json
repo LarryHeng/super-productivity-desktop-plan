@@ -997,6 +997,7 @@
       "NEXT_WEEK": "下周",
       "PREVIOUS_MONTH": "上个月",
       "PREVIOUS_WEEK": "上周",
+      "RETURN_TO_TODAY": "回到今天",
       "VIEW_MONTH": "查看月份",
       "VIEW_WEEK": "查看周"
     },
@@ -2393,7 +2394,9 @@
       "NOTIFY_ON_DUE_DATE": "显示今天到期任务的通知"
     },
     "SCHEDULE": {
+      "ACTUAL_TIME_MERGE_GAP_DESCRIPTION": "同一任务的实际块间隔不超过该时长时显示为一个块，最大 30 分钟。",
       "HELP": "计划功能应为您快速概览计划任务如何随时间展开。您可以在左侧菜单 <a href='#/schedule'>'计划'</a> 下找到它。",
+      "L_ACTUAL_TIME_MERGE_GAP": "实际块合并间隔（分钟）",
       "LUNCH_BREAK_START_END_DESCRIPTION": "如 13:00",
       "L_IS_LUNCH_BREAK_ENABLED": "启用午休",
       "L_IS_WORK_START_END_ENABLED": "将未计划任务流限制在特定工作时间",
@@ -2455,7 +2458,7 @@
     "TASK_WIDGET": {
       "TITLE": "任务小部件",
       "IS_ENABLED": "启用任务小部件",
-      "IS_ALWAYS_SHOW": "始终显示任务小部件（即使主窗口可见）",
+      "IS_ALWAYS_SHOW": "始终显示任务小部件（软件打开时是否展示小组件）",
       "OPACITY": "小部件背景可见度",
       "CONTENT_OPACITY": "小部件文字和控件可见度"
     }
@@ -2560,7 +2563,7 @@
     "PROJECT_SETTINGS": "项目设置",
     "PROJECTS": "项目",
     "QUICK_HISTORY": "快速历史",
-    "SCHEDULE": "计划",
+    "SCHEDULE": "时间表",
     "SEARCH": "搜索",
     "SETTINGS": "设置",
     "SHARE_TASK_LIST_MARKDOWN": "共享任务列表",

@@ -219,6 +219,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     dueDateNotificationHour: 9,
   },
   schedule: {
+    actualTimeMergeGapMinutes: 5,
     isWorkStartEndEnabled: true,
     workStart: DEFAULT_DAY_START,
     workEnd: '17:00',

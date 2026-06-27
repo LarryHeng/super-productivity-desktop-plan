@@ -7,24 +7,57 @@
   planner-plan-view {
     flex: 1;
     min-height: 0;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  planner-month {
+    display: flex;
+    flex: 1;
+    min-height: 0;
   }
 }
 
-.week-nav {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
+.planner-toolbar {
   align-items: center;
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 88px;
+  min-height: 48px;
+  padding: 2px 8px;
+}
+
+.week-month-selector {
+  display: flex;
+
+  button.active {
+    background: var(--c-primary);
+    color: var(--text-color-most-intense);
+  }
+}
+
+.period-nav {
+  align-items: center;
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
   width: min(520px, calc(100% - 32px));
-  margin: 4px auto 8px;
+  margin: 0 auto;
   text-align: center;
 
   span {
+    grid-column: 2;
     overflow: hidden;
     font-size: 14px;
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.period-nav button:last-child {
+  grid-column: 3;
 }
 
 .return-current-week {

@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import typia from 'typia';
 import { distinctUntilChanged, first, map, take, withLatestFrom } from 'rxjs/operators';
-import { computed, effect, inject, Injectable, untracked } from '@angular/core';
+import { computed, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Observable } from 'rxjs';
 import {
@@ -103,6 +103,7 @@ import { TaskLog } from '../../core/log';
 import { devError } from '../../util/dev-error';
 import { DEFAULT_GLOBAL_CONFIG } from '../config/default-global-config.const';
 import { TaskFocusService } from './task-focus.service';
+import { TTActiveTaskSegment } from '../time-tracking/time-tracking.model';
 import { DeletedTaskIssueSidecarService } from '../issue/two-way-sync/deleted-task-issue-sidecar.service';
 import { TimeBlockDeleteSidecarService } from '../calendar-integration/time-block/time-block-delete-sidecar.service';
 import { getDeadlineAutoPlanFields } from './util/get-deadline-auto-plan-fields';
@@ -210,11 +211,8 @@ export class TaskService {
     string,
     { contextType: 'TAG' | 'PROJECT'; contextId: string; date: string }
   > = new Map();
-  private _activeActualTimeSegment: {
-    taskId: string;
-    date: string;
-    start: number;
-  } | null = null;
+  private _activeActualTimeSegment = signal<TTActiveTaskSegment | null>(null);
+  readonly activeActualTimeSegment = this._activeActualTimeSegment.asReadonly();
 
   constructor() {
     document.addEventListener(
@@ -259,11 +257,11 @@ export class TaskService {
       const now = Date.now();
       this._closeActualTimeSegment(now);
       if (currentTaskId) {
-        this._activeActualTimeSegment = {
+        this._activeActualTimeSegment.set({
           taskId: currentTaskId,
           date: this._dateService.todayStr(),
           start: now,
-        };
+        });
       }
       this._flushAccumulatedTimeSpent();
     });
@@ -327,8 +325,8 @@ export class TaskService {
   }
 
   private _closeActualTimeSegment(end: number): void {
-    const segment = this._activeActualTimeSegment;
-    this._activeActualTimeSegment = null;
+    const segment = this._activeActualTimeSegment();
+    this._activeActualTimeSegment.set(null);
     if (!segment || end <= segment.start) {
       return;
     }
@@ -864,6 +862,20 @@ export class TaskService {
   ): void {
     this._store.dispatch(
       TimeTrackingActions.addTimeSpent({ task, date, duration, isFromTrackingReminder }),
+    );
+  }
+
+  addActualTimeSegment(taskId: string, duration: number, end: number = Date.now()): void {
+    if (duration <= 0) {
+      return;
+    }
+    this._store.dispatch(
+      TimeTrackingActions.addActualTimeSegment({
+        taskId,
+        date: this._dateService.todayStr(end),
+        start: end - duration,
+        end,
+      }),
     );
   }
 

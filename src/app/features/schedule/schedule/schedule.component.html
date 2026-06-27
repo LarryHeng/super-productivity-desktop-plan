@@ -66,7 +66,6 @@
     <button
       mat-icon-button
       (click)="goToPreviousPeriod()"
-      [disabled]="isViewingToday()"
       [attr.aria-label]="
         (isMonthView() ? T.F.SCHEDULE.PREVIOUS_MONTH : T.F.SCHEDULE.PREVIOUS_WEEK)
           | translate
@@ -79,16 +78,18 @@
       <mat-icon>chevron_left</mat-icon>
     </button>
 
-    <button
-      mat-icon-button
-      class="today-btn"
-      (click)="goToToday()"
-      [disabled]="isViewingToday()"
-      [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
-      [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
-    >
-      <mat-icon>wb_sunny</mat-icon>
-    </button>
+    @if (!isMonthView()) {
+      <button
+        mat-icon-button
+        class="today-btn"
+        (click)="goToToday()"
+        [disabled]="isViewingToday()"
+        [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
+        [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
+      >
+        <mat-icon>wb_sunny</mat-icon>
+      </button>
+    }
 
     <button
       mat-icon-button
@@ -118,6 +119,8 @@
       [daysToShow]="daysToShow()"
       [weeksToShow]="weeksToShow()"
       [firstDayOfWeek]="firstDayOfWeek()"
+      (daySelected)="onMonthDaySelected($event)"
+      (todaySelected)="goToToday()"
     ></schedule-month>
   } @else {
     <schedule-week

@@ -109,6 +109,10 @@ export class PlannerService {
     );
   }
 
+  getDaysForDates$(dayDates: string[]): Observable<PlannerDay[]> {
+    return this._createPlannerDays$(of(dayDates));
+  }
+
   // plannedTaskDayMap$: Observable<{ [taskId: string]: string }> = this._store
   //   .select(selectTaskIdPlannedDayMap)
   //   // make this more performant by sharing stream

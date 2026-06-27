@@ -32,14 +32,28 @@ personal images, backups, and generated build output.
 - Historical weeks remain available.
 - The current day has a blue highlight, and a Return to Current Week action is
   shown when browsing another week.
-- The month calendar starts on Monday and clicking a date opens the containing
-  week.
+- The planner has a Monday-first month view that lists each day's work content
+  without planned or actual time values.
+- Clicking a planner month date opens its containing Monday-to-Sunday week.
+- The schedule week view always starts on Monday and historical weeks remain
+  available.
+- The schedule month view groups actual tracked segments by task, displays each
+  task's accumulated duration, and shows the day's total tracked duration.
+- Clicking a schedule month date opens its containing Monday-to-Sunday week.
 - Week calculations use local calendar dates, avoiding the UTC+8 Monday
   off-by-one-week bug.
 - The schedule can render actual tracked work segments separately from planned
   estimates.
-- Adjacent segments for the same task merge when their gap is less than five
-  minutes and no other task segment occurs between them.
+- Actual segments are fixed history blocks. Planned reference blocks remain
+  draggable and move later when actual work overlaps them.
+- Adjacent segments for the same task merge when their gap is within the
+  configured threshold. The default is five minutes and the user can choose
+  from zero to thirty minutes.
+- The current-time line follows the current second in today's column, and the
+  complete current-day column is highlighted.
+- Assigning an idle interval to an existing or newly created task records the
+  complete elapsed interval as actual history without starting that task at
+  the confirmation time.
 
 ### Daily Settlement
 
@@ -107,6 +121,10 @@ Manual smoke coverage:
 - Confirm the planner displays exactly seven days, Monday through Sunday.
 - Click a month date and verify the matching week, then return to the current
   week.
+- Confirm the schedule month view shows grouped actual durations and a daily
+  total, while the planner month view lists content without time values.
+- Assign an idle interval to a task and confirm tracking remains stopped after
+  the elapsed interval is added.
 - Confirm the current day highlight.
 - Confirm widget opacity settings are replayed after startup.
 - Confirm Windows Show Desktop leaves the widget visible and unminimized.

@@ -36,6 +36,12 @@ export interface TTActualTaskSegment {
   end: number;
 }
 
+export interface TTActiveTaskSegment {
+  taskId: string;
+  date: string;
+  start: number;
+}
+
 /*
 project:
   [projectId]:

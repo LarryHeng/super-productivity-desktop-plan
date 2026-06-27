@@ -6,9 +6,13 @@ const Module = require('node:module');
 require('ts-node/register/transpile-only');
 
 const originalModuleLoad = Module._load;
+const originalSetInterval = global.setInterval;
+const originalClearInterval = global.clearInterval;
 const taskWidgetModulePath = path.resolve(__dirname, 'task-widget/task-widget.ts');
 
 let createdWindows = [];
+let intervalCallbacks = [];
+let execFileCalls = [];
 let loadSimpleStoreAllImpl;
 let ipcHandlers;
 
@@ -54,6 +58,7 @@ class FakeBrowserWindow {
     this.hideCount = 0;
     this.restoreCount = 0;
     this.maximizeCount = 0;
+    this.moveAboveCalls = [];
     this._minimized = false;
     this._handlers = new Map();
     this.webContents = new FakeWebContents();
@@ -105,6 +110,9 @@ class FakeBrowserWindow {
   maximize() {
     this.maximizeCount += 1;
   }
+  moveAbove(mediaSourceId) {
+    this.moveAboveCalls.push(mediaSourceId);
+  }
   hide() {
     this._visible = false;
     this.hideCount += 1;
@@ -131,6 +139,14 @@ const installMocks = () => {
     if (request === 'electron-log/main') {
       return { info: () => {} };
     }
+    if (request === 'node:child_process') {
+      return {
+        execFile: (...args) => {
+          execFileCalls.push(args);
+          args.at(-1)(null, '65974\n', '');
+        },
+      };
+    }
     if (request.endsWith('ipc-events.const')) {
       return {
         IPC: {
@@ -155,7 +171,7 @@ const installMocks = () => {
       };
     }
     if (request.endsWith('common.const')) {
-      return { IS_MAC: false };
+      return { IS_MAC: false, IS_WINDOWS: true };
     }
     return originalModuleLoad.call(this, request, parent, isMain);
   };
@@ -170,13 +186,22 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 test.beforeEach(() => {
   createdWindows = [];
+  intervalCallbacks = [];
+  execFileCalls = [];
   ipcHandlers = new Map();
   loadSimpleStoreAllImpl = async () => ({});
+  global.setInterval = (callback) => {
+    intervalCallbacks.push(callback);
+    return { unref() {} };
+  };
+  global.clearInterval = () => {};
   installMocks();
 });
 
 test.afterEach(() => {
   Module._load = originalModuleLoad;
+  global.setInterval = originalSetInterval;
+  global.clearInterval = originalClearInterval;
 });
 
 test('toggleTaskWidgetVisibility is a no-op while the task widget feature is disabled', () => {
@@ -386,6 +411,51 @@ test('enabled task widget creates a desktop planning panel with a useful lower b
     'desktop widget should be covered by normal app windows',
   );
   assert.equal(options.maxHeight, undefined, 'panel height should not be capped');
+});
+
+test('task widget stays directly above the Windows desktop layer', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.showTaskWidget({ inactive: true });
+  win.emit('ready-to-show');
+  await flush();
+
+  assert.equal(execFileCalls.length, 1, 'desktop shell handle should be resolved once');
+  assert.deepEqual(win.moveAboveCalls, ['window:65974:0']);
+
+  win.moveAboveCalls = [];
+  assert.equal(intervalCallbacks.length, 1, 'desktop layer should be maintained');
+  intervalCallbacks[0]();
+  await flush();
+
+  assert.deepEqual(
+    win.moveAboveCalls,
+    ['window:65974:0'],
+    'periodic maintenance should undo Show Desktop z-order changes',
+  );
+});
+
+test('turning off always-show immediately hides the widget while main window is visible', async () => {
+  const mainWin = new FakeBrowserWindow();
+  mainWin.show();
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[1];
+  mod.updateTaskWidgetAlwaysShow(true);
+  assert.equal(win.isVisible(), true, 'always-show should reveal the widget');
+
+  mod.updateTaskWidgetAlwaysShow(false);
+
+  assert.equal(
+    win.isVisible(),
+    false,
+    'disabling always-show should immediately follow current main-window visibility',
+  );
 });
 
 test('updateTaskWidgetTaskLists sends Eisenhower matrix panels to the renderer', async () => {

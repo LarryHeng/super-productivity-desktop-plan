@@ -259,6 +259,11 @@
     font-size: 16px;
     line-height: 16px;
   }
+
+  &.today {
+    background: color-mix(in srgb, var(--c-primary) 10%, transparent);
+    color: var(--c-primary);
+  }
 }
 
 .day-num {
@@ -342,6 +347,10 @@
   grid-row: 1 / span var(--schedule-total-rows);
   grid-column: span 1;
 
+  &.today {
+    background: color-mix(in srgb, var(--c-primary) 7%, transparent);
+  }
+
   // Only show drag-over background when shift is pressed (planning for day)
   :host(.isShiftKeyPressed) &.drag-over {
     background: mat-css-vars.mat-css-color-primary($opacity: 0.05);
@@ -357,7 +366,7 @@
 .current-time {
   border-top: 2px solid var(--c-accent);
   position: relative;
-  top: calc(50% - 1px);
+  z-index: 3;
 }
 
 .circle {

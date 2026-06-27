@@ -1,53 +1,69 @@
 import { ScheduleDay, SVE } from '../schedule.model';
 import { SVEType } from '../schedule.const';
 import {
+  TTActiveTaskSegment,
   TTActualTaskSegment,
   TTActualTaskSegmentByDateMap,
 } from '../../time-tracking/time-tracking.model';
 import { TaskCopy } from '../../tasks/task.model';
 
-const MIN_ACTUAL_SEGMENT_DURATION = 60 * 1000;
-const ACTUAL_SEGMENT_MERGE_GAP = 5 * 60 * 1000;
+export const DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES = 5;
+export const MAX_ACTUAL_SEGMENT_MERGE_GAP_MINUTES = 30;
+const MINUTE_IN_MS = 60 * 1000;
 
 export const appendActualTimeSegmentsToScheduleDays = (
   days: ScheduleDay[],
   taskSegments: TTActualTaskSegmentByDateMap | undefined,
   tasksById: Record<string, TaskCopy | Readonly<TaskCopy> | undefined> | undefined,
+  activeSegment: TTActiveTaskSegment | null = null,
+  currentTime: number = Date.now(),
+  mergeGapMinutes: number = DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES,
 ): ScheduleDay[] => {
-  if (!taskSegments || !tasksById) {
+  if (!tasksById) {
     return days;
   }
 
   return days.map((day) => {
+    const activeSegments: TTActualTaskSegment[] =
+      activeSegment?.date === day.dayDate && currentTime > activeSegment.start
+        ? [
+            {
+              taskId: activeSegment.taskId,
+              start: activeSegment.start,
+              end: currentTime,
+            },
+          ]
+        : [];
     const actualSegments = mergeNearbyActualTaskSegments(
-      (taskSegments[day.dayDate] ?? []).filter(
+      [...(taskSegments?.[day.dayDate] ?? []), ...activeSegments].filter(
         (segment) => isValidActualSegment(segment) && !!tasksById[segment.taskId],
       ),
+      normalizeMergeGapMinutes(mergeGapMinutes) * MINUTE_IN_MS,
     );
 
     if (!actualSegments.length) {
       return day;
     }
 
-    const actualTaskIds = new Set(actualSegments.map((segment) => segment.taskId));
-    const entriesWithoutEstimatedTaskEntries = day.entries.filter(
-      (entry) => !isSameDayEstimatedTaskEntry(entry, actualTaskIds),
-    );
     const actualEntries: SVE[] = actualSegments.map((segment) => {
       const task = tasksById[segment.taskId] as TaskCopy;
       return {
         id: `actual-${segment.taskId}-${segment.start}-${segment.end}`,
         type: SVEType.ActualTask,
         start: segment.start,
-        duration: Math.max(segment.end - segment.start, MIN_ACTUAL_SEGMENT_DURATION),
+        duration: segment.end - segment.start,
         data: task,
         plannedForDay: day.dayDate,
       };
     });
+    const shiftedPlannedEntries = shiftPlannedEntriesAfterActualTime(
+      day.entries,
+      actualEntries,
+    );
 
     return {
       ...day,
-      entries: [...entriesWithoutEstimatedTaskEntries, ...actualEntries].sort(
+      entries: [...shiftedPlannedEntries, ...actualEntries].sort(
         (a, b) => a.start - b.start,
       ),
     };
@@ -56,6 +72,7 @@ export const appendActualTimeSegmentsToScheduleDays = (
 
 export const mergeNearbyActualTaskSegments = (
   segments: readonly TTActualTaskSegment[],
+  mergeGapMs: number = DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES * MINUTE_IN_MS,
 ): TTActualTaskSegment[] => {
   const sorted = [...segments].sort((a, b) => a.start - b.start);
   const merged: TTActualTaskSegment[] = [];
@@ -65,7 +82,7 @@ export const mergeNearbyActualTaskSegments = (
     if (
       previous &&
       previous.taskId === segment.taskId &&
-      segment.start - previous.end < ACTUAL_SEGMENT_MERGE_GAP
+      segment.start - previous.end <= mergeGapMs
     ) {
       merged[merged.length - 1] = {
         ...previous,
@@ -79,20 +96,77 @@ export const mergeNearbyActualTaskSegments = (
   return merged;
 };
 
+const normalizeMergeGapMinutes = (minutes: number): number => {
+  if (!Number.isFinite(minutes)) {
+    return DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES;
+  }
+  return Math.min(MAX_ACTUAL_SEGMENT_MERGE_GAP_MINUTES, Math.max(0, minutes));
+};
+
 const isValidActualSegment = (segment: TTActualTaskSegment): boolean =>
   !!segment.taskId &&
   Number.isFinite(segment.start) &&
   Number.isFinite(segment.end) &&
   segment.end > segment.start;
 
-const isSameDayEstimatedTaskEntry = (entry: SVE, actualTaskIds: Set<string>): boolean =>
-  (entry.type === SVEType.Task ||
-    entry.type === SVEType.TaskPlannedForDay ||
-    entry.type === SVEType.ScheduledTask ||
-    entry.type === SVEType.SplitTask ||
-    entry.type === SVEType.SplitTaskPlannedForDay ||
-    entry.type === SVEType.SplitTaskContinued ||
-    entry.type === SVEType.SplitTaskContinuedLast) &&
-  !!entry.data &&
-  'id' in entry.data &&
-  actualTaskIds.has(entry.data.id);
+const PLANNED_BLOCK_TYPES = new Set<SVEType>([
+  SVEType.Task,
+  SVEType.TaskPlannedForDay,
+  SVEType.ScheduledTask,
+  SVEType.SplitTask,
+  SVEType.SplitTaskPlannedForDay,
+  SVEType.SplitTaskContinued,
+  SVEType.SplitTaskContinuedLast,
+  SVEType.RepeatProjection,
+  SVEType.RepeatProjectionSplit,
+  SVEType.RepeatProjectionSplitContinued,
+  SVEType.RepeatProjectionSplitContinuedLast,
+  SVEType.ScheduledRepeatProjection,
+]);
+
+const shiftPlannedEntriesAfterActualTime = (
+  entries: readonly SVE[],
+  actualEntries: readonly SVE[],
+): SVE[] => {
+  const sortedEntries = [...entries].sort((a, b) => a.start - b.start);
+  const blockers: SVE[] = [
+    ...sortedEntries.filter((entry) => !PLANNED_BLOCK_TYPES.has(entry.type)),
+    ...actualEntries,
+  ];
+  const shiftedEntries: SVE[] = [];
+
+  for (const entry of sortedEntries) {
+    if (!PLANNED_BLOCK_TYPES.has(entry.type)) {
+      shiftedEntries.push(entry);
+      continue;
+    }
+
+    let shiftedStart = entry.start;
+    let collision = findFirstCollision(shiftedStart, entry.duration, blockers);
+    while (collision) {
+      shiftedStart = collision.start + collision.duration;
+      collision = findFirstCollision(shiftedStart, entry.duration, blockers);
+    }
+
+    const shiftedEntry =
+      shiftedStart === entry.start ? entry : { ...entry, start: shiftedStart };
+    shiftedEntries.push(shiftedEntry);
+    blockers.push(shiftedEntry);
+  }
+
+  return shiftedEntries;
+};
+
+const findFirstCollision = (
+  start: number,
+  duration: number,
+  blockers: readonly SVE[],
+): SVE | undefined =>
+  blockers
+    .filter(
+      (blocker) =>
+        blocker.duration > 0 &&
+        start < blocker.start + blocker.duration &&
+        start + duration > blocker.start,
+    )
+    .sort((a, b) => a.start - b.start)[0];

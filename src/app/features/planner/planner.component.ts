@@ -1,9 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { Store } from '@ngrx/store';
 import { DateService } from '../../core/date/date.service';
 import { PlannerActions } from './store/planner.actions';
 import { selectTaskFeatureState } from '../tasks/store/task.selectors';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { T } from '../../t.const';
 import { CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { PlannerPlanViewComponent } from './planner-plan-view/planner-plan-view.component';
@@ -21,6 +28,8 @@ import { getPlannerWeekStart } from './util/get-planner-week-start';
 import { GlobalTrackingIntervalService } from '../../core/global-tracking-interval/global-tracking-interval.service';
 import { selectPlannerState } from './store/planner.selectors';
 import { plannerInitialState } from './store/planner.reducer';
+import { PlannerMonthComponent } from './planner-month/planner-month.component';
+import { switchMap } from 'rxjs/operators';
 
 @Component({
   selector: 'planner',
@@ -37,6 +46,7 @@ import { plannerInitialState } from './store/planner.reducer';
     MatIconButton,
     MatTooltip,
     TranslatePipe,
+    PlannerMonthComponent,
   ],
 })
 export class PlannerComponent {
@@ -47,6 +57,9 @@ export class PlannerComponent {
   layoutService = inject(LayoutService);
 
   readonly T = T;
+  private _planView = viewChild(PlannerPlanViewComponent);
+  readonly plannerView = signal<'week' | 'month'>('week');
+  readonly isMonthView = computed(() => this.plannerView() === 'month');
 
   private _days = toSignal(this._plannerService.days$, { initialValue: [] });
   private _plannerState = toSignal(this._store.select(selectPlannerState), {
@@ -59,6 +72,36 @@ export class PlannerComponent {
       ),
     ),
   });
+  private _selectedMonth = signal(
+    new Date(
+      parseDbDateStr(this._globalTrackingIntervalService.todayDateStr()).getFullYear(),
+      parseDbDateStr(this._globalTrackingIntervalService.todayDateStr()).getMonth(),
+      1,
+    ),
+  );
+  readonly monthDaysToShow = computed(() => {
+    const month = this._selectedMonth();
+    const cursor = getPlannerWeekStart(
+      new Date(month.getFullYear(), month.getMonth(), 1),
+    );
+    return Array.from({ length: 42 }, () => {
+      const day = getDbDateStr(cursor);
+      cursor.setDate(cursor.getDate() + 1);
+      return day;
+    });
+  });
+  readonly monthDays = toSignal(
+    toObservable(this.monthDaysToShow).pipe(
+      switchMap((days) => this._plannerService.getDaysForDates$(days)),
+    ),
+    { initialValue: [] },
+  );
+  readonly monthLabel = computed(() =>
+    this._selectedMonth().toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    }),
+  );
   weekLabel = computed(() => {
     const start = parseDbDateStr(this._weekStart());
     const end = new Date(start);
@@ -109,6 +152,36 @@ export class PlannerComponent {
     this._prevDaysWithTasks = new Set(sortedDayDates);
     return this._prevDaysWithTasks;
   });
+
+  selectPlannerView(view: 'week' | 'month'): void {
+    if (view === 'month') {
+      const weekDate = parseDbDateStr(this._weekStart());
+      this._selectedMonth.set(new Date(weekDate.getFullYear(), weekDate.getMonth(), 1));
+    }
+    this.plannerView.set(view);
+  }
+
+  shiftMonth(offset: number): void {
+    const current = this._selectedMonth();
+    this._selectedMonth.set(
+      new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    );
+  }
+
+  showCurrentMonth(): void {
+    const today = parseDbDateStr(this._globalTrackingIntervalService.todayDateStr());
+    this._selectedMonth.set(new Date(today.getFullYear(), today.getMonth(), 1));
+  }
+
+  onMonthDaySelected(dayDate: string): void {
+    const planView = this._planView();
+    if (planView) {
+      planView.scrollToDay(dayDate);
+    } else {
+      this._plannerService.showWeekContaining(dayDate);
+    }
+    this.plannerView.set('week');
+  }
 
   constructor() {
     this._store
