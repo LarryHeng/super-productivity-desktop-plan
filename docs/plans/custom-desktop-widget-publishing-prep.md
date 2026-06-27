@@ -1,102 +1,74 @@
-# Custom Desktop Planner Build
+# 桌面计划定制版开发说明
 
-This document records the behavior and release checks for the customized
-Super Productivity fork. It intentionally excludes user data, local secrets,
-personal images, backups, and generated build output.
+本文记录 Super Productivity 定制分支与上游版本的功能差异和发布前检查。
+文档与仓库不包含用户数据、本机密钥、个人图片、备份或构建产物。
 
-## Implemented Features
+## 主要差异
 
-### Desktop Task Widget
+### 桌面任务小组件
 
-- Reuses the built-in Eisenhower matrix and stays synchronized with main-app
-  tasks.
-- Runs at normal desktop window level. Other applications cover it, while the
-  Windows Show Desktop action does not leave it minimized.
-- Persists position and size and enforces a usable minimum size.
-- The Open action restores and maximizes the main window.
-- Closing the widget disables its setting in the main app.
-- Clicking a task starts it; clicking the same task again pauses it.
-- DONE is the only action that completes a task. Completed rows remain visible
-  in their disabled state until daily settlement removes their matrix tags.
-- Countdown expiry opens an extension prompt. The user chooses the additional
-  number of minutes.
-- Widget background opacity and content opacity are independent.
-- A widget-specific background overrides the global background. Without one,
-  the widget inherits the global background.
-- Appearance and background settings are replayed after renderer startup so
-  they survive restart and asynchronous window creation.
+- 复用内置艾森豪威尔矩阵，与主程序任务保持同步。
+- 使用普通桌面窗口层级：其他应用可以覆盖小组件，Windows“显示桌面”后小组件会恢复。
+- 保存位置和尺寸，并限制可用的最小尺寸。
+- Open 操作会恢复并最大化主窗口；关闭小组件会同步关闭主程序设置。
+- 点击任务开始，再次点击同一任务暂停或继续。
+- DONE 是唯一完成任务的操作。任务完成后先置灰保留，直到每日结算移除矩阵标签。
+- 倒计时结束时弹出延时输入，由用户决定增加的分钟数。
+- 小组件背景可见度和文字内容可见度相互独立。
+- 小组件单独背景优先于全局背景；没有单独背景时继承全局背景。
+- 渲染进程启动后会重新应用外观设置，保证重启或异步创建窗口后仍然生效。
 
-### Planning And Actual Time
+### 规划与实际时间
 
-- The planner is a fixed Monday-to-Sunday weekly page.
-- Historical weeks remain available.
-- The current day has a blue highlight, and a Return to Current Week action is
-  shown when browsing another week.
-- The planner has a Monday-first month view that lists each day's work content
-  without planned or actual time values.
-- Clicking a planner month date opens its containing Monday-to-Sunday week.
-- The schedule week view always starts on Monday and historical weeks remain
-  available.
-- The schedule month view groups actual tracked segments by task, displays each
-  task's accumulated duration, and shows the day's total tracked duration.
-- Clicking a schedule month date opens its containing Monday-to-Sunday week.
-- Week calculations use local calendar dates, avoiding the UTC+8 Monday
-  off-by-one-week bug.
-- The schedule can render actual tracked work segments separately from planned
-  estimates.
-- Actual segments are fixed history blocks. Planned reference blocks remain
-  draggable and move later when actual work overlaps them.
-- Adjacent segments for the same task merge when their gap is within the
-  configured threshold. The default is five minutes and the user can choose
-  from zero to thirty minutes.
-- The current-time line follows the current second in today's column, and the
-  complete current-day column is highlighted.
-- Assigning an idle interval to an existing or newly created task records the
-  complete elapsed interval as actual history without starting that task at
-  the confirmation time.
+- 规划表固定显示周一至周日，历史周保持可见。
+- 当天使用蓝色高亮，浏览其他周时提供“回到今天”。
+- 规划表月视图同样从周一开始，只列出每天的工作内容，不显示计划或实际时长。
+- 点击规划表月视图日期，会打开该日期所在的周一至周日。
+- 时间表周视图固定从周一开始，历史周保持可见。
+- 时间表月视图按任务合并实际计时段，显示每项累计时长和当天总计时长。
+- 点击时间表月视图日期，会打开该日期所在的周一至周日。
+- 周次使用本地日期计算，避免 UTC+8 时区下周一跳错周的问题。
+- 时间表分别渲染实际工作段和规划参考段。
+- 实际工作段是不可拖动的历史记录；规划参考段可以拖动，并在与实际工作重叠时顺延。
+- 同一任务的相邻实际段按设置的间隔自动合并，默认 5 分钟，可设置为 0 至 30 分钟。
+- 当前时间线按秒跟随真实时间，并只显示在当天高亮列中。
+- 将空闲时间分配给已有任务或新任务时，完整空闲区间会写入实际历史，
+  不会从确认弹窗的时刻重新启动任务。
 
-### Daily Settlement
+### 每日结算
 
-- Manual settlement is available through the existing finish-day flow.
-- Automatic settlement runs once per logical day boundary. With a 04:00 day
-  start, the boundary is 04:00.
-- Settlement removes the Urgent and Important tags from completed top-level
-  tasks instead of archiving the tasks. Historical records remain available,
-  while settled tasks leave the desktop matrix.
+- 可以通过现有“结束这一天”流程手动结算。
+- 每个逻辑日边界只自动结算一次；开始时间为 04:00 时，结算边界也是 04:00。
+- 结算会移除已完成顶层任务的 Urgent 和 Important 标签，而不是归档任务。
+  历史记录继续保留，结算后的任务会离开桌面矩阵。
 
-### Backgrounds And Storage
+### 背景与存储
 
-- Users can upload and reset a global application background.
-- Global background settings take precedence over project and tag backgrounds.
-- Users can independently upload and reset a widget background.
-- Missing or unreadable images degrade to no background instead of crashing.
-- Imported images are stored by opaque ID. When backups are linked to an
-  external folder named `backups`, images use the sibling `bg-images` folder.
-  Otherwise they use the normal app user-data folder.
-- `SP_IMAGE_CACHE_DIR` remains available as an explicit deployment override.
+- 用户可以上传和重置全局应用背景，全局背景优先于项目或标签背景。
+- 用户可以独立上传和重置小组件背景。
+- 图片缺失或不可读时回退为无背景，不导致程序退出。
+- 导入的图片按不透明 ID 存储。备份链接到名为 `backups` 的外部目录时，
+  图片存入同级 `bg-images`；否则使用应用常规用户数据目录。
+- 部署时仍可通过 `SP_IMAGE_CACHE_DIR` 显式指定图片目录。
 
-### Backups And Window Behavior
+### 备份与窗口行为
 
-- Users can select an external local backup folder.
-- Existing backup files are migrated before the default backup directory is
-  replaced by a junction or symlink.
-- The settings page displays the effective physical backup folder once and
-  explains the compatibility link.
-- Native minimize keeps the main app in the taskbar instead of hiding it to the
-  tray. Close-to-tray behavior remains separate.
-- Idle dialog actions have complete Chinese translations.
+- 用户可以选择外部本地备份目录。
+- 默认备份目录替换为 junction 或符号链接前，会先迁移已有备份文件。
+- 设置页只显示一次实际物理备份目录，并说明兼容链接的用途。
+- 原生最小化会让主程序保留在任务栏，而不是隐藏到托盘；关闭到托盘仍是独立设置。
+- 空闲检测弹窗操作已补全中文翻译。
 
-## Publishing Hygiene
+## 发布约束
 
-- Never commit user data, backups, uploaded images, screenshots, installers,
-  unpacked builds, or cache directories.
-- Keep machine-specific user names and secrets out of source and docs.
-- Push only to the fork remote. The upstream remote is read-only for this work.
-- Review `package-lock.json` and run `git diff --check` before committing.
+- 不提交用户数据、备份、上传图片、截图、安装包、解包目录或缓存目录。
+- 源码和文档不得包含本机用户名与密钥。
+- 只推送到个人 fork；上游 remote 在这项工作中只读。
+- 提交前检查 `package-lock.json` 并执行 `git diff --check`。
 
-## Verification
+## 验证
 
-Automated checks:
+自动检查：
 
 ```powershell
 npm run int:test
@@ -107,25 +79,23 @@ node --test electron\image-cache.test.cjs electron\local-file-sync.test.cjs elec
 npx ng test --watch=false --no-code-coverage --source-map=false --include='src/app/features/planner/**/*.spec.ts' --include='src/app/features/daily-settlement/**/*.spec.ts' --include='src/app/pages/daily-summary/daily-summary.component.spec.ts' --include='src/app/features/tasks/store/task-electron.effects.spec.ts' --include='src/app/features/tasks/store/task-widget-panels.util.spec.ts' --include='src/app/features/schedule/map-schedule-data/append-actual-time-segments-to-schedule-days.spec.ts' --include='src/app/pages/config-page/config-page.component.spec.ts' --include='src/app/features/config/task-widget-settings.service.spec.ts'
 ```
 
-Production and packaging:
+生产构建与打包：
 
 ```powershell
 npm run buildAllElectron:noTests:prod
 npx electron-builder --win portable --x64 --publish never --config.win.signAndEditExecutable=false
 ```
 
-Manual smoke coverage:
+手工冒烟检查：
 
-- Launch the packaged app with a copied user-data profile.
-- Confirm the main app and desktop widget both render.
-- Confirm the planner displays exactly seven days, Monday through Sunday.
-- Click a month date and verify the matching week, then return to the current
-  week.
-- Confirm the schedule month view shows grouped actual durations and a daily
-  total, while the planner month view lists content without time values.
-- Assign an idle interval to a task and confirm tracking remains stopped after
-  the elapsed interval is added.
-- Confirm the current day highlight.
-- Confirm widget opacity settings are replayed after startup.
-- Confirm Windows Show Desktop leaves the widget visible and unminimized.
-- Confirm the installed executable hash matches the packaged build.
+- 使用复制的用户数据配置启动打包应用。
+- 确认主程序与桌面小组件均正常渲染。
+- 确认规划表准确显示周一至周日七天。
+- 点击月视图日期，确认进入对应周，并能返回当前周。
+- 确认时间表月视图显示按任务合并的实际时长与每日总计；
+  规划表月视图只列内容，不显示时长。
+- 将空闲时间分配给任务，确认写入完整区间后计时仍保持停止。
+- 确认当天列高亮和当前时间线位置。
+- 确认重启后仍会应用小组件可见度设置。
+- 确认 Windows“显示桌面”后小组件仍可见且未保持最小化。
+- 确认已安装可执行文件与打包产物的哈希一致。
