@@ -12,6 +12,14 @@
 > 本项目不是 Super Productivity 官方发行版。请勿向官方仓库反馈本衍生版独有问题。
 > Git 仓库不包含用户数据、备份或私人图片；Windows 安装包通过本仓库 Releases 发布。
 
+## 界面预览
+
+<p align="center">
+  <img src="docs/screens/custom/planner-week.png" alt="规划表周视图、日期联动与逾期提示" width="100%"/>
+</p>
+
+<p align="center"><sub>规划表周视图：周一至周日、月历联动、当天高亮与逾期提示。</sub></p>
+
 ## 下载安装
 
 在 [Releases](https://github.com/larryheng/super-productivity-desktop-plan/releases)
