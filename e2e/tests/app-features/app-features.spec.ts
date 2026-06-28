@@ -19,7 +19,7 @@ test.describe('App Features', () => {
   [
     {
       label: 'Schedule',
-      locator: (page: Page) => page.getByRole('menuitem', { name: 'Schedule' }),
+      locator: (page: Page) => page.getByRole('menuitem', { name: 'Timeline' }),
     },
     {
       label: 'Planner',

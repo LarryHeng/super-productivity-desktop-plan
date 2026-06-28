@@ -1107,8 +1107,9 @@
     },
     "SCHEDULE": {
       "ACTUAL_BLOCK_COLOR": "Actual time",
+      "COMPLETED_PLANNED_BLOCK_COLOR": "Completed planned time",
       "BLOCK_COLORS": "Timeline block colors",
-      "BLOCK_COLORS_MUST_DIFFER": "Planned and actual blocks must use different colors.",
+      "BLOCK_COLORS_MUST_DIFFER": "Planned, actual, and completed planned blocks must use different colors.",
       "CALENDAR_VISIBILITY": "Calendar visibility",
       "D_INITIAL": {
         "TEXT": "<p>The Schedule will provide you with a better picture of how one's planned tasks play out over time. It is automatically generated from your Tasks and requires only <strong>time estimates on them to work</strong>.</p><p>Two things are distinguished: <strong>Scheduled Tasks</strong>, which are shown at their planned time and <strong>Regular Tasks</strong>, which should flow around those fixed events.</p><p>If you provide a work start and end time (recommended), regular tasks will never be placed outside of these boundaries.</p>",

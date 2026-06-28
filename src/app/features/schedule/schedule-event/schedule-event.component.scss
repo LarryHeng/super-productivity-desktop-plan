@@ -189,7 +189,8 @@
   }
 
   &.ScheduledTask,
-  &.ActualTask {
+  &.ActualTask,
+  &.CompletedPlannedTask {
     border-radius: 0;
 
     .ico {
@@ -227,7 +228,22 @@
     background: color-mix(in srgb, var(--schedule-actual-block-color) 36%, transparent);
   }
 
-  &.ActualTask.very-short-event {
+  &.CompletedPlannedTask {
+    border-color: color-mix(
+      in srgb,
+      var(--schedule-completed-planned-block-color) 72%,
+      var(--separator-color)
+    );
+    border-left: 3px solid var(--schedule-completed-planned-block-color);
+    background: color-mix(
+      in srgb,
+      var(--schedule-completed-planned-block-color) 36%,
+      transparent
+    );
+  }
+
+  &.ActualTask.very-short-event,
+  &.CompletedPlannedTask.very-short-event {
     min-height: 0;
     margin-bottom: 0;
     overflow: hidden !important;

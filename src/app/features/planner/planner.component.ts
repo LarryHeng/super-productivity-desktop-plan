@@ -23,7 +23,7 @@ import { PlannerCalendarNavComponent } from './planner-calendar-nav/planner-cale
 import { PlannerService } from './planner.service';
 import { LayoutService } from '../../core-ui/layout/layout.service';
 import { MatIcon } from '@angular/material/icon';
-import { MatIconButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
 import { parseDbDateStr } from '../../util/parse-db-date-str';
@@ -46,6 +46,7 @@ import { switchMap } from 'rxjs/operators';
     CdkScrollable,
     PlannerCalendarNavComponent,
     MatIcon,
+    MatButton,
     MatIconButton,
     MatTooltip,
     TranslatePipe,

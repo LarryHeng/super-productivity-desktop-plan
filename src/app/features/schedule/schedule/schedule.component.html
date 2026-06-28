@@ -92,6 +92,14 @@
             (change)="updateBlockColor('actual', $event)"
           />
         </label>
+        <label>
+          <span>{{ T.F.SCHEDULE.COMPLETED_PLANNED_BLOCK_COLOR | translate }}</span>
+          <input
+            type="color"
+            [value]="blockColors().completedPlanned"
+            (change)="updateBlockColor('completedPlanned', $event)"
+          />
+        </label>
       </div>
     </ng-template>
   </mat-menu>
@@ -112,16 +120,33 @@
       <mat-icon>chevron_left</mat-icon>
     </button>
 
-    <button
-      mat-icon-button
-      class="today-btn"
-      (click)="goToToday()"
-      [disabled]="isViewingToday()"
-      [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
-      [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
-    >
-      <mat-icon>wb_sunny</mat-icon>
-    </button>
+    @if (!isMonthView()) {
+      <button
+        mat-stroked-button
+        class="return-today-btn"
+        data-testid="schedule-week-return-today"
+        (click)="goToToday()"
+        [disabled]="isViewingToday()"
+        [attr.aria-label]="T.F.SCHEDULE.RETURN_TO_TODAY | translate"
+        [matTooltip]="T.F.SCHEDULE.RETURN_TO_TODAY | translate"
+      >
+        <mat-icon>today</mat-icon>
+        <span class="return-today-label">{{
+          T.F.SCHEDULE.RETURN_TO_TODAY | translate
+        }}</span>
+      </button>
+    } @else {
+      <button
+        mat-icon-button
+        class="today-btn"
+        (click)="goToToday()"
+        [disabled]="isViewingToday()"
+        [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
+        [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
+      >
+        <mat-icon>wb_sunny</mat-icon>
+      </button>
+    }
 
     <button
       mat-icon-button

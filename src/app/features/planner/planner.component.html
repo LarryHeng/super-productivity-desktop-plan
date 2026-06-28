@@ -45,17 +45,35 @@
     >
       <mat-icon>chevron_left</mat-icon>
     </button>
-    <button
-      mat-icon-button
-      type="button"
-      class="today-btn"
-      [disabled]="isCurrentPeriod()"
-      [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
-      [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
-      (click)="goToToday()"
-    >
-      <mat-icon>wb_sunny</mat-icon>
-    </button>
+    @if (!isMonthView()) {
+      <button
+        mat-stroked-button
+        type="button"
+        class="return-today-btn"
+        data-testid="planner-week-return-today"
+        [disabled]="isCurrentPeriod()"
+        [attr.aria-label]="T.F.SCHEDULE.RETURN_TO_TODAY | translate"
+        [matTooltip]="T.F.SCHEDULE.RETURN_TO_TODAY | translate"
+        (click)="goToToday()"
+      >
+        <mat-icon>today</mat-icon>
+        <span class="return-today-label">{{
+          T.F.SCHEDULE.RETURN_TO_TODAY | translate
+        }}</span>
+      </button>
+    } @else {
+      <button
+        mat-icon-button
+        type="button"
+        class="today-btn"
+        [disabled]="isCurrentPeriod()"
+        [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
+        [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
+        (click)="goToToday()"
+      >
+        <mat-icon>wb_sunny</mat-icon>
+      </button>
+    }
     <button
       mat-icon-button
       type="button"

@@ -231,6 +231,7 @@ export type ScheduleConfig = Readonly<{
   actualTimeMergeGapMinutes?: number;
   plannedBlockColor?: string;
   actualBlockColor?: string;
+  completedPlannedBlockColor?: string;
   isWorkStartEndEnabled: boolean;
   workStart: string;
   workEnd: string;

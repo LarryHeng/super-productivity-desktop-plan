@@ -155,6 +155,17 @@ describe('TaskContextMenuInnerComponent', () => {
     });
   });
 
+  describe('time editing visibility', () => {
+    it('hides estimate and spent-time controls for the time-table context', () => {
+      fixture.componentRef.setInput('isTimeEditHidden', true);
+      fixture.detectChanges();
+
+      expect(
+        fixture.nativeElement.querySelector('[data-testid="task-estimate-menu-trigger"]'),
+      ).toBeNull();
+    });
+  });
+
   describe('duplicate()', () => {
     it('should duplicate subtasks with timeEstimate and notes', fakeAsync(() => {
       const mockTask = {

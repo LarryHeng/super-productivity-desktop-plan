@@ -23,7 +23,7 @@ import { debounceTime, map, startWith } from 'rxjs/operators';
 import { safeFormatDate } from '../../../util/safe-format-date';
 import { TaskService } from '../../tasks/task.service';
 import { LayoutService } from '../../../core-ui/layout/layout.service';
-import { MatIconButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { GlobalTrackingIntervalService } from '../../../core/global-tracking-interval/global-tracking-interval.service';
@@ -46,6 +46,7 @@ import { parseDbDateStr } from '../../../util/parse-db-date-str';
 import { SnackService } from '../../../core/snack/snack.service';
 import {
   DEFAULT_ACTUAL_BLOCK_COLOR,
+  DEFAULT_COMPLETED_PLANNED_BLOCK_COLOR,
   DEFAULT_PLANNED_BLOCK_COLOR,
   normalizeScheduleBlockColors,
 } from './schedule-block-colors.util';
@@ -55,6 +56,7 @@ import {
   imports: [
     ScheduleWeekComponent,
     ScheduleMonthComponent,
+    MatButton,
     MatIconButton,
     MatIcon,
     MatTooltip,
@@ -73,6 +75,7 @@ import {
     '[style.--nr-of-days]': 'daysToShow().length',
     '[style.--schedule-planned-block-color]': 'blockColors().planned',
     '[style.--schedule-actual-block-color]': 'blockColors().actual',
+    '[style.--schedule-completed-planned-block-color]': 'blockColors().completedPlanned',
   },
 })
 export class ScheduleComponent {
@@ -91,11 +94,16 @@ export class ScheduleComponent {
   readonly blockColors = computed(() => {
     const cfg = this._globalConfigService.timelineCfg();
     try {
-      return normalizeScheduleBlockColors(cfg?.plannedBlockColor, cfg?.actualBlockColor);
+      return normalizeScheduleBlockColors(
+        cfg?.plannedBlockColor,
+        cfg?.actualBlockColor,
+        cfg?.completedPlannedBlockColor,
+      );
     } catch {
       return {
         planned: DEFAULT_PLANNED_BLOCK_COLOR,
         actual: DEFAULT_ACTUAL_BLOCK_COLOR,
+        completedPlanned: DEFAULT_COMPLETED_PLANNED_BLOCK_COLOR,
       };
     }
   });
@@ -122,7 +130,7 @@ export class ScheduleComponent {
     this._hiddenCalendarProviders.toggle(providerId);
   }
 
-  updateBlockColor(kind: 'planned' | 'actual', event: Event): void {
+  updateBlockColor(kind: 'planned' | 'actual' | 'completedPlanned', event: Event): void {
     const input = event.target as HTMLInputElement;
     const current = this.blockColors();
 
@@ -130,12 +138,14 @@ export class ScheduleComponent {
       const next = normalizeScheduleBlockColors(
         kind === 'planned' ? input.value : current.planned,
         kind === 'actual' ? input.value : current.actual,
+        kind === 'completedPlanned' ? input.value : current.completedPlanned,
       );
       this._globalConfigService.updateSection(
         'schedule',
         {
           plannedBlockColor: next.planned,
           actualBlockColor: next.actual,
+          completedPlannedBlockColor: next.completedPlanned,
         },
         true,
       );

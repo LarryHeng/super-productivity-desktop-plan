@@ -160,12 +160,29 @@ export class FormlyImageInputComponent
   }
 
   setBackgroundFocus(event: PointerEvent): void {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
 
     const x = normalizeBackgroundFocus(((event.clientX - rect.left) / rect.width) * 100);
     const y = normalizeBackgroundFocus(((event.clientY - rect.top) / rect.height) * 100);
+    const scrollHost = this._findScrollHost(target);
+    const scrollTop = scrollHost?.scrollTop;
     this._writeBackgroundFocus(x, y);
+    if (scrollHost && scrollTop !== undefined) {
+      queueMicrotask(() => {
+        requestAnimationFrame(() => {
+          if (scrollHost.isConnected) {
+            scrollHost.scrollTop = scrollTop;
+          }
+          requestAnimationFrame(() => {
+            if (scrollHost.isConnected) {
+              scrollHost.scrollTop = scrollTop;
+            }
+          });
+        });
+      });
+    }
   }
 
   get isTaskWidgetBackgroundMode(): boolean {
@@ -350,19 +367,41 @@ export class FormlyImageInputComponent
     this.backgroundFocusX.set(x);
     this.backgroundFocusY.set(y);
 
-    const xControl = this.form?.get(xKey) ?? this.formControl.parent?.get(xKey);
-    const yControl = this.form?.get(yKey) ?? this.formControl.parent?.get(yKey);
-    if (xControl && yControl) {
-      xControl.setValue(x);
-      yControl.setValue(y);
-      return;
-    }
-
     const model = this.model as Record<string, unknown> | undefined;
     if (model) {
       model[xKey] = x;
       model[yKey] = y;
+    }
+
+    const xControl = this.form?.get(xKey) ?? this.formControl.parent?.get(xKey);
+    const yControl = this.form?.get(yKey) ?? this.formControl.parent?.get(yKey);
+    if (xControl && yControl) {
+      // Emit only after both values are current. Emitting X and Y separately
+      // rebuilds the live Formly model twice and can move the settings viewport.
+      xControl.setValue(x, { emitEvent: false });
+      yControl.setValue(y);
+      return;
+    }
+
+    if (model) {
       this.formControl.setValue(this.formControl.value);
     }
+  }
+
+  private _findScrollHost(start: HTMLElement): HTMLElement | null {
+    let candidate: HTMLElement | null = start.parentElement;
+    while (candidate) {
+      const overflowY = getComputedStyle(candidate).overflowY;
+      if (
+        (overflowY === 'auto' || overflowY === 'scroll') &&
+        candidate.scrollHeight > candidate.clientHeight
+      ) {
+        return candidate;
+      }
+      candidate = candidate.parentElement;
+    }
+    return document.scrollingElement instanceof HTMLElement
+      ? document.scrollingElement
+      : null;
   }
 }

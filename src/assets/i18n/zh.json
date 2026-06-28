@@ -1107,8 +1107,9 @@
     },
     "SCHEDULE": {
       "ACTUAL_BLOCK_COLOR": "实际时间",
+      "COMPLETED_PLANNED_BLOCK_COLOR": "已完成规划时间",
       "BLOCK_COLORS": "时间表块颜色",
-      "BLOCK_COLORS_MUST_DIFFER": "规划块和实际块不能使用相同颜色。",
+      "BLOCK_COLORS_MUST_DIFFER": "规划块、实际块和已完成规划块不能使用相同颜色。",
       "CALENDAR_VISIBILITY": "日历可见性",
       "D_INITIAL": {
         "TEXT": "<p>计划应为您提供更好的画面，了解一个人的计划任务如何随时间展开。它由您的任务自动生成，并且只需要 <strong>对它们进行时间估计即可工作</strong>。</p><p>区分了两件事：<strong>计划任务</strong>，它们在计划时间显示，以及 <strong>常规任务</strong>，它们应该在这些固定事件周围流动。</p><p>如果您提供工作开始和结束时间（推荐），常规任务将永远不会显示在这些边界之外。</p>",

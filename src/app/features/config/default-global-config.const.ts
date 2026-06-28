@@ -226,6 +226,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     actualTimeMergeGapMinutes: 5,
     plannedBlockColor: '#4f86f7',
     actualBlockColor: '#2ca58d',
+    completedPlannedBlockColor: '#e08b3e',
     isWorkStartEndEnabled: true,
     workStart: DEFAULT_DAY_START,
     workEnd: '17:00',

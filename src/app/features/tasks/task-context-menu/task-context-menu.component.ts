@@ -21,6 +21,7 @@ export class TaskContextMenuComponent {
 
   task = input.required<TaskWithSubTasks | Task>();
   isAdvancedControls = input<boolean>(false);
+  isTimeEditHidden = input<boolean>(false);
 
   isShowInner: boolean = false;
 

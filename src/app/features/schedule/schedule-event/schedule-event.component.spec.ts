@@ -167,6 +167,27 @@ describe('ScheduleEventComponent – isReferenceCalendar', () => {
 
       expect(component.isResizable()).toBe(false);
     });
+
+    it('should not resize a completed planned task', () => {
+      fixture.componentRef.setInput('event', {
+        ...makeTaskScheduleEvent(),
+        type: SVEType.CompletedPlannedTask,
+        data: {
+          ...makeTaskScheduleEvent().data,
+          isDone: true,
+        },
+      });
+      fixture.detectChanges();
+
+      expect(component.isResizable()).toBe(false);
+    });
+  });
+
+  it('uses a time-table context menu that hides time editing', () => {
+    fixture.componentRef.setInput('event', makeTaskScheduleEvent());
+    fixture.detectChanges();
+
+    expect(component.taskContextMenu()?.isTimeEditHidden()).toBe(true);
   });
 
   describe('style', () => {

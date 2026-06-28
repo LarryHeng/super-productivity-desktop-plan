@@ -102,6 +102,7 @@ describe('ScheduleComponent', () => {
         timelineCfg: signal({
           plannedBlockColor: '#4f86f7',
           actualBlockColor: '#2ca58d',
+          completedPlannedBlockColor: '#e08b3e',
         }),
       },
     );
@@ -135,7 +136,7 @@ describe('ScheduleComponent', () => {
   });
 
   describe('block colors', () => {
-    it('persists distinct planned and actual colors', () => {
+    it('persists three distinct timeline block colors', () => {
       const input = document.createElement('input');
       input.value = '#123456';
 
@@ -146,12 +147,13 @@ describe('ScheduleComponent', () => {
         {
           plannedBlockColor: '#123456',
           actualBlockColor: '#2ca58d',
+          completedPlannedBlockColor: '#e08b3e',
         },
         true,
       );
     });
 
-    it('rejects matching planned and actual colors', () => {
+    it('rejects a color matching either other block type', () => {
       const input = document.createElement('input');
       input.value = '#2ca58d';
 
@@ -160,6 +162,25 @@ describe('ScheduleComponent', () => {
       expect(mockGlobalConfigService.updateSection).not.toHaveBeenCalled();
       expect(mockSnackService.open).toHaveBeenCalled();
       expect(input.value).toBe('#4f86f7');
+    });
+
+    it('persists the completed planned color', () => {
+      const input = document.createElement('input');
+      input.value = '#987654';
+
+      component.updateBlockColor('completedPlanned', {
+        target: input,
+      } as unknown as Event);
+
+      expect(mockGlobalConfigService.updateSection).toHaveBeenCalledWith(
+        'schedule',
+        {
+          plannedBlockColor: '#4f86f7',
+          actualBlockColor: '#2ca58d',
+          completedPlannedBlockColor: '#987654',
+        },
+        true,
+      );
     });
   });
 
@@ -453,6 +474,18 @@ describe('ScheduleComponent', () => {
   });
 
   describe('goToToday', () => {
+    it('should show a labeled return-to-today button in week view', () => {
+      mockLayoutService.selectedTimeView.set('week');
+      fixture.detectChanges();
+
+      const button: HTMLButtonElement | null = fixture.nativeElement.querySelector(
+        '[data-testid="schedule-week-return-today"]',
+      );
+
+      expect(button).toBeTruthy();
+      expect(button?.querySelector('.return-today-label')).toBeTruthy();
+    });
+
     it('should reset _selectedDate to null', () => {
       // Arrange
       const futureDate = new Date();

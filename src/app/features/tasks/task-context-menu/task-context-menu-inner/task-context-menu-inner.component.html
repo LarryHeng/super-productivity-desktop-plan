@@ -251,9 +251,10 @@
     </button>
   }
 
-  @if (!task.subTaskIds.length) {
+  @if (!isTimeEditHidden() && !task.subTaskIds.length) {
     <button
       #estimateMenuTrigger="matMenuTrigger"
+      data-testid="task-estimate-menu-trigger"
       [matMenuTriggerFor]="estimateMenu"
       mat-menu-item
       [menuTouchFix]="estimateMenuTrigger"

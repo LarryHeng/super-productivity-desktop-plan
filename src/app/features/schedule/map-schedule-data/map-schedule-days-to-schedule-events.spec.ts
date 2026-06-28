@@ -1,7 +1,7 @@
 import { mapScheduleDaysToScheduleEvents } from './map-schedule-days-to-schedule-events';
 import { FH, SVEType } from '../schedule.const';
 import { ScheduleDay, SVETask } from '../schedule.model';
-import { TaskCopy } from '../../tasks/task.model';
+import { TaskCopy, TaskWithPlannedForDayIndication } from '../../tasks/task.model';
 
 const H = 60 * 60 * 1000;
 
@@ -36,7 +36,7 @@ const fakeDay = (additional?: Partial<ScheduleDay>): ScheduleDay => {
 const fakeTaskEntry = (
   id = 'XXX',
   additional?: Partial<SVETask>,
-  additionalTaskData?: Partial<TaskCopy>,
+  additionalTaskData?: Partial<TaskCopy & { plannedForDay: string }>,
 ): SVETask => {
   return {
     ...FAKE_TASK_ENTRY,
@@ -135,6 +135,52 @@ describe('mapScheduleDaysToScheduleEvents()', () => {
     );
 
     expect(res.eventsFlat[0].isBeyondBudget).toBe(true);
+  });
+
+  it('maps a completed planned task to an immutable completed-planned event', () => {
+    const res = mapScheduleDaysToScheduleEvents(
+      [
+        fakeDay({
+          entries: [
+            fakeTaskEntry(
+              'DONE',
+              {
+                type: SVEType.TaskPlannedForDay,
+              },
+              { isDone: true, plannedForDay: '2020-12-12' },
+            ),
+          ],
+        }),
+      ],
+      FH,
+    );
+
+    expect(res.eventsFlat[0].type).toBe(SVEType.CompletedPlannedTask);
+    expect(
+      (res.eventsFlat[0].data as TaskWithPlannedForDayIndication).plannedForDay,
+    ).toBe('2020-12-12');
+  });
+
+  it('keeps an unfinished planned task editable', () => {
+    const res = mapScheduleDaysToScheduleEvents(
+      [
+        fakeDay({
+          entries: [
+            fakeTaskEntry(
+              'OPEN',
+              {
+                type: SVEType.TaskPlannedForDay,
+                plannedForDay: '2020-12-12',
+              },
+              { isDone: false },
+            ),
+          ],
+        }),
+      ],
+      FH,
+    );
+
+    expect(res.eventsFlat[0].type).toBe(SVEType.TaskPlannedForDay);
   });
 
   it('should set calendar badge day for beyond budget planned tasks', () => {

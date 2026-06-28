@@ -93,6 +93,16 @@
     align-items: center;
   }
 
+  .return-today-btn {
+    height: 34px;
+    margin: 0 2px;
+    padding: 0 10px;
+
+    mat-icon {
+      margin-right: 4px;
+    }
+  }
+
   .week-month-selector {
     display: flex;
     margin-left: var(--s);
@@ -122,6 +132,21 @@
     &:first-child {
       border-right: 1px solid var(--extra-border-color);
     }
+  }
+}
+
+@include mq(xs, max) {
+  .return-today-btn {
+    min-width: 40px;
+    padding: 0 8px;
+
+    mat-icon {
+      margin-right: 0;
+    }
+  }
+
+  .return-today-label {
+    display: none;
   }
 }
 

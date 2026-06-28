@@ -1,18 +1,27 @@
 export const DEFAULT_PLANNED_BLOCK_COLOR = '#4f86f7';
 export const DEFAULT_ACTUAL_BLOCK_COLOR = '#2ca58d';
+export const DEFAULT_COMPLETED_PLANNED_BLOCK_COLOR = '#e08b3e';
 
 export const normalizeScheduleBlockColors = (
   planned: string | undefined,
   actual: string | undefined,
-): Readonly<{ planned: string; actual: string }> => {
+  completedPlanned: string | undefined,
+): Readonly<{ planned: string; actual: string; completedPlanned: string }> => {
   const normalizedPlanned = normalizeColor(planned, DEFAULT_PLANNED_BLOCK_COLOR);
   const normalizedActual = normalizeColor(actual, DEFAULT_ACTUAL_BLOCK_COLOR);
-  if (normalizedPlanned === normalizedActual) {
-    throw new Error('Planned and actual block colors must be different');
+  const normalizedCompletedPlanned = normalizeColor(
+    completedPlanned,
+    DEFAULT_COMPLETED_PLANNED_BLOCK_COLOR,
+  );
+  if (
+    new Set([normalizedPlanned, normalizedActual, normalizedCompletedPlanned]).size !== 3
+  ) {
+    throw new Error('Schedule block colors must be different');
   }
   return {
     planned: normalizedPlanned,
     actual: normalizedActual,
+    completedPlanned: normalizedCompletedPlanned,
   };
 };
 

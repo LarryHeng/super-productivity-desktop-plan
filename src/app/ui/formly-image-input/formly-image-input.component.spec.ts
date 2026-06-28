@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { FormlyModule } from '@ngx-formly/core';
 import { TranslateModule } from '@ngx-translate/core';
@@ -148,6 +148,100 @@ describe('FormlyImageInputComponent', () => {
     expect(component.backgroundFocusX()).toBe(25);
     expect(component.backgroundFocusY()).toBe(75);
   });
+
+  it('updates both focal coordinates with one form emission', () => {
+    const form = new FormGroup({
+      backgroundImage: formControl,
+      backgroundPositionX: new FormControl(50),
+      backgroundPositionY: new FormControl(50),
+    });
+    Object.defineProperty(component, 'form', {
+      get: () => form,
+      configurable: true,
+    });
+    component.field = {
+      props: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+      templateOptions: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+    } as any;
+    let formEmissions = 0;
+    form.valueChanges.subscribe(() => formEmissions++);
+
+    component.setBackgroundFocus({
+      clientX: 150,
+      clientY: 125,
+      currentTarget: {
+        getBoundingClientRect: () => ({
+          left: 100,
+          top: 50,
+          width: 200,
+          height: 100,
+        }),
+      },
+    } as unknown as PointerEvent);
+
+    expect(formEmissions).toBe(1);
+  });
+
+  it('keeps the settings scroll position while saving a focal point', fakeAsync(() => {
+    const form = new FormGroup({
+      backgroundImage: formControl,
+      backgroundPositionX: new FormControl(50),
+      backgroundPositionY: new FormControl(50),
+    });
+    Object.defineProperty(component, 'form', {
+      get: () => form,
+      configurable: true,
+    });
+    component.field = {
+      props: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+      templateOptions: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+    } as any;
+
+    const scrollHost = document.createElement('div');
+    scrollHost.style.overflowY = 'auto';
+    Object.defineProperty(scrollHost, 'clientHeight', { value: 200 });
+    Object.defineProperty(scrollHost, 'scrollHeight', { value: 1000 });
+    let scrollTop = 240;
+    Object.defineProperty(scrollHost, 'scrollTop', {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = value;
+      },
+    });
+    const focusTarget = document.createElement('button');
+    scrollHost.appendChild(focusTarget);
+    document.body.appendChild(scrollHost);
+    spyOn(focusTarget, 'getBoundingClientRect').and.returnValue({
+      left: 100,
+      top: 50,
+      width: 200,
+      height: 100,
+    } as DOMRect);
+
+    component.setBackgroundFocus({
+      clientX: 150,
+      clientY: 125,
+      currentTarget: focusTarget,
+    } as unknown as PointerEvent);
+    scrollHost.scrollTop = 120;
+    tick(40);
+
+    expect(scrollHost.scrollTop).toBe(240);
+    scrollHost.remove();
+  }));
 
   it('exposes the managed image path in task widget mode', async () => {
     component.field = {

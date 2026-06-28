@@ -44,6 +44,17 @@
   display: flex;
 }
 
+.return-today-btn {
+  height: 34px;
+  margin: 0 2px;
+  padding: 0 10px;
+  flex-shrink: 0;
+
+  mat-icon {
+    margin-right: 4px;
+  }
+}
+
 .title {
   margin-left: auto;
   overflow: hidden;
@@ -53,4 +64,19 @@
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .return-today-btn {
+    min-width: 40px;
+    padding: 0 8px;
+
+    mat-icon {
+      margin-right: 0;
+    }
+  }
+
+  .return-today-label {
+    display: none;
+  }
 }

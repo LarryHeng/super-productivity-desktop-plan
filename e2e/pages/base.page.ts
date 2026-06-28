@@ -166,7 +166,10 @@ export abstract class BasePage {
     // Clear and fill input - Playwright handles waiting for interactability
     await input.click();
     await input.clear();
-    await input.fill(prefixedTaskName);
+    // Task creation requires an estimate in this desktop-plan build. Supplying
+    // it through short syntax keeps the helper representative of the real UI
+    // while the persisted task title remains unchanged.
+    await input.fill(`${prefixedTaskName} 25m`);
 
     // Store the initial count before submission
     const initialCount = await this.page.locator('task').count();

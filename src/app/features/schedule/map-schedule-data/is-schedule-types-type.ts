@@ -11,7 +11,8 @@ export const isTaskDataType = (viewEntry: SVE): viewEntry is SVETask => {
     viewEntry.type === SVEType.TaskPlannedForDay ||
     viewEntry.type === SVEType.SplitTaskPlannedForDay ||
     viewEntry.type === SVEType.ScheduledTask ||
-    viewEntry.type === SVEType.ActualTask
+    viewEntry.type === SVEType.ActualTask ||
+    viewEntry.type === SVEType.CompletedPlannedTask
   );
 };
 export const isContinuedTaskType = (

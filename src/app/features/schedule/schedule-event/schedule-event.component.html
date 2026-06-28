@@ -57,6 +57,7 @@
   @if (
     se().type === SVEType.ScheduledTask ||
     se().type === SVEType.ActualTask ||
+    se().type === SVEType.CompletedPlannedTask ||
     se().type === SVEType.ScheduledRepeatProjection
   ) {
     <div class="time-badge">{{ scheduledClockStr() }}</div>
@@ -96,6 +97,7 @@
   <task-context-menu
     #taskContextMenu
     [task]="task()"
+    [isTimeEditHidden]="true"
   ></task-context-menu>
 }
 
