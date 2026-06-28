@@ -271,7 +271,7 @@
     "dotenv": "^17.4.2",
     "electron": "41.4.0",
     "electron-builder": "^26.8.1",
-    "eslint": "^9.39.2",
+    "eslint": "^10.5.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsdoc": "62.9.0",
