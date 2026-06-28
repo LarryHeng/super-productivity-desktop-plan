@@ -49,7 +49,28 @@ export const TASK_WIDGET_FORM_CFG: ConfigFormSection<TaskWidgetConfig> = {
       type: 'image-input',
       templateOptions: {
         label: T.F.PROJECT.FORM_THEME.L_BACKGROUND_IMAGE_LIGHT,
-        description: '* https://some/cool.jpg',
+        taskWidgetBackgroundModes: true,
+        managedImageLibraryControls: true,
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+    },
+    {
+      key: 'backgroundPositionX',
+      type: 'input',
+      className: 'background-focus-storage-field',
+      defaultValue: 50,
+      templateOptions: {
+        type: 'number',
+      },
+    },
+    {
+      key: 'backgroundPositionY',
+      type: 'input',
+      className: 'background-focus-storage-field',
+      defaultValue: 50,
+      templateOptions: {
+        type: 'number',
       },
     },
   ] as LimitedFormlyFieldConfig<TaskWidgetConfig>[],

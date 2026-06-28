@@ -910,6 +910,7 @@
     },
     "PLANNER": {
       "CURRENT_WEEK": "Return to current week",
+      "HAS_OVERDUE_TASKS": "Tasks overdue",
       "D": {
         "ADD_PLANNED": {
           "RE_PLAN_ALL": "Reschedule all"
@@ -1001,7 +1002,12 @@
         "L_HUE_WARN": "Threshold for dark text on warn color background",
         "L_IS_AUTO_CONTRAST": "Auto-set text colors for best readability",
         "L_IS_DISABLE_BACKGROUND_TINT": "Disable colored background tint",
+        "BTN_CHANGE_BACKGROUND_LIBRARY": "Change folder",
         "BTN_SELECT_IMAGE": "Select",
+        "D_BACKGROUND_FOCUS": "Click the part of the image that should remain visible when the window is resized or the image is cropped.",
+        "L_BACKGROUND_FOCUS": "Background focal point",
+        "L_BACKGROUND_LIBRARY": "Managed background image folder",
+        "S_BACKGROUND_LIBRARY_CHANGED": "Background images are now stored in {{path}}.",
         "S_BACKGROUND_IMAGE_READ_ERROR": "Could not read selected image file.",
         "S_BACKGROUND_IMAGE_RESELECT_REQUIRED": "Local background image files need to be selected again after a security update.",
         "S_BACKGROUND_IMAGE_TOO_LARGE": "Selected image is too large. Please choose a file smaller than {{maxSizeKb}} KB.",
@@ -1100,6 +1106,9 @@
       "S_REMINDER_ERR": "Error for reminder interface"
     },
     "SCHEDULE": {
+      "ACTUAL_BLOCK_COLOR": "Actual time",
+      "BLOCK_COLORS": "Timeline block colors",
+      "BLOCK_COLORS_MUST_DIFFER": "Planned and actual blocks must use different colors.",
       "CALENDAR_VISIBILITY": "Calendar visibility",
       "D_INITIAL": {
         "TEXT": "<p>The Schedule will provide you with a better picture of how one's planned tasks play out over time. It is automatically generated from your Tasks and requires only <strong>time estimates on them to work</strong>.</p><p>Two things are distinguished: <strong>Scheduled Tasks</strong>, which are shown at their planned time and <strong>Regular Tasks</strong>, which should flow around those fixed events.</p><p>If you provide a work start and end time (recommended), regular tasks will never be placed outside of these boundaries.</p>",
@@ -1123,6 +1132,7 @@
       "NOW": "Now",
       "PLAN_END_DAY": "End of {{date}}",
       "PLAN_START_DAY": "Start of {{date}}",
+      "PLANNED_BLOCK_COLOR": "Planned time",
       "SHIFT_KEY_INFO": "Hold Shift to toggle day planning mode",
       "START": "Work Start"
     },
@@ -1648,6 +1658,7 @@
         "CREATE_NEW_TAGS": "Create new tags",
         "DUE_BUTTON": "Schedule",
         "ESTIMATE_BUTTON": "Estimate",
+        "ESTIMATE_REQUIRED": "Set an estimated duration before creating the task.",
         "NOTE_BUTTON": "Note",
         "NOTE_PLACEHOLDER": "Add a note… (Ctrl+Enter to add task)",
         "PLACEHOLDER_CREATE": "A task title #tag @16:00 t25m ",
@@ -2343,7 +2354,9 @@
       "IS_ENABLED": "Enable task widget",
       "IS_ALWAYS_SHOW": "Always show task widget (even when main window is visible)",
       "OPACITY": "Task widget background visibility",
-      "CONTENT_OPACITY": "Task widget text and controls visibility"
+      "CONTENT_OPACITY": "Task widget text and controls visibility",
+      "RESTORE_DEFAULT": "Restore default",
+      "MATCH_GLOBAL": "Match global"
     },
     "IDLE": {
       "HELP": "<div><p>When idle time handling is enabled, a dialog will open after a specified amount of time to check if - and on which - task you want to track your time when you have been idle.</p></div>",
@@ -2565,6 +2578,7 @@
     },
     "TAKE_A_BREAK": {
       "ADD_NEW_IMG": "Add motivational image",
+      "DEFAULT_MESSAGE": "You have been working for {{duration}} without a break. Step away from the computer and take a short walk. A brief break will help you stay productive.",
       "FULL_SCREEN_BLOCKER_DURATION": "Duration to display the fullscreen window (desktop only)",
       "HELP": "<div> <p>Allows you to configure a reoccurring reminder when you have worked for a specified amount of time without taking a break.</p><p>You can modify the message displayed. ${duration} will be replaced with the time spent without a break.</p></div>",
       "IS_ENABLED": "Enable take a break reminder",
@@ -3061,6 +3075,12 @@
     "FINISH_DAY_TOOLTIP": "Evaluate your day, move all completed tasks to the archive (optionally) and/or plan your next day.",
     "LATER_TODAY": "Later Today",
     "MOVE_DONE_TO_ARCHIVE": "Move completed tasks to archive",
+    "CLEAR_MATRIX_TAGS": "Remove matrix tags",
+    "CLEAR_MATRIX_TAGS_TITLE": "Remove matrix tags from completed tasks?",
+    "CLEAR_MATRIX_TAGS_CONFIRM": "This removes only the Urgent and Important tags from completed tasks. All other tags and history remain unchanged.",
+    "CLEARED_MATRIX_TAGS": "Removed matrix tags from {{nr}} completed task(s)",
+    "ARCHIVE_DONE_WARNING_TITLE": "Archive completed tasks?",
+    "ARCHIVE_DONE_WARNING": "Archived tasks will no longer appear in Planner or Timeline. Their history can still be viewed in History.",
     "NO_DONE_TASKS": "There are currently no completed tasks",
     "NO_PLANNED_TASK_ALL_DONE": "All tasks completed",
     "NO_PLANNED_TASKS": "No tasks planned",

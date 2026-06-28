@@ -45,6 +45,17 @@ import { KeyboardConfig } from '@sp/keyboard-config';
       </div>
       @if (!isXxxs() && !isSpecialSection()) {
         <div class="page-title-actions">
+          @if (isWorkViewPage()) {
+            <button
+              class="history-btn"
+              routerLink="/active/history"
+              [matTooltip]="T.MH.HISTORY | translate"
+              [attr.aria-label]="T.MH.HISTORY | translate"
+              mat-icon-button
+            >
+              <mat-icon>history</mat-icon>
+            </button>
+          }
           <button
             [mat-menu-trigger-for]="activeWorkContextMenu"
             [matTooltip]="T.MH.PROJECT_MENU | translate"
@@ -138,6 +149,10 @@ import { KeyboardConfig } from '@sp/keyboard-config';
         /*.page-title-actions:hover & {*/
         /*  opacity: 1;*/
         /*}*/
+      }
+
+      .history-btn {
+        color: var(--c-primary);
       }
 
       .task-filter-btn {

@@ -100,13 +100,14 @@ const renderList = (
     const completeBtn = document.createElement('button');
     completeBtn.className = 'complete-task';
     completeBtn.type = 'button';
-    completeBtn.title = 'Complete task';
-    completeBtn.setAttribute('aria-label', 'Complete task');
-    completeBtn.textContent = 'done';
-    completeBtn.disabled = !!task.isDone;
+    const isDone = !!task.isDone;
+    const completeActionLabel = isDone ? 'Restore task' : 'Complete task';
+    completeBtn.title = completeActionLabel;
+    completeBtn.setAttribute('aria-label', completeActionLabel);
+    completeBtn.textContent = isDone ? 'undo' : 'done';
     completeBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      window.taskWidgetAPI.completeTask(task.id);
+      window.taskWidgetAPI.completeTask(task.id, !isDone);
     });
 
     const textWrap = document.createElement('button');
@@ -218,11 +219,14 @@ extendMinutes.addEventListener('keydown', (event) => {
 });
 
 window.taskWidgetAPI.onUpdateBackground((data) => {
+  document.body.classList.toggle('uses-theme-background', data.mode === 'theme');
   if (data.image) {
     widgetBg.style.backgroundImage = `url("${data.image.replace(/"/g, '\\"')}")`;
+    widgetBg.style.backgroundPosition = `${data.positionX}% ${data.positionY}%`;
     widgetBg.style.opacity = data.imageOpacity.toString();
   } else {
     widgetBg.style.backgroundImage = 'none';
+    widgetBg.style.backgroundPosition = '50% 50%';
     widgetBg.style.opacity = '0';
   }
 });

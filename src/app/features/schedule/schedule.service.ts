@@ -128,6 +128,7 @@ export class ScheduleService {
       activeActualTimeSegment,
       realNow ?? now,
       timelineCfg?.actualTimeMergeGapMinutes,
+      timelineCfg?.isLunchBreakEnabled ? createLunchBreakCfg(timelineCfg) : undefined,
     );
   }
 

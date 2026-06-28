@@ -135,6 +135,31 @@
   flex-shrink: 0;
 }
 
+.block-color-menu {
+  display: grid;
+  min-width: 220px;
+  gap: var(--s);
+  padding: var(--s);
+
+  label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s);
+    color: var(--text-color);
+  }
+
+  input[type='color'] {
+    width: 44px;
+    height: 30px;
+    padding: 2px;
+    border: 1px solid var(--extra-border-color);
+    border-radius: var(--card-border-radius);
+    background: transparent;
+    cursor: pointer;
+  }
+}
+
 .main-controls {
   display: flex;
   align-items: center;

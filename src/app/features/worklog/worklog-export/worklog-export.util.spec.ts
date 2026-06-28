@@ -1,6 +1,6 @@
 import { WorkStartEnd } from 'src/app/features/work-context/work-context.model';
 import { WorklogGrouping } from '../worklog.model';
-import { createRows, formatRows } from './worklog-export.util';
+import { createRows, formatRows, formatText } from './worklog-export.util';
 import { DEFAULT_TASK, WorklogTask } from '../../tasks/task.model';
 import { DEFAULT_PROJECT } from '../../project/project.const';
 import { DEFAULT_TAG } from '../../tag/tag.const';
@@ -471,5 +471,22 @@ describe('worklog-export.util moment replacement', () => {
         expect(rounded).toBe(expected);
       });
     });
+  });
+});
+
+describe('formatText', () => {
+  it('exports comma-separated columns that spreadsheet apps recognize', () => {
+    const csv = formatText(
+      ['Date', 'Worked', 'Titles'],
+      [['2026-06-27', '2:15', 'Review | Rest']],
+    );
+
+    expect(csv).toBe('Date,Worked,Titles\n2026-06-27,2:15,Review | Rest');
+  });
+
+  it('quotes commas, quotes and line breaks inside cells', () => {
+    const csv = formatText(['Title'], [['Plan, say "hello"\nthen work']]);
+
+    expect(csv).toBe('Title\n"Plan, say ""hello""\nthen work"');
   });
 });

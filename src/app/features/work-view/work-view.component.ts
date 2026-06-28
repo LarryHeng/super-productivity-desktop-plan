@@ -31,6 +31,7 @@ import {
   Observable,
   ReplaySubject,
   Subscription,
+  firstValueFrom,
   timer,
   zip,
 } from 'rxjs';
@@ -92,6 +93,7 @@ import { PluginIndexComponent } from '../../plugins/ui/plugin-index/plugin-index
 import { PluginBridgeService } from '../../plugins/plugin-bridge.service';
 import { PlainspaceClaimPoolComponent } from '../plainspace/claim-pool/claim-pool.component';
 import { PlainspaceSharedTask } from '../plainspace/plainspace-shared-task.model';
+import { DailySettlementService } from '../daily-settlement/daily-settlement.service';
 
 // Stable reference used as the toSignal initial value below so the deselect
 // effect can tell "the customized list hasn't emitted yet" apart from a
@@ -154,6 +156,7 @@ export class WorkViewComponent implements OnInit, OnDestroy {
   private _destroyRef = inject(DestroyRef);
   private _dateService = inject(DateService);
   private _pluginBridge = inject(PluginBridgeService);
+  private _dailySettlementService = inject(DailySettlementService);
   protected readonly dragDelayForTouch = dragDelayForTouch;
 
   isProjectContext = toSignal(this.workContextService.isActiveWorkContextProject$, {
@@ -507,6 +510,21 @@ export class WorkViewComponent implements OnInit, OnDestroy {
     if (!doneTasks || doneTasks.length === 0) {
       return;
     }
+    const isConfirmed = await firstValueFrom(
+      this._matDialog
+        .open(DialogConfirmComponent, {
+          data: {
+            title: T.WW.ARCHIVE_DONE_WARNING_TITLE,
+            titleIcon: 'warning',
+            message: T.WW.ARCHIVE_DONE_WARNING,
+            okTxt: T.WW.MOVE_DONE_TO_ARCHIVE,
+          },
+        })
+        .afterClosed(),
+    );
+    if (!isConfirmed) {
+      return;
+    }
 
     await this.taskService.moveToArchive(doneTasks);
     this._snackService.open({
@@ -516,6 +534,33 @@ export class WorkViewComponent implements OnInit, OnDestroy {
       translateParams: {
         nr: doneTasks.length,
       },
+    });
+  }
+
+  async clearCompletedMatrixTags(): Promise<void> {
+    const isConfirmed = await firstValueFrom(
+      this._matDialog
+        .open(DialogConfirmComponent, {
+          data: {
+            title: T.WW.CLEAR_MATRIX_TAGS_TITLE,
+            titleIcon: 'label_off',
+            message: T.WW.CLEAR_MATRIX_TAGS_CONFIRM,
+            okTxt: T.WW.CLEAR_MATRIX_TAGS,
+          },
+        })
+        .afterClosed(),
+    );
+    if (!isConfirmed) {
+      return;
+    }
+
+    const nr = await this._dailySettlementService.clearMatrixTagsFromCompletedTasks();
+    await this._dailySettlementService.finishPersistenceAndSync();
+    this._snackService.open({
+      msg: T.WW.CLEARED_MATRIX_TAGS,
+      type: 'SUCCESS',
+      ico: 'label_off',
+      translateParams: { nr },
     });
   }
 

@@ -6,15 +6,69 @@
     hidden
     (change)="onFileSelected($event)"
   />
-  <input
-    [name]="props.name"
-    [required]="!!props.required"
-    [readonly]="props.readonly"
-    [formControl]="formControl"
-    [formlyAttributes]="field"
-    matInput
-    placeholder="https://..."
-  />
+  @if (!isTaskWidgetBackgroundMode && !isManagedImageSelected) {
+    <input
+      [name]="props.name"
+      [required]="!!props.required"
+      [readonly]="props.readonly"
+      [formControl]="formControl"
+      [formlyAttributes]="field"
+      matInput
+      placeholder="https://..."
+    />
+  } @else {
+    <input
+      class="managed-image-reference"
+      matInput
+      readonly
+      [value]="taskWidgetBackgroundReference()"
+      [attr.aria-label]="props.label"
+      placeholder="image:&lt;managed-id&gt;"
+    />
+  }
+  @if (isTaskWidgetBackgroundMode) {
+    <div class="background-mode-actions">
+      <button
+        mat-stroked-button
+        type="button"
+        class="background-mode-button"
+        [class.active]="isTaskWidgetThemeSelected"
+        (click)="restoreTaskWidgetTheme()"
+        [disabled]="props.readonly"
+      >
+        <mat-icon>restart_alt</mat-icon>
+        {{ T.GCF.TASK_WIDGET.RESTORE_DEFAULT | translate }}
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        class="background-mode-button"
+        [class.active]="isTaskWidgetGlobalSelected"
+        (click)="useGlobalTaskWidgetBackground()"
+        [disabled]="props.readonly"
+      >
+        <mat-icon>sync</mat-icon>
+        {{ T.GCF.TASK_WIDGET.MATCH_GLOBAL | translate }}
+      </button>
+    </div>
+  }
+  @if (hasManagedImageLibraryControls && IS_ELECTRON) {
+    <div class="background-library">
+      <div class="background-library-copy">
+        <span>{{ T.F.PROJECT.FORM_THEME.L_BACKGROUND_LIBRARY | translate }}</span>
+        <strong>{{ backgroundLibraryPath() }}</strong>
+      </div>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="chooseBackgroundLibraryDirectory()"
+        [disabled]="props.readonly || isLibraryPickerBusy()"
+      >
+        <mat-icon>drive_file_move</mat-icon>
+        {{ T.F.PROJECT.FORM_THEME.BTN_CHANGE_BACKGROUND_LIBRARY | translate }}
+      </button>
+    </div>
+  }
   @if (IS_ELECTRON) {
     <button
       mat-stroked-button
@@ -27,7 +81,7 @@
       {{ T.F.PROJECT.FORM_THEME.BTN_SELECT_IMAGE | translate }}
     </button>
   }
-  @if (formControl.value) {
+  @if (formControl.value && !isTaskWidgetBackgroundMode) {
     <button
       mat-stroked-button
       type="button"
@@ -38,6 +92,31 @@
       <mat-icon>close</mat-icon>
       {{ T.G.CLEAR | translate }}
     </button>
+  }
+  @if (backgroundPreview(); as preview) {
+    <div class="background-focus-control">
+      <div>
+        <strong>{{ T.F.PROJECT.FORM_THEME.L_BACKGROUND_FOCUS | translate }}</strong>
+        <span>{{ T.F.PROJECT.FORM_THEME.D_BACKGROUND_FOCUS | translate }}</span>
+      </div>
+      <button
+        type="button"
+        class="background-focus-preview"
+        (pointerdown)="setBackgroundFocus($event)"
+        [attr.aria-label]="T.F.PROJECT.FORM_THEME.L_BACKGROUND_FOCUS | translate"
+      >
+        <img
+          [src]="preview"
+          alt=""
+        />
+        <span
+          class="background-focus-marker"
+          [style.left.%]="backgroundFocusX()"
+          [style.top.%]="backgroundFocusY()"
+        ></span>
+      </button>
+      <output> {{ backgroundFocusX() }}% / {{ backgroundFocusY() }}% </output>
+    </div>
   }
   @if (isUnsplashAvailable) {
     <button

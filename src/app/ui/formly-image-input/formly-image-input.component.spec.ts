@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { FormControl } from '@angular/forms';
+import { FormControl, FormGroup } from '@angular/forms';
 import { FormlyModule } from '@ngx-formly/core';
 import { TranslateModule } from '@ngx-translate/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -94,6 +94,81 @@ describe('FormlyImageInputComponent', () => {
     component.clearImage();
 
     expect(setValueSpy).toHaveBeenCalledWith(null);
+  });
+
+  it('uses explicit theme and global modes for task widget backgrounds', () => {
+    component.field = {
+      props: { taskWidgetBackgroundModes: true },
+      templateOptions: { taskWidgetBackgroundModes: true },
+    } as any;
+    const setValueSpy = spyOn(formControl, 'setValue').and.callThrough();
+
+    component.restoreTaskWidgetTheme();
+    component.useGlobalTaskWidgetBackground();
+
+    expect(setValueSpy.calls.allArgs()).toEqual([['task-widget:theme'], [null]]);
+  });
+
+  it('stores a clicked background focal point in sibling form controls', () => {
+    const form = new FormGroup({
+      backgroundImage: formControl,
+      backgroundPositionX: new FormControl(50),
+      backgroundPositionY: new FormControl(50),
+    });
+    Object.defineProperty(component, 'form', {
+      get: () => form,
+      configurable: true,
+    });
+    component.field = {
+      props: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+      templateOptions: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+    } as any;
+
+    component.setBackgroundFocus({
+      clientX: 150,
+      clientY: 125,
+      currentTarget: {
+        getBoundingClientRect: () => ({
+          left: 100,
+          top: 50,
+          width: 200,
+          height: 100,
+        }),
+      },
+    } as unknown as PointerEvent);
+
+    expect(form.controls.backgroundPositionX.value).toBe(25);
+    expect(form.controls.backgroundPositionY.value).toBe(75);
+    expect(component.backgroundFocusX()).toBe(25);
+    expect(component.backgroundFocusY()).toBe(75);
+  });
+
+  it('exposes the managed image path in task widget mode', async () => {
+    component.field = {
+      props: { taskWidgetBackgroundModes: true },
+      templateOptions: { taskWidgetBackgroundModes: true },
+    } as any;
+    (component as any).IS_ELECTRON = true;
+    (window as any).ea = {
+      imageCacheGetDisplayPath: jasmine
+        .createSpy('imageCacheGetDisplayPath')
+        .and.resolveTo(
+          `F:\\Documents\\superProductivity\\bg-images\\${'a'.repeat(32)}.jpg`,
+        ),
+    };
+
+    expect(component.isTaskWidgetBackgroundMode).toBeTrue();
+    formControl.setValue(`image:${'a'.repeat(32)}`);
+    await fixture.whenStable();
+    expect(component.taskWidgetBackgroundReference()).toBe(
+      `F:\\Documents\\superProductivity\\bg-images\\${'a'.repeat(32)}.jpg`,
+    );
   });
 
   it('rejects oversized files with snack', () => {

@@ -4,8 +4,8 @@ contextBridge.exposeInMainWorld('taskWidgetAPI', {
   showMainWindow: () => {
     ipcRenderer.send('task-widget-show-main-window');
   },
-  completeTask: (taskId: string) => {
-    ipcRenderer.send('task-widget-complete-task', taskId);
+  completeTask: (taskId: string, isDone: boolean) => {
+    ipcRenderer.send('task-widget-complete-task', taskId, isDone);
   },
   switchTask: (taskId: string) => {
     ipcRenderer.send('task-widget-switch-task', taskId);

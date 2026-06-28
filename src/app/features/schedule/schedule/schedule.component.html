@@ -62,6 +62,40 @@
     </mat-menu>
   }
 
+  <button
+    mat-icon-button
+    [matMenuTriggerFor]="blockColorMenu"
+    [matTooltip]="T.F.SCHEDULE.BLOCK_COLORS | translate"
+    [attr.aria-label]="T.F.SCHEDULE.BLOCK_COLORS | translate"
+  >
+    <mat-icon>palette</mat-icon>
+  </button>
+  <mat-menu #blockColorMenu="matMenu">
+    <ng-template matMenuContent>
+      <div
+        class="block-color-menu"
+        (click)="$event.stopPropagation()"
+      >
+        <label>
+          <span>{{ T.F.SCHEDULE.PLANNED_BLOCK_COLOR | translate }}</span>
+          <input
+            type="color"
+            [value]="blockColors().planned"
+            (change)="updateBlockColor('planned', $event)"
+          />
+        </label>
+        <label>
+          <span>{{ T.F.SCHEDULE.ACTUAL_BLOCK_COLOR | translate }}</span>
+          <input
+            type="color"
+            [value]="blockColors().actual"
+            (change)="updateBlockColor('actual', $event)"
+          />
+        </label>
+      </div>
+    </ng-template>
+  </mat-menu>
+
   <div class="date-nav-group">
     <button
       mat-icon-button
@@ -78,18 +112,16 @@
       <mat-icon>chevron_left</mat-icon>
     </button>
 
-    @if (!isMonthView()) {
-      <button
-        mat-icon-button
-        class="today-btn"
-        (click)="goToToday()"
-        [disabled]="isViewingToday()"
-        [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
-        [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
-      >
-        <mat-icon>wb_sunny</mat-icon>
-      </button>
-    }
+    <button
+      mat-icon-button
+      class="today-btn"
+      (click)="goToToday()"
+      [disabled]="isViewingToday()"
+      [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
+      [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
+    >
+      <mat-icon>wb_sunny</mat-icon>
+    </button>
 
     <button
       mat-icon-button

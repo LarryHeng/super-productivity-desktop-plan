@@ -1,5 +1,6 @@
 import {
   getBackgroundImageBlur,
+  getBackgroundImagePosition,
   getBackgroundOverlayOpacity,
   getResolvedBackgroundOverlayOpacity,
 } from './app.component';
@@ -57,6 +58,17 @@ describe('AppComponent theme helpers', () => {
           35,
         ),
       ).toBe(0.65);
+    });
+  });
+
+  describe('getBackgroundImagePosition()', () => {
+    it('uses the configured global focal point when the global image is active', () => {
+      expect(getBackgroundImagePosition('image:global', 18.4, 83.6)).toBe('18.4% 83.6%');
+    });
+
+    it('clamps invalid coordinates and centers context backgrounds', () => {
+      expect(getBackgroundImagePosition('image:global', -20, 140)).toBe('0% 100%');
+      expect(getBackgroundImagePosition(null, 10, 90)).toBe('50% 50%');
     });
   });
 });

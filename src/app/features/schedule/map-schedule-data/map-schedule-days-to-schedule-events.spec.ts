@@ -220,6 +220,30 @@ describe('mapScheduleDaysToScheduleEvents()', () => {
     expect(res.eventsFlat[1].overlap).toEqual({ count: 2, offset: 1 });
   });
 
+  it('keeps a planned task full width when it spans the lunch marker', () => {
+    const startTime = new Date(2020, 0, 1, 11, 30).getTime();
+    const res = mapScheduleDaysToScheduleEvents(
+      [
+        fakeDay({
+          entries: [
+            fakeTaskEntry('AAA', { start: startTime, duration: 2 * H }),
+            {
+              id: 'lunch',
+              type: SVEType.LunchBreak,
+              start: new Date(2020, 0, 1, 12, 0).getTime(),
+              duration: H,
+              data: { startTime: '12:00', endTime: '13:00' },
+            },
+          ],
+        }),
+      ],
+      FH,
+    );
+
+    expect(res.eventsFlat.find((event) => event.id === 'AAA')?.overlap).toBeUndefined();
+    expect(res.eventsFlat.find((event) => event.id === 'lunch')?.overlap).toBeUndefined();
+  });
+
   it('should NOT detect overlap for two zero-duration events at different times', () => {
     const res = mapScheduleDaysToScheduleEvents(
       [

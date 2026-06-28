@@ -10,7 +10,6 @@ import { ScheduleEvent } from '../schedule.model';
 import { safeFormatDate } from 'src/app/util/safe-format-date';
 import { T } from '../../../t.const';
 import { ScheduleService } from '../schedule.service';
-import { LocaleDatePipe } from 'src/app/ui/pipes/locale-date.pipe';
 import { DateTimeFormatService } from 'src/app/core/date-time-format/date-time-format.service';
 import { parseDbDateStr } from 'src/app/util/parse-db-date-str';
 import {
@@ -22,7 +21,7 @@ import { MonthGridDay } from '../../../ui/month-grid/month-grid.model';
 
 @Component({
   selector: 'schedule-month',
-  imports: [LocaleDatePipe, MonthGridComponent],
+  imports: [MonthGridComponent],
   templateUrl: './schedule-month.component.html',
   styleUrl: './schedule-month.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

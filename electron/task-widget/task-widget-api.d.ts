@@ -24,6 +24,9 @@ interface TaskWidgetContentData {
 interface TaskWidgetBackgroundData {
   image: string | null;
   imageOpacity: number;
+  mode: 'theme' | 'image';
+  positionX: number;
+  positionY: number;
 }
 
 interface TaskWidgetAppearanceData {
@@ -38,7 +41,7 @@ interface TaskWidgetCountdownExpiredData {
 
 interface TaskWidgetAPI {
   showMainWindow: () => void;
-  completeTask: (taskId: string) => void;
+  completeTask: (taskId: string, isDone: boolean) => void;
   switchTask: (taskId: string) => void;
   hideWidget: () => void;
   extendTask: (taskId: string, additionalTime: number) => void;

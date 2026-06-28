@@ -70,6 +70,7 @@ export class PlannerDayComponent {
   //  This input is used in a control flow expression (e.g. `@if` or `*ngIf`)
   //  and migrating would break narrowing currently.
   @Input() day!: PlannerDay;
+  @Input() hasOverdue = false;
 
   @HostBinding('attr.data-day') get dataDayAttr(): string | undefined {
     return this.day?.dayDate;
@@ -77,6 +78,10 @@ export class PlannerDayComponent {
 
   @HostBinding('class.is-today') get isToday(): boolean {
     return !!this.day?.isToday;
+  }
+
+  @HostBinding('class.has-overdue') get hasOverdueClass(): boolean {
+    return this.hasOverdue;
   }
 
   protected readonly T = T;

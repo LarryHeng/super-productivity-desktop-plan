@@ -40,6 +40,7 @@ interface CalendarDay {
   isToday: boolean;
   isPast: boolean;
   hasTasks: boolean;
+  isOverdue: boolean;
 }
 
 @Component({
@@ -58,6 +59,7 @@ export class PlannerCalendarNavComponent {
 
   visibleDayDate = input<string | null>(null);
   daysWithTasks = input<ReadonlySet<string>>(new Set());
+  overdueDays = input<ReadonlySet<string>>(new Set());
   defaultExpanded = input(false);
   dayTapped = output<string>();
 
@@ -80,6 +82,7 @@ export class PlannerCalendarNavComponent {
     const anchor = this._anchorWeekStart();
     const todayStr = this._globalTrackingIntervalService.todayDateStr();
     const taskDays = this.daysWithTasks();
+    const overdueDays = this.overdueDays();
 
     const weekStart = anchor
       ? parseDbDateStr(anchor)
@@ -97,6 +100,7 @@ export class PlannerCalendarNavComponent {
           isToday: dateStr === todayStr,
           isPast: dateStr < todayStr,
           hasTasks: taskDays.has(dateStr),
+          isOverdue: overdueDays.has(dateStr),
         });
         cursor.setDate(cursor.getDate() + 1);
       }

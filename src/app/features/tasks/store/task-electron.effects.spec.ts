@@ -137,13 +137,31 @@ describe('TaskElectronEffects', () => {
 
     expect(taskWidgetCompleteListener).toEqual(jasmine.any(Function));
 
-    taskWidgetCompleteListener({}, 'task-1');
+    taskWidgetCompleteListener({}, 'task-1', true);
 
     expect(store.dispatch).toHaveBeenCalledWith(
       TaskSharedActions.updateTask({
         task: { id: 'task-1', changes: { isDone: true } },
       }),
     );
+  });
+
+  it('restores a completed task from task widget IPC', () => {
+    const store = TestBed.inject(Store);
+    spyOn(store, 'dispatch');
+    const onSpy = (window as any).ea.on as jasmine.Spy;
+    const taskWidgetCompleteListener = onSpy.calls
+      .allArgs()
+      .find(([channel]) => channel === IPC.TASK_WIDGET_COMPLETE_TASK)?.[1];
+
+    taskWidgetCompleteListener({}, 'task-1', false);
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      TaskSharedActions.updateTask({
+        task: { id: 'task-1', changes: { isDone: false } },
+      }),
+    );
+    expect(taskService.pauseCurrent).not.toHaveBeenCalled();
   });
 
   it('pauses the running task before completing it from task widget IPC', () => {
@@ -153,7 +171,7 @@ describe('TaskElectronEffects', () => {
       .find(([channel]) => channel === IPC.TASK_WIDGET_COMPLETE_TASK)?.[1];
     (taskService.currentTaskId as jasmine.Spy).and.returnValue('task-1');
 
-    taskWidgetCompleteListener({}, 'task-1');
+    taskWidgetCompleteListener({}, 'task-1', true);
 
     expect(taskService.pauseCurrent).toHaveBeenCalled();
   });

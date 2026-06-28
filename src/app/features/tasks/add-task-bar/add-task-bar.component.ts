@@ -416,6 +416,14 @@ export class AddTaskBarComponent implements AfterViewInit, OnInit, OnDestroy {
 
     const title = currentState.cleanText || rawInput;
     if (!title) return;
+    if (!currentState.estimate || currentState.estimate <= 0) {
+      this.actionsComponent()?.openEstimateMenu();
+      this._snackService.open({
+        msg: T.F.TASK.ADD_TASK_BAR.ESTIMATE_REQUIRED,
+        type: 'WARNING',
+      });
+      return;
+    }
 
     this._isAddingTask = true;
     try {

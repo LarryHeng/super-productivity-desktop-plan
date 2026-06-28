@@ -7,9 +7,14 @@ import {
   ScheduleDay,
   ScheduleLunchBreakCfg,
   ScheduleWorkStartEndCfg,
+  SVE,
 } from '../schedule.model';
 import { createScheduleDays } from './create-schedule-days';
 import { createBlockedBlocksByDayMap } from './create-blocked-blocks-by-day-map';
+import { getDateTimeFromClockString } from '../../../util/get-date-time-from-clock-string';
+import { dateStrToUtcDate } from '../../../util/date-str-to-utc-date';
+import { getDbDateStr } from '../../../util/get-db-date-str';
+import { SVEType } from '../schedule.const';
 
 export const mapToScheduleDays = (
   now: number,
@@ -61,7 +66,8 @@ export const mapToScheduleDays = (
     !scheduledTaskRepeatCfgs.length &&
     !unScheduledTaskRepeatCfgs.length &&
     !calenderWithItems.length &&
-    !plannerDayKeys.length
+    !plannerDayKeys.length &&
+    !lunchBreakCfg
   ) {
     return [];
   }
@@ -85,7 +91,7 @@ export const mapToScheduleDays = (
     realNow,
   );
 
-  const v = createScheduleDays(
+  const days = createScheduleDays(
     nonScheduledTasks,
     unScheduledTaskRepeatCfgs,
     dayDates,
@@ -96,7 +102,43 @@ export const mapToScheduleDays = (
     realNow,
   );
 
-  return v;
+  return lunchBreakCfg
+    ? appendLunchBreakMarkers(days, lunchBreakCfg, realNow ?? now)
+    : days;
+};
+
+const appendLunchBreakMarkers = (
+  days: ScheduleDay[],
+  lunchBreakCfg: ScheduleLunchBreakCfg,
+  realNow: number,
+): ScheduleDay[] => {
+  const currentDay = getDbDateStr(realNow);
+
+  return days.map((day) => {
+    if (day.dayDate > currentDay) {
+      return day;
+    }
+
+    const dayDate = dateStrToUtcDate(day.dayDate);
+    const start = getDateTimeFromClockString(lunchBreakCfg.startTime, dayDate);
+    const end = getDateTimeFromClockString(lunchBreakCfg.endTime, dayDate);
+    if (end <= start) {
+      return day;
+    }
+
+    const lunchEntry: SVE = {
+      id: `LUNCH_BREAK_${day.dayDate}`,
+      start,
+      type: SVEType.LunchBreak,
+      data: lunchBreakCfg,
+      duration: end - start,
+    };
+
+    return {
+      ...day,
+      entries: [...day.entries, lunchEntry].sort((a, b) => a.start - b.start),
+    };
+  });
 };
 
 const resortTasksWithCurrentFirst = (currentId: string, tasks: Task[]): Task[] => {

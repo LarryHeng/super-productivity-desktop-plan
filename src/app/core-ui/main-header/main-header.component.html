@@ -39,10 +39,12 @@
           matTooltip="{{ T.MH.ADD_NEW_TASK | translate }} {{
             kb.addNewTask ? '[' + kb.addNewTask + ']' : ''
           }}"
-          class="tour-addBtn"
-          mat-icon-button
+          class="tour-addBtn add-task-btn"
+          mat-flat-button
+          color="primary"
         >
           <mat-icon>add</mat-icon>
+          <span class="add-task-label">{{ T.MH.ADD_NEW_TASK | translate }}</span>
         </button>
       }
 

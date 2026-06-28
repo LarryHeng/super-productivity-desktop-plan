@@ -339,6 +339,10 @@ test('IMAGE_PICK_AND_IMPORT opens dialog, imports the chosen file, returns an id
   );
   const url = await handlers['IMAGE_CACHE_GET_DATA_URL']({}, imported.id);
   assert.match(url, /^data:image\/png;base64,/);
+  assert.equal(
+    await handlers['IMAGE_CACHE_GET_DISPLAY_PATH']({}, imported.id),
+    path.join(imageCacheDir, `${imported.id}.png`),
+  );
 });
 
 test('IMAGE_PICK_AND_IMPORT returns null when the user cancels', async () => {

@@ -137,6 +137,23 @@ describe('PlannerCalendarNavComponent', () => {
       expect(dayWithoutTask!.hasTasks).toBeFalse();
     });
 
+    it('should mark overdue dates via overdueDays input', () => {
+      fixture.componentRef.setInput('overdueDays', new Set(['2026-02-16']));
+      fixture.detectChanges();
+
+      const overdueDay = component
+        .weeks()
+        .flat()
+        .find((day) => day.dateStr === '2026-02-16');
+      const normalDay = component
+        .weeks()
+        .flat()
+        .find((day) => day.dateStr === '2026-02-17');
+
+      expect(overdueDay!.isOverdue).toBeTrue();
+      expect(normalDay!.isOverdue).toBeFalse();
+    });
+
     it('should set dayOfMonth to the calendar day number', () => {
       const weeks = component.weeks();
       const allDays = weeks.flat();

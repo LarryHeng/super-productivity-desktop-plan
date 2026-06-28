@@ -18,6 +18,9 @@ const defaultTaskNotesTemplate = `**How can I best achieve it now?**
 `;
 
 export const DEFAULT_DAY_START = '9:00';
+export const DEFAULT_TAKE_A_BREAK_MESSAGE =
+  'You have been working for ${duration} without one. Go away from the computer! Take a short walk! Makes you more productive in the long run!';
+
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
   appFeatures: {
     isTimeTrackingEnabled: true,
@@ -71,6 +74,8 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     defaultStartPage: 0,
     globalBackgroundImage: null,
     globalBackgroundImageOpacity: 20,
+    globalBackgroundPositionX: 50,
+    globalBackgroundPositionY: 50,
   },
   shortSyntax: {
     isEnableProject: true,
@@ -93,8 +98,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     timedFullScreenBlockerDuration: 8000,
     isFocusWindow: false,
 
-    takeABreakMessage:
-      'You have been working for ${duration} without one. Go away from the computer! Take a short walk! Makes you more productive in the long run!',
+    takeABreakMessage: DEFAULT_TAKE_A_BREAK_MESSAGE,
     takeABreakMinWorkingTime: 60 * minute,
     takeABreakSnoozeTime: 15 * minute,
     motivationalImgs: [],
@@ -220,6 +224,8 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
   },
   schedule: {
     actualTimeMergeGapMinutes: 5,
+    plannedBlockColor: '#4f86f7',
+    actualBlockColor: '#2ca58d',
     isWorkStartEndEnabled: true,
     workStart: DEFAULT_DAY_START,
     workEnd: '17:00',

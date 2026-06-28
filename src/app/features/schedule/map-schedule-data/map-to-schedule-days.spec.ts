@@ -87,6 +87,97 @@ const fakeRepeatCfg = (
 };
 
 describe('mapToScheduleDays()', () => {
+  describe('lunch break markers', () => {
+    const localTs = (
+      year: number,
+      month: number,
+      day: number,
+      hour: number,
+      minute = 0,
+    ): number => new Date(year, month - 1, day, hour, minute, 0, 0).getTime();
+
+    it('allows a task to span the lunch break without splitting or delaying it', () => {
+      const monday = '2026-06-22';
+      const now = localTs(2026, 6, 22, 11, 30);
+
+      const result = mapToScheduleDays(
+        now,
+        [monday],
+        [fakeTaskEntry('cross-lunch', { timeEstimate: h(2) })],
+        [],
+        [],
+        [],
+        [],
+        null,
+        {},
+        { startTime: '9:00', endTime: '18:00' },
+        { startTime: '12:00', endTime: '13:00' },
+        now,
+      );
+
+      const taskEntries = result[0].entries.filter(
+        (entry) => (entry.data as TaskCopy | undefined)?.id === 'cross-lunch',
+      );
+      expect(taskEntries.length).toBe(1);
+      expect(taskEntries[0].start).toBe(now);
+      expect(taskEntries[0].duration).toBe(h(2));
+      expect(result[0].entries.some((entry) => entry.type === 'LunchBreak')).toBeTrue();
+    });
+
+    it('shows lunch markers through today but not on future days', () => {
+      const monday = localTs(2026, 6, 22, 9);
+      const wednesday = localTs(2026, 6, 24, 10);
+      const dayDates = Array.from({ length: 7 }, (_, offset) => {
+        const date = new Date(monday);
+        date.setDate(date.getDate() + offset);
+        return getDbDateStr(date);
+      });
+
+      const result = mapToScheduleDays(
+        monday,
+        dayDates,
+        [fakeTaskEntry('week-task', { timeEstimate: h(1) })],
+        [],
+        [],
+        [],
+        [],
+        null,
+        {},
+        { startTime: '9:00', endTime: '18:00' },
+        { startTime: '12:00', endTime: '13:00' },
+        wednesday,
+      );
+
+      const lunchDays = result
+        .filter((day) => day.entries.some((entry) => entry.type === 'LunchBreak'))
+        .map((day) => day.dayDate);
+      expect(lunchDays).toEqual(['2026-06-22', '2026-06-23', '2026-06-24']);
+    });
+
+    it('keeps the lunch marker visible on an otherwise empty day', () => {
+      const monday = '2026-06-22';
+      const now = localTs(2026, 6, 22, 10);
+
+      const result = mapToScheduleDays(
+        now,
+        [monday],
+        [],
+        [],
+        [],
+        [],
+        [],
+        null,
+        {},
+        { startTime: '9:00', endTime: '18:00' },
+        { startTime: '12:00', endTime: '13:00' },
+        now,
+      );
+
+      expect(result.length).toBe(1);
+      expect(result[0].entries.some((entry) => entry.type === 'LunchBreak')).toBeTrue();
+    });
+  });
+
   it('should work for empty case', () => {
     expect(
       mapToScheduleDays(N, [], [], [], [], [], [], null, {}, undefined, undefined),

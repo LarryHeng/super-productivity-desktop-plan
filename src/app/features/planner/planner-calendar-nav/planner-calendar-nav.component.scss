@@ -63,6 +63,12 @@
     background: var(--c-primary);
     color: var(--text-on-primary, #fff);
   }
+
+  &.is-overdue:not(.is-active) {
+    border-color: var(--c-warn);
+    color: var(--c-warn);
+    font-weight: 700;
+  }
 }
 
 .task-dot {
@@ -74,6 +80,10 @@
   height: 4px;
   border-radius: 50%;
   background: var(--c-primary);
+
+  &.is-overdue {
+    background: var(--c-warn);
+  }
 }
 
 .handle {

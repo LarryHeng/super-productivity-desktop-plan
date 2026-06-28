@@ -79,6 +79,27 @@ export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
       templateOptions: {
         label: T.GCF.MISC.GLOBAL_BACKGROUND_IMAGE,
         description: '* https://some/cool.jpg',
+        managedImageLibraryControls: true,
+        backgroundFocusXKey: 'globalBackgroundPositionX',
+        backgroundFocusYKey: 'globalBackgroundPositionY',
+      },
+    },
+    {
+      key: 'globalBackgroundPositionX',
+      type: 'input',
+      className: 'background-focus-storage-field',
+      defaultValue: 50,
+      templateOptions: {
+        type: 'number',
+      },
+    },
+    {
+      key: 'globalBackgroundPositionY',
+      type: 'input',
+      className: 'background-focus-storage-field',
+      defaultValue: 50,
+      templateOptions: {
+        type: 'number',
       },
     },
     {

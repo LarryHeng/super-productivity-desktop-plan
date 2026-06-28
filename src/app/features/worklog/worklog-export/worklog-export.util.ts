@@ -345,8 +345,13 @@ export const formatText = (
   headlineCols: string[],
   rows: (string | number | undefined)[][],
 ): string => {
-  let txt = '';
-  txt += headlineCols.join(';') + LINE_SEPARATOR;
-  txt += rows.map((cols) => cols.join(';')).join(LINE_SEPARATOR);
-  return txt;
+  const escapeCell = (value: string | number | undefined): string => {
+    const text = value === undefined ? '' : String(value);
+    const escaped = text.replace(/"/g, '""');
+    return /[",\r\n]/.test(text) ? `"${escaped}"` : escaped;
+  };
+  const formatRow = (cols: (string | number | undefined)[]): string =>
+    cols.map(escapeCell).join(',');
+
+  return [formatRow(headlineCols), ...rows.map(formatRow)].join(LINE_SEPARATOR);
 };

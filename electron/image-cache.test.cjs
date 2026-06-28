@@ -103,6 +103,37 @@ test('uses a bg-images sibling next to an externally linked backups folder', asy
   }
 });
 
+test('detects a backups junction and migrates legacy cached images beside its target', async () => {
+  const externalRoot = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-external-junction-')),
+  );
+  const backupTarget = path.join(externalRoot, 'backups');
+  const backupLink = path.join(userDataDir, 'backups');
+  const legacyCacheDir = path.join(userDataDir, 'bg-images');
+  const id = 'a'.repeat(32);
+  try {
+    await fs.mkdir(backupTarget);
+    await fs.symlink(
+      backupTarget,
+      backupLink,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    await fs.mkdir(legacyCacheDir);
+    await fs.writeFile(path.join(legacyCacheDir, `${id}.png`), 'legacy-image');
+
+    const cache = load();
+    const url = await cache.getImageDataUrl(id);
+    const migrated = path.join(externalRoot, 'bg-images', `${id}.png`);
+
+    assert.match(url, /^data:image\/png;base64,/);
+    assert.equal(fsModule.existsSync(migrated), true);
+    assert.equal(await fs.readFile(migrated, 'utf8'), 'legacy-image');
+    assert.equal(fsModule.existsSync(path.join(legacyCacheDir, `${id}.png`)), false);
+  } finally {
+    await fs.rm(externalRoot, { recursive: true, force: true });
+  }
+});
+
 test('importImage accepts avif and bmp (restored legacy formats)', async () => {
   const cache = load();
   const sourceDir = fsModule.realpathSync.native(
@@ -214,6 +245,10 @@ test('getImageDataUrl returns the data url for a known id', async () => {
     assert.ok(imported);
     const url = await cache.getImageDataUrl(imported.id);
     assert.match(url, /^data:image\/png;base64,/);
+    assert.equal(
+      await cache.getImageDisplayPath(imported.id),
+      path.join(userDataDir, 'bg-images', `${imported.id}.png`),
+    );
     const base64 = url.split(',')[1];
     assert.equal(Buffer.from(base64, 'base64').toString('utf8'), 'imgbytes');
   } finally {
@@ -243,6 +278,41 @@ test('getImageDataUrl resolves across module reloads (persistence)', async () =>
     assert.match(url, /^data:image\/png;base64,/);
   } finally {
     await fs.rm(sourceDir, { recursive: true, force: true });
+  }
+});
+
+test('moves managed copies to a selected cache directory without touching source image', async () => {
+  const cache = load();
+  const sourceDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-src-')),
+  );
+  const selectedDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-selected-bg-')),
+  );
+  try {
+    const src = await mkPng(sourceDir, 'original.png', Buffer.from('keep-source'));
+    const imported = await cache.importImage(src);
+    assert.ok(imported);
+    const oldCopy = path.join(userDataDir, 'bg-images', `${imported.id}.png`);
+    const result = await cache.setImageCacheDirectory(selectedDir);
+    const newCopy = path.join(selectedDir, `${imported.id}.png`);
+
+    assert.equal(result.effectiveDir, selectedDir);
+    assert.equal(await fs.readFile(src, 'utf8'), 'keep-source');
+    assert.equal(await fs.readFile(newCopy, 'utf8'), 'keep-source');
+    assert.equal(fsModule.existsSync(oldCopy), false);
+    const simpleSettings = JSON.parse(
+      await fs.readFile(path.join(userDataDir, 'simpleSettings'), 'utf8'),
+    );
+    assert.deepEqual(simpleSettings, { imageCacheDir: selectedDir });
+    assert.equal(await cache.getImageDisplayPath(imported.id), newCopy);
+
+    const reloaded = load();
+    assert.equal((await reloaded.getImageCachePathInfo()).effectiveDir, selectedDir);
+    assert.match(await reloaded.getImageDataUrl(imported.id), /^data:image\/png;base64,/);
+  } finally {
+    await fs.rm(sourceDir, { recursive: true, force: true });
+    await fs.rm(selectedDir, { recursive: true, force: true });
   }
 });
 

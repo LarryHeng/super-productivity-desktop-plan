@@ -99,10 +99,17 @@ const installMocks = () => {
 
     if (request === '../task-widget/task-widget') {
       return {
-        updateTaskWidgetGlobalBackground: (backgroundImage, backgroundImageOpacity) => {
+        updateTaskWidgetGlobalBackground: (
+          backgroundImage,
+          backgroundImageOpacity,
+          backgroundPositionX,
+          backgroundPositionY,
+        ) => {
           taskWidgetGlobalBackgroundUpdates.push({
             backgroundImage,
             backgroundImageOpacity,
+            backgroundPositionX,
+            backgroundPositionY,
           });
         },
       };
@@ -184,6 +191,8 @@ test('settings update forwards global background as task widget fallback', async
         isMinimizeToTray: false,
         globalBackgroundImage: 'image:global',
         globalBackgroundImageOpacity: 32,
+        globalBackgroundPositionX: 23,
+        globalBackgroundPositionY: 71,
       },
     },
   );
@@ -192,6 +201,8 @@ test('settings update forwards global background as task widget fallback', async
     {
       backgroundImage: 'image:global',
       backgroundImageOpacity: 32,
+      backgroundPositionX: 23,
+      backgroundPositionY: 71,
     },
   ]);
 });

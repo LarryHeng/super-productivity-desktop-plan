@@ -5,6 +5,12 @@
     }
     {{ day.dayDate | localeDate: 'EEE' }}
     <span class="date">{{ day.dayDate | shortDate2 }}</span>
+    @if (hasOverdue) {
+      <span class="overdue-label">
+        <mat-icon inline="true">warning</mat-icon>
+        {{ T.F.PLANNER.HAS_OVERDUE_TASKS | translate }}
+      </span>
+    }
   </div>
   <!--<div class="day-estimate">{{ day.timeEstimate |roundDuration|msToString }}</div>-->
 

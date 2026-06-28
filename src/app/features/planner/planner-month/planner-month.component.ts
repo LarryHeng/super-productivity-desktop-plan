@@ -8,7 +8,6 @@ import {
 } from '@angular/core';
 import { PlannerDay } from '../planner.model';
 import { getPlannerMonthItems, PlannerMonthItem } from './planner-month.util';
-import { LocaleDatePipe } from '../../../ui/pipes/locale-date.pipe';
 import { DateTimeFormatService } from '../../../core/date-time-format/date-time-format.service';
 import { DateService } from '../../../core/date/date.service';
 import { safeFormatDate } from '../../../util/safe-format-date';
@@ -18,7 +17,7 @@ import { MonthGridDay } from '../../../ui/month-grid/month-grid.model';
 
 @Component({
   selector: 'planner-month',
-  imports: [LocaleDatePipe, MonthGridComponent],
+  imports: [MonthGridComponent],
   templateUrl: './planner-month.component.html',
   styleUrl: './planner-month.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +29,7 @@ export class PlannerMonthComponent {
 
   readonly days = input<PlannerDay[]>([]);
   readonly daysToShow = input<string[]>([]);
+  readonly overdueDays = input<ReadonlySet<string>>(new Set());
   readonly daySelected = output<string>();
   readonly todaySelected = output<void>();
 
@@ -51,6 +51,7 @@ export class PlannerMonthComponent {
   readonly gridDays = computed<MonthGridDay[]>(() =>
     this.daysToShow().map((dayDate) => ({
       dayDate,
+      isOverdue: this.overdueDays().has(dayDate),
       items: this.getItems(dayDate).map((item) => ({
         id: item.id,
         title: item.title,

@@ -58,12 +58,17 @@
             [class.is-today]="day.isToday"
             [class.is-active]="day.dateStr === visibleDayDate()"
             [class.is-past]="day.isPast"
+            [class.is-overdue]="day.isOverdue"
+            [attr.title]="
+              day.isOverdue ? (T.F.PLANNER.HAS_OVERDUE_TASKS | translate) : null
+            "
             (click)="onDayTap(day.dateStr)"
           >
             {{ day.dayOfMonth }}
-            @if (day.hasTasks) {
+            @if (day.hasTasks || day.isOverdue) {
               <span
                 class="task-dot"
+                [class.is-overdue]="day.isOverdue"
                 aria-hidden="true"
               ></span>
             }

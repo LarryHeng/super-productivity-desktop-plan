@@ -107,3 +107,9 @@ body.isIPad {
     }
   }
 }
+// Formly storage controls for background focal-point coordinates. They remain
+// in the form model so image-picker clicks persist, but the visual control is
+// the image preview itself.
+.background-focus-storage-field {
+  display: none !important;
+}

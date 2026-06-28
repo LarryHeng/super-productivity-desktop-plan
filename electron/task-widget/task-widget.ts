@@ -25,8 +25,12 @@ let currentOpacity = 95;
 let currentContentOpacity = 100;
 let currentBackgroundImage: string | null = null;
 let currentBackgroundImageOpacity = 45;
+let currentBackgroundPositionX = 50;
+let currentBackgroundPositionY = 50;
 let currentGlobalBackgroundImage: string | null = null;
 let currentGlobalBackgroundImageOpacity = 20;
+let currentGlobalBackgroundPositionX = 50;
+let currentGlobalBackgroundPositionY = 50;
 let listenersRegistered = false;
 let taskWidgetCreationPromise: Promise<void> | null = null;
 let taskWidgetCreationGeneration = 0;
@@ -44,6 +48,7 @@ const TASK_WIDGET_SWITCH_TASK = 'task-widget-switch-task';
 const TASK_WIDGET_EXTEND_TASK = 'task-widget-extend-task';
 const TASK_WIDGET_HIDE = 'task-widget-hide';
 const IMAGE_CACHE_PREFIX = 'image:';
+const TASK_WIDGET_THEME_BACKGROUND = 'task-widget:theme';
 const WINDOWS_DESKTOP_LAYER_REFRESH_MS = 500;
 const WINDOWS_DESKTOP_HANDLE_COMMAND =
   'Add-Type -MemberDefinition \'[System.Runtime.InteropServices.DllImport("user32.dll")] public static extern System.IntPtr GetShellWindow();\' -Name ShellWindow -Namespace Native; [Native.ShellWindow]::GetShellWindow().ToInt64()';
@@ -163,19 +168,44 @@ const normalizeBackgroundImageOpacity = (
   fallback: number,
 ): number => Math.max(0, Math.min(100, backgroundImageOpacity ?? fallback));
 
+const normalizeBackgroundPosition = (
+  value: number | null | undefined,
+  fallback = 50,
+): number =>
+  Number.isFinite(value)
+    ? Math.round(Math.max(0, Math.min(100, value as number)) * 10) / 10
+    : fallback;
+
 const getEffectiveTaskWidgetBackground = (): Readonly<{
   image: string | null;
   imageOpacity: number;
+  mode: 'theme' | 'image';
+  positionX: number;
+  positionY: number;
 }> =>
-  currentBackgroundImage
+  currentBackgroundImage === TASK_WIDGET_THEME_BACKGROUND
     ? {
-        image: currentBackgroundImage,
+        image: null,
         imageOpacity: currentBackgroundImageOpacity,
+        mode: 'theme',
+        positionX: currentBackgroundPositionX,
+        positionY: currentBackgroundPositionY,
       }
-    : {
-        image: currentGlobalBackgroundImage,
-        imageOpacity: currentGlobalBackgroundImageOpacity,
-      };
+    : currentBackgroundImage
+      ? {
+          image: currentBackgroundImage,
+          imageOpacity: currentBackgroundImageOpacity,
+          mode: 'image',
+          positionX: currentBackgroundPositionX,
+          positionY: currentBackgroundPositionY,
+        }
+      : {
+          image: currentGlobalBackgroundImage,
+          imageOpacity: currentGlobalBackgroundImageOpacity,
+          mode: currentGlobalBackgroundImage ? 'image' : 'theme',
+          positionX: currentGlobalBackgroundPositionX,
+          positionY: currentGlobalBackgroundPositionY,
+        };
 
 export const updateTaskWidgetEnabled = (isEnabled: boolean): void => {
   const wasEnabled = isTaskWidgetEnabled;
@@ -198,7 +228,12 @@ export const updateTaskWidgetEnabled = (isEnabled: boolean): void => {
       // and on macOS BrowserWindow.setOpacity() defaults to 1 (no CSS fallback).
       if (taskWidgetWin && !taskWidgetWin.isDestroyed()) {
         updateTaskWidgetOpacity(currentOpacity, currentContentOpacity);
-        updateTaskWidgetBackground(currentBackgroundImage, currentBackgroundImageOpacity);
+        updateTaskWidgetBackground(
+          currentBackgroundImage,
+          currentBackgroundImageOpacity,
+          currentBackgroundPositionX,
+          currentBackgroundPositionY,
+        );
         if (isAlwaysShow) {
           showTaskWidget({ inactive: true });
         }
@@ -485,7 +520,12 @@ const createTaskWidgetWindowForGeneration = async (
   updateTaskWidgetContent();
 
   updateTaskWidgetOpacity(currentOpacity, currentContentOpacity);
-  updateTaskWidgetBackground(currentBackgroundImage, currentBackgroundImageOpacity);
+  updateTaskWidgetBackground(
+    currentBackgroundImage,
+    currentBackgroundImageOpacity,
+    currentBackgroundPositionX,
+    currentBackgroundPositionY,
+  );
 
   if (pendingShowAfterCreate) {
     const showInactive = pendingShowAfterCreateInactive;
@@ -621,12 +661,16 @@ const initListeners = (): void => {
     showMainWindowFromWidget();
   });
 
-  ipcMain.on(TASK_WIDGET_COMPLETE_TASK, (_ev, taskId: string) => {
-    if (typeof taskId !== 'string' || !taskId) {
-      return;
-    }
-    getMainWindow()?.webContents.send(IPC.TASK_WIDGET_COMPLETE_TASK, taskId);
-  });
+  ipcMain.on(
+    TASK_WIDGET_COMPLETE_TASK,
+    (_ev, taskId: string, requestedIsDone?: boolean) => {
+      if (typeof taskId !== 'string' || !taskId) {
+        return;
+      }
+      const isDone = requestedIsDone !== false;
+      getMainWindow()?.webContents.send(IPC.TASK_WIDGET_COMPLETE_TASK, taskId, isDone);
+    },
+  );
 
   ipcMain.on(TASK_WIDGET_SWITCH_TASK, (_ev, taskId: string) => {
     if (typeof taskId !== 'string' || !taskId) {
@@ -805,12 +849,16 @@ const resolveTaskWidgetBackground = async (
 export const updateTaskWidgetBackground = (
   backgroundImage: string | null | undefined,
   backgroundImageOpacity: number | null | undefined,
+  backgroundPositionX: number | null | undefined = 50,
+  backgroundPositionY: number | null | undefined = 50,
 ): void => {
   currentBackgroundImage = normalizeBackgroundImage(backgroundImage);
   currentBackgroundImageOpacity = normalizeBackgroundImageOpacity(
     backgroundImageOpacity,
     45,
   );
+  currentBackgroundPositionX = normalizeBackgroundPosition(backgroundPositionX);
+  currentBackgroundPositionY = normalizeBackgroundPosition(backgroundPositionY);
 
   applyEffectiveTaskWidgetBackground();
 };
@@ -818,12 +866,16 @@ export const updateTaskWidgetBackground = (
 export const updateTaskWidgetGlobalBackground = (
   backgroundImage: string | null | undefined,
   backgroundImageOpacity: number | null | undefined,
+  backgroundPositionX: number | null | undefined = 50,
+  backgroundPositionY: number | null | undefined = 50,
 ): void => {
   currentGlobalBackgroundImage = normalizeBackgroundImage(backgroundImage);
   currentGlobalBackgroundImageOpacity = normalizeBackgroundImageOpacity(
     backgroundImageOpacity,
     20,
   );
+  currentGlobalBackgroundPositionX = normalizeBackgroundPosition(backgroundPositionX);
+  currentGlobalBackgroundPositionY = normalizeBackgroundPosition(backgroundPositionY);
 
   applyEffectiveTaskWidgetBackground();
 };
@@ -834,7 +886,7 @@ const applyEffectiveTaskWidgetBackground = (): void => {
   }
 
   const generation = ++backgroundResolveGeneration;
-  const { image } = getEffectiveTaskWidgetBackground();
+  const { image, mode, positionX, positionY } = getEffectiveTaskWidgetBackground();
   void resolveTaskWidgetBackground(image).then((resolvedImage) => {
     if (
       generation !== backgroundResolveGeneration ||
@@ -846,6 +898,9 @@ const applyEffectiveTaskWidgetBackground = (): void => {
     taskWidgetWin.webContents.send('update-background', {
       image: resolvedImage,
       imageOpacity: Math.max(0.1, Math.min(1, currentOpacity / 100)),
+      mode: resolvedImage ? mode : 'theme',
+      positionX,
+      positionY,
     });
   });
 };
@@ -862,7 +917,12 @@ const applyTaskWidgetSettings = (cfg: TaskWidgetConfig | undefined): void => {
   updateTaskWidgetAlwaysShow(!!cfg?.isAlwaysShow);
   updateTaskWidgetEnabled(isEnabled);
   updateTaskWidgetOpacity(cfg?.opacity ?? 95, cfg?.contentOpacity ?? 100);
-  updateTaskWidgetBackground(cfg?.backgroundImage ?? null, cfg?.backgroundImageOpacity);
+  updateTaskWidgetBackground(
+    cfg?.backgroundImage ?? null,
+    cfg?.backgroundImageOpacity,
+    cfg?.backgroundPositionX,
+    cfg?.backgroundPositionY,
+  );
 };
 
 let taskWidgetSettingsListenerRegistered = false;

@@ -3,9 +3,38 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const en = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, '../src/assets/i18n/en.json'), 'utf8'),
+);
 const zh = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../src/assets/i18n/zh.json'), 'utf8'),
 );
+
+const getMissingKeys = (reference, translated, prefix = '') => {
+  const missing = [];
+  for (const [key, value] of Object.entries(reference)) {
+    const keyPath = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      missing.push(...getMissingKeys(value, translated?.[key], keyPath));
+    } else if (!translated || !(key in translated)) {
+      missing.push(keyPath);
+    }
+  }
+  return missing;
+};
+
+test('Chinese translations cover every English reference key', () => {
+  assert.deepEqual(getMissingKeys(en, zh), []);
+});
+
+test('break reminder banner has complete Chinese copy', () => {
+  assert.equal(zh.F.TIME_TRACKING.B.BREAK_SNACK, '休息一下，稍后再继续！');
+  assert.equal(zh.F.TIME_TRACKING.B.PAUSE_AND_BREAK, '暂停并休息');
+  assert.equal(
+    zh.GCF.TAKE_A_BREAK.DEFAULT_MESSAGE,
+    '您已连续工作 {{duration}}，该休息一下了。离开电脑走一走，短暂休息能让之后的工作更高效！',
+  );
+});
 
 test('idle handling custom actions have Chinese translations', () => {
   const keys = [

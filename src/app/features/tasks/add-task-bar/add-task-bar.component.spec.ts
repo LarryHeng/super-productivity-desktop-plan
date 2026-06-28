@@ -261,6 +261,7 @@ describe('AddTaskBarComponent', () => {
 
     fixture = TestBed.createComponent(AddTaskBarComponent);
     component = fixture.componentInstance;
+    component.stateService.updateEstimate(25 * 60 * 1000);
   });
 
   describe('onTaskSuggestionSelected', () => {
@@ -298,6 +299,22 @@ describe('AddTaskBarComponent', () => {
   });
 
   describe('addTask', () => {
+    it('requires an estimate before creating a task', async () => {
+      component.stateService.updateInputTxt('Task without estimate');
+      component.stateService.updateCleanText('Task without estimate');
+      component.stateService.updateEstimate(null);
+      const openEstimateMenu = jasmine.createSpy('openEstimateMenu');
+      spyOn(component, 'actionsComponent').and.returnValue({
+        openEstimateMenu,
+      } as any);
+
+      await component.addTask();
+
+      expect(mockTaskService.add).not.toHaveBeenCalled();
+      expect(openEstimateMenu).toHaveBeenCalled();
+      expect(mockSnackService.open).toHaveBeenCalled();
+    });
+
     it('should not add a task when the visible input is empty', async () => {
       component.stateService.updateCleanText('Stale task');
       component.stateService.updateInputTxt('   ');

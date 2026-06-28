@@ -32,6 +32,8 @@ import { idleDialogResult, triggerResetBreakTimer } from '../idle/store/idle.act
 import { playSound } from '../../util/play-sound';
 import { LOCAL_ACTIONS } from '../../util/local-actions.token';
 import { SnackService } from '../../core/snack/snack.service';
+import { TranslateService } from '@ngx-translate/core';
+import { DEFAULT_TAKE_A_BREAK_MESSAGE } from '../config/default-global-config.const';
 
 const BREAK_TRIGGER_DURATION = 10 * 60 * 1000;
 const PING_UPDATE_BANNER_INTERVAL = 60 * 1000;
@@ -62,6 +64,7 @@ export class TakeABreakService {
   private _chromeExtensionInterfaceService = inject(ChromeExtensionInterfaceService);
   private _uiHelperService = inject(UiHelperService);
   private _snackService = inject(SnackService);
+  private _translateService = inject(TranslateService);
 
   otherNoBreakTIme$ = new Subject<number>();
 
@@ -337,6 +340,11 @@ export class TakeABreakService {
   private _createMessage(duration: number, cfg: TakeABreakConfig): string | undefined {
     if (cfg && cfg.takeABreakMessage) {
       const durationStr = msToString(duration);
+      if (cfg.takeABreakMessage === DEFAULT_TAKE_A_BREAK_MESSAGE) {
+        return this._translateService.instant('GCF.TAKE_A_BREAK.DEFAULT_MESSAGE', {
+          duration: durationStr,
+        });
+      }
       return cfg.takeABreakMessage.replace(/\$\{duration\}/gi, durationStr);
     }
     return undefined;

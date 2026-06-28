@@ -69,6 +69,9 @@ export class MonthGridComponent {
     if (dayDate === this.todayDate()) {
       classes.push('today');
     }
+    if (this.dayMap().get(dayDate)?.isOverdue) {
+      classes.push('overdue');
+    }
     return classes.join(' ');
   }
 

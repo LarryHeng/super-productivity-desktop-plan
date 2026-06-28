@@ -176,6 +176,17 @@ button.isActive2 {
   }
 }
 
+.add-task-btn {
+  min-width: 112px;
+  height: 40px;
+  padding: 0 var(--s2);
+  font-weight: 600;
+
+  .mat-icon {
+    margin-right: var(--s-half);
+  }
+}
+
 page-title {
   position: relative;
 }

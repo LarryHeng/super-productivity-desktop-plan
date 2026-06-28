@@ -87,7 +87,17 @@ const ea: ElectronAPI = {
     >,
   imageCacheGetDataUrl: (id: string) =>
     _invoke('IMAGE_CACHE_GET_DATA_URL', id) as Promise<string | null>,
+  imageCacheGetDisplayPath: (id: string) =>
+    _invoke('IMAGE_CACHE_GET_DISPLAY_PATH', id) as Promise<string | null>,
   imageCacheRemove: (id: string) => _invoke('IMAGE_CACHE_REMOVE', id) as Promise<void>,
+  imageCacheGetPathInfo: () =>
+    _invoke('IMAGE_CACHE_GET_PATH_INFO') as ReturnType<
+      ElectronAPI['imageCacheGetPathInfo']
+    >,
+  imageCachePickDirectory: () =>
+    _invoke('IMAGE_CACHE_PICK_DIRECTORY') as ReturnType<
+      ElectronAPI['imageCachePickDirectory']
+    >,
   // STANDARD
   // --------
   setZoomFactor: (zoomFactor: number) => {

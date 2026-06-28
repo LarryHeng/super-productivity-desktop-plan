@@ -5,7 +5,11 @@ import { MockStore, provideMockStore } from '@ngrx/store/testing';
 import { BehaviorSubject } from 'rxjs';
 import { DateService } from '../../core/date/date.service';
 import { LayoutService } from '../../core-ui/layout/layout.service';
-import { selectTaskFeatureState } from '../tasks/store/task.selectors';
+import {
+  selectTaskFeatureState,
+  selectUndoneOverdue,
+  selectUndoneOverdueDeadlineTasks,
+} from '../tasks/store/task.selectors';
 import { signal } from '@angular/core';
 import { PlannerDay } from './planner.model';
 import { GlobalTrackingIntervalService } from '../../core/global-tracking-interval/global-tracking-interval.service';
@@ -79,6 +83,8 @@ describe('PlannerComponent', () => {
               selector: selectPlannerState,
               value: { days: {}, addPlannedTasksDialogLastShown: undefined },
             },
+            { selector: selectUndoneOverdue, value: [] },
+            { selector: selectUndoneOverdueDeadlineTasks, value: [] },
           ],
         }),
       ],
@@ -189,5 +195,24 @@ describe('PlannerComponent', () => {
 
       expect(component.daysWithTasks().has('2026-04-22')).toBeTrue();
     });
+  });
+
+  it('collects due and deadline dates that are overdue', () => {
+    const store = TestBed.inject(MockStore);
+    store.overrideSelector(selectUndoneOverdue, [
+      { id: 'due-day', dueDay: '2026-02-13' },
+      {
+        id: 'due-time',
+        dueWithTime: new Date(2026, 1, 14, 10, 0, 0, 0).getTime(),
+      },
+    ] as any);
+    store.overrideSelector(selectUndoneOverdueDeadlineTasks, [
+      { id: 'deadline-day', deadlineDay: '2026-02-15' },
+    ] as any);
+    store.refreshState();
+    fixture.detectChanges();
+
+    const overdueDays = (component as any).overdueDays() as ReadonlySet<string>;
+    expect([...overdueDays].sort()).toEqual(['2026-02-13', '2026-02-14', '2026-02-15']);
   });
 });

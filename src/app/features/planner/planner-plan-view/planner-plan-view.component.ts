@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   inject,
+  input,
   signal,
 } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -10,12 +11,6 @@ import { PlannerDay } from '../planner.model';
 import { PlannerService } from '../planner.service';
 import { PlannerDayComponent } from '../planner-day/planner-day.component';
 import { AsyncPipe } from '@angular/common';
-import { Store } from '@ngrx/store';
-import {
-  selectUndoneOverdue,
-  selectUndoneOverdueDeadlineTasks,
-} from '../../tasks/store/task.selectors';
-import { PlannerDayOverdueComponent } from '../planner-day-overdue/planner-day-overdue.component';
 import { GlobalTrackingIntervalService } from '../../../core/global-tracking-interval/global-tracking-interval.service';
 import { getDbDateStr } from '../../../util/get-db-date-str';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
@@ -25,16 +20,14 @@ import { parseDbDateStr } from '../../../util/parse-db-date-str';
   templateUrl: './planner-plan-view.component.html',
   styleUrl: './planner-plan-view.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PlannerDayComponent, AsyncPipe, PlannerDayOverdueComponent],
+  imports: [PlannerDayComponent, AsyncPipe],
 })
 export class PlannerPlanViewComponent {
   private _plannerService = inject(PlannerService);
-  private _store = inject(Store);
   private _destroyRef = inject(DestroyRef);
   private _globalTrackingIntervalService = inject(GlobalTrackingIntervalService);
 
-  overdue$ = this._store.select(selectUndoneOverdue);
-  overdueDeadlines$ = this._store.select(selectUndoneOverdueDeadlineTasks);
+  readonly overdueDays = input<ReadonlySet<string>>(new Set());
   days$: Observable<PlannerDay[]> = this._plannerService.days$;
   visibleDayDate = signal<string | null>(
     this._globalTrackingIntervalService.todayDateStr(),

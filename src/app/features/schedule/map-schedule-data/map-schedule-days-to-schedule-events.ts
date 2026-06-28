@@ -71,6 +71,12 @@ export const mapScheduleDaysToScheduleEvents = (
           isBeyondBudget: entry.isBeyondBudget,
         });
 
+        // Lunch is a full-width visual guide. It must never force task events
+        // into narrower overlap lanes.
+        if (entry.type === SVEType.LunchBreak) {
+          return;
+        }
+
         let overlapCount = 0;
         for (let i = 0; i < activeEntries.length; i++) {
           const activeEntry = activeEntries[i];

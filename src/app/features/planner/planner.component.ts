@@ -9,7 +9,11 @@ import {
 import { Store } from '@ngrx/store';
 import { DateService } from '../../core/date/date.service';
 import { PlannerActions } from './store/planner.actions';
-import { selectTaskFeatureState } from '../tasks/store/task.selectors';
+import {
+  selectTaskFeatureState,
+  selectUndoneOverdue,
+  selectUndoneOverdueDeadlineTasks,
+} from '../tasks/store/task.selectors';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { T } from '../../t.const';
 import { CdkDropListGroup } from '@angular/cdk/drag-drop';
@@ -19,7 +23,7 @@ import { PlannerCalendarNavComponent } from './planner-calendar-nav/planner-cale
 import { PlannerService } from './planner.service';
 import { LayoutService } from '../../core-ui/layout/layout.service';
 import { MatIcon } from '@angular/material/icon';
-import { MatFabButton, MatIconButton } from '@angular/material/button';
+import { MatIconButton } from '@angular/material/button';
 import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
 import { parseDbDateStr } from '../../util/parse-db-date-str';
@@ -42,7 +46,6 @@ import { switchMap } from 'rxjs/operators';
     CdkScrollable,
     PlannerCalendarNavComponent,
     MatIcon,
-    MatFabButton,
     MatIconButton,
     MatTooltip,
     TranslatePipe,
@@ -65,6 +68,13 @@ export class PlannerComponent {
   private _plannerState = toSignal(this._store.select(selectPlannerState), {
     initialValue: plannerInitialState,
   });
+  private _overdueTasks = toSignal(this._store.select(selectUndoneOverdue), {
+    initialValue: [],
+  });
+  private _overdueDeadlineTasks = toSignal(
+    this._store.select(selectUndoneOverdueDeadlineTasks),
+    { initialValue: [] },
+  );
   private _weekStart = toSignal(this._plannerService.selectedWeekStart$, {
     initialValue: getDbDateStr(
       getPlannerWeekStart(
@@ -123,6 +133,17 @@ export class PlannerComponent {
     );
     return this._weekStart() === currentWeekStart;
   });
+  isCurrentPeriod = computed(() => {
+    if (!this.isMonthView()) {
+      return this.isCurrentWeek();
+    }
+    const selected = this._selectedMonth();
+    const today = parseDbDateStr(this._globalTrackingIntervalService.todayDateStr());
+    return (
+      selected.getFullYear() === today.getFullYear() &&
+      selected.getMonth() === today.getMonth()
+    );
+  });
   private _prevDaysWithTasksKey = '';
   private _prevDaysWithTasks: ReadonlySet<string> = new Set();
   daysWithTasks = computed<ReadonlySet<string>>(() => {
@@ -152,6 +173,28 @@ export class PlannerComponent {
     this._prevDaysWithTasks = new Set(sortedDayDates);
     return this._prevDaysWithTasks;
   });
+  overdueDays = computed<ReadonlySet<string>>(() => {
+    const dates = new Set<string>();
+    for (const task of this._overdueTasks()) {
+      const dayDate =
+        typeof task.dueWithTime === 'number'
+          ? getDbDateStr(task.dueWithTime)
+          : task.dueDay;
+      if (dayDate) {
+        dates.add(dayDate);
+      }
+    }
+    for (const task of this._overdueDeadlineTasks()) {
+      const dayDate =
+        typeof task.deadlineWithTime === 'number'
+          ? getDbDateStr(task.deadlineWithTime)
+          : task.deadlineDay;
+      if (dayDate) {
+        dates.add(dayDate);
+      }
+    }
+    return dates;
+  });
 
   selectPlannerView(view: 'week' | 'month'): void {
     if (view === 'month') {
@@ -166,6 +209,30 @@ export class PlannerComponent {
     this._selectedMonth.set(
       new Date(current.getFullYear(), current.getMonth() + offset, 1),
     );
+  }
+
+  goToPreviousPeriod(): void {
+    if (this.isMonthView()) {
+      this.shiftMonth(-1);
+    } else {
+      this._planView()?.shiftWeek(-1);
+    }
+  }
+
+  goToNextPeriod(): void {
+    if (this.isMonthView()) {
+      this.shiftMonth(1);
+    } else {
+      this._planView()?.shiftWeek(1);
+    }
+  }
+
+  goToToday(): void {
+    if (this.isMonthView()) {
+      this.showCurrentMonth();
+    } else {
+      this._planView()?.showCurrentWeek();
+    }
   }
 
   showCurrentMonth(): void {

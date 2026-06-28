@@ -84,6 +84,7 @@ import { OnboardingHintService } from './features/onboarding/onboarding-hint.ser
 import { MaterialIconsLoaderService } from './ui/material-icons-loader.service';
 import { BrowserTitleService } from './core/browser-title/browser-title.service';
 import { DailySettlementSchedulerService } from './features/daily-settlement/daily-settlement-scheduler.service';
+import { normalizeBackgroundFocus } from './core/theme/background-focus.util';
 
 const ONBOARDING_PRESET_EXIT_DELAY = 1000;
 const ONBOARDING_ENTRANCE_COMPLETE_DELAY = 2000;
@@ -108,6 +109,15 @@ export const getBackgroundOverlayOpacity = (context: WorkContextThemeSource): nu
 
 const isBackgroundImageSet = (backgroundImage: string | null | undefined): boolean =>
   typeof backgroundImage === 'string' && backgroundImage.trim().length > 0;
+
+export const getBackgroundImagePosition = (
+  globalBackgroundImage?: string | null,
+  positionX?: number,
+  positionY?: number,
+): string =>
+  isBackgroundImageSet(globalBackgroundImage)
+    ? `${normalizeBackgroundFocus(positionX)}% ${normalizeBackgroundFocus(positionY)}%`
+    : '50% 50%';
 
 export const getResolvedBackgroundOverlayOpacity = (
   context: WorkContextThemeSource,
@@ -476,6 +486,15 @@ export class AppComponent implements OnDestroy, AfterViewInit {
     const blur = this.bgImageBlur();
 
     return blur > 0 ? `blur(${blur}px)` : 'none';
+  });
+
+  readonly bgImagePosition = computed((): string => {
+    const misc = this._globalConfigService.misc();
+    return getBackgroundImagePosition(
+      misc?.globalBackgroundImage,
+      misc?.globalBackgroundPositionX,
+      misc?.globalBackgroundPositionY,
+    );
   });
 
   async openSettings(): Promise<void> {

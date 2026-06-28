@@ -482,17 +482,17 @@ test('updateTaskWidgetTaskLists sends Eisenhower matrix panels to the renderer',
   assert.equal(update.args[0].panels[0].tasks[0].id, 'task-1');
 });
 
-test('task widget completion requests are forwarded to the main renderer', async () => {
+test('task widget completion state changes are forwarded to the main renderer', async () => {
   const mainWin = new FakeBrowserWindow();
   const mod = loadModule();
   mod.updateTaskWidgetEnabled(true);
   await flush();
 
-  ipcHandlers.get('task-widget-complete-task')({}, 'task-1');
+  ipcHandlers.get('task-widget-complete-task')({}, 'task-1', false);
 
   assert.deepEqual(mainWin.webContents.sent.at(-1), {
     channel: 'TASK_WIDGET_COMPLETE_TASK',
-    args: ['task-1'],
+    args: ['task-1', false],
   });
 });
 
@@ -543,6 +543,33 @@ test('task widget falls back to the global background when no widget background 
   assert.deepEqual(update.args[0], {
     image: 'data:image/png;base64,global-bg',
     imageOpacity: 0.95,
+    mode: 'image',
+    positionX: 50,
+    positionY: 50,
+  });
+});
+
+test('task widget theme mode ignores the global background', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.updateTaskWidgetGlobalBackground('image:global-bg', 33);
+  await flush();
+  mod.updateTaskWidgetBackground('task-widget:theme', 45);
+  await flush();
+
+  const update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-background')
+    .at(-1);
+
+  assert.deepEqual(update.args[0], {
+    image: null,
+    imageOpacity: 0.95,
+    mode: 'theme',
+    positionX: 50,
+    positionY: 50,
   });
 });
 
@@ -564,6 +591,44 @@ test('task widget own background overrides the global fallback', async () => {
   assert.deepEqual(update.args[0], {
     image: 'data:image/png;base64,widget-bg',
     imageOpacity: 0.95,
+    mode: 'image',
+    positionX: 50,
+    positionY: 50,
+  });
+});
+
+test('task widget uses its own focal point and the global focal point for fallback', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.updateTaskWidgetGlobalBackground('image:global-bg', 33, 12, 78);
+  mod.updateTaskWidgetBackground(null, 44, 61, 27);
+  await flush();
+
+  let update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-background')
+    .at(-1);
+  assert.deepEqual(update.args[0], {
+    image: 'data:image/png;base64,global-bg',
+    imageOpacity: 0.95,
+    mode: 'image',
+    positionX: 12,
+    positionY: 78,
+  });
+
+  mod.updateTaskWidgetBackground('image:widget-bg', 44, 61, 27);
+  await flush();
+  update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-background')
+    .at(-1);
+  assert.deepEqual(update.args[0], {
+    image: 'data:image/png;base64,widget-bg',
+    imageOpacity: 0.95,
+    mode: 'image',
+    positionX: 61,
+    positionY: 27,
   });
 });
 
@@ -579,6 +644,8 @@ test('task widget replays appearance and background after its document loads', a
       opacity: 72,
       contentOpacity: 64,
       backgroundImage: 'image:widget-bg',
+      backgroundPositionX: 34,
+      backgroundPositionY: 67,
     },
   );
   await flush();
@@ -600,6 +667,9 @@ test('task widget replays appearance and background after its document loads', a
     {
       image: 'data:image/png;base64,widget-bg',
       imageOpacity: 0.72,
+      mode: 'image',
+      positionX: 34,
+      positionY: 67,
     },
   );
   assert.equal(win.showInactiveCount > 0, true);

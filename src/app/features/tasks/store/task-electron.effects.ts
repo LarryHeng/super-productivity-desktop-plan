@@ -102,16 +102,17 @@ export class TaskElectronEffects {
       }
     });
 
-    window.ea.on(IPC.TASK_WIDGET_COMPLETE_TASK, (_ev, taskId) => {
+    window.ea.on(IPC.TASK_WIDGET_COMPLETE_TASK, (_ev, taskId, requestedIsDone) => {
       if (typeof taskId !== 'string' || !taskId) {
         return;
       }
-      if (this._taskService.currentTaskId() === taskId) {
+      const isDone = requestedIsDone !== false;
+      if (isDone && this._taskService.currentTaskId() === taskId) {
         this._taskService.pauseCurrent();
       }
       this._store$.dispatch(
         TaskSharedActions.updateTask({
-          task: { id: taskId, changes: { isDone: true } },
+          task: { id: taskId, changes: { isDone } },
         }),
       );
     });

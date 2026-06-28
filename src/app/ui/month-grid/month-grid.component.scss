@@ -79,6 +79,20 @@
       width: 24px;
     }
   }
+
+  &.overdue {
+    border-color: var(--c-warn);
+
+    .month-day-number {
+      color: var(--c-warn);
+      font-weight: 800;
+    }
+  }
+
+  &.today.overdue .month-day-number {
+    background: var(--c-warn);
+    color: white;
+  }
 }
 
 .month-day-header {

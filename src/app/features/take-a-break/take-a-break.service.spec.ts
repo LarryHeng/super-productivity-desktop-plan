@@ -16,12 +16,14 @@ import { SnackService } from '../../core/snack/snack.service';
 import { LOCAL_ACTIONS } from '../../util/local-actions.token';
 import { BannerId } from '../../core/banner/banner.model';
 import { T } from '../../t.const';
+import { TranslateService } from '@ngx-translate/core';
 
 describe('TakeABreakService', () => {
   let service: TakeABreakService;
   let taskService: jasmine.SpyObj<TaskService>;
   let snackService: jasmine.SpyObj<SnackService>;
   let bannerService: jasmine.SpyObj<BannerService>;
+  let translateService: jasmine.SpyObj<TranslateService>;
   let actions$: Subject<Action>;
 
   beforeEach(() => {
@@ -39,6 +41,15 @@ describe('TakeABreakService', () => {
       'open',
       'dismiss',
     ]);
+    translateService = jasmine.createSpyObj<TranslateService>('TranslateService', [
+      'instant',
+    ]);
+    translateService.instant.and.callFake(
+      (key: string, params?: { duration?: string }) =>
+        key === 'GCF.TAKE_A_BREAK.DEFAULT_MESSAGE'
+          ? `您已连续工作 ${params?.duration}，该休息一下了。`
+          : key,
+    );
 
     TestBed.configureTestingModule({
       providers: [
@@ -46,6 +57,7 @@ describe('TakeABreakService', () => {
         { provide: TaskService, useValue: taskService },
         { provide: SnackService, useValue: snackService },
         { provide: BannerService, useValue: bannerService },
+        { provide: TranslateService, useValue: translateService },
         { provide: LOCAL_ACTIONS, useValue: actions$ },
         { provide: GlobalTrackingIntervalService, useValue: { tick$: new Subject() } },
         { provide: IdleService, useValue: { isIdle$: of(false) } },
@@ -151,6 +163,30 @@ describe('TakeABreakService', () => {
       service.startBreak();
       expect(bannerService.dismiss).toHaveBeenCalledTimes(1);
       expect(bannerService.dismiss).toHaveBeenCalledWith(BannerId.TakeABreak);
+    });
+  });
+
+  describe('break reminder message', () => {
+    it('localizes the legacy default message instead of showing English', () => {
+      const message = (service as any)._createMessage(72 * 60 * 1000, {
+        takeABreakMessage:
+          'You have been working for ${duration} without one. Go away from the computer! Take a short walk! Makes you more productive in the long run!',
+      });
+
+      expect(message).toBe('您已连续工作 1h 12m，该休息一下了。');
+      expect(translateService.instant).toHaveBeenCalledWith(
+        'GCF.TAKE_A_BREAK.DEFAULT_MESSAGE',
+        { duration: '1h 12m' },
+      );
+    });
+
+    it('keeps a custom break message untouched apart from duration replacement', () => {
+      const message = (service as any)._createMessage(30 * 60 * 1000, {
+        takeABreakMessage: 'Custom ${duration}',
+      });
+
+      expect(message).toBe('Custom 30m');
+      expect(translateService.instant).not.toHaveBeenCalled();
     });
   });
 });

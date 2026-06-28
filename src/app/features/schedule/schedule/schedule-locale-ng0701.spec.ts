@@ -16,6 +16,7 @@ import { GlobalTrackingIntervalService } from '../../../core/global-tracking-int
 import { GlobalConfigService } from '../../config/global-config.service';
 import { DateTimeLocales } from '../../../core/locale.constants';
 import { safeFormatDate } from '../../../util/safe-format-date';
+import { SnackService } from '../../../core/snack/snack.service';
 
 /**
  * Regression guard for issue #7383 (NG0701 on /schedule).
@@ -98,6 +99,7 @@ describe('issue #7383 — NG0701 race on /schedule', () => {
       const mockGlobalConfigService = jasmine.createSpyObj('GlobalConfigService', [], {
         localization: localeSignal,
         cfg: signal(undefined),
+        timelineCfg: signal(undefined),
       });
 
       await TestBed.configureTestingModule({
@@ -109,6 +111,10 @@ describe('issue #7383 — NG0701 race on /schedule', () => {
           { provide: TaskService, useValue: mockTaskService },
           { provide: LayoutService, useValue: mockLayoutService },
           { provide: ScheduleService, useValue: mockScheduleService },
+          {
+            provide: SnackService,
+            useValue: jasmine.createSpyObj('SnackService', ['open']),
+          },
           { provide: MatDialog, useValue: jasmine.createSpyObj('MatDialog', ['open']) },
           {
             // ScheduleComponent's children (schedule-week/schedule-event) eagerly

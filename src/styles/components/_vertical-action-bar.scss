@@ -55,6 +55,21 @@
       gap: var(--header-nav-button-gap);
     }
 
+    > .add-task-btn {
+      width: 40px;
+      min-width: 40px;
+      height: 40px;
+      padding: 0;
+
+      .mat-icon {
+        margin: 0;
+      }
+
+      .add-task-label {
+        display: none;
+      }
+    }
+
     // These wrapper custom-elements have no box of their own (height 0),
     // so as direct flex children the strip's `gap` lands on a collapsed
     // wrapper instead of the button(s) inside — the visible icons end up

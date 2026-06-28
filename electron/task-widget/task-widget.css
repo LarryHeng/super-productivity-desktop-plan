@@ -64,6 +64,10 @@ body * {
   pointer-events: none;
 }
 
+body.uses-theme-background #task-widget-container::after {
+  opacity: 0;
+}
+
 #widget-header,
 #matrix-grid {
   position: relative;

@@ -28,6 +28,8 @@ import {
   selectTaskRepeatCfgsByTagId,
 } from '../task-repeat-cfg/store/task-repeat-cfg.selectors';
 import { TODAY_TAG } from '../tag/tag.const';
+import { DailySettlementService } from '../daily-settlement/daily-settlement.service';
+import { MatDialog } from '@angular/material/dialog';
 
 /**
  * Tests for the constructor effect() in WorkViewComponent that deselects the
@@ -53,6 +55,9 @@ describe('WorkViewComponent', () => {
     let isCustomized: ReturnType<typeof signal<boolean>>;
     let activeWorkContextId: string;
     let store: MockStore;
+    let moveToArchive: jasmine.Spy;
+    let dailySettlementService: jasmine.SpyObj<DailySettlementService>;
+    let matDialog: jasmine.SpyObj<MatDialog>;
 
     const createComponent = async (
       inputs: {
@@ -77,6 +82,14 @@ describe('WorkViewComponent', () => {
       customizeSource = () => customized$.asObservable();
       isCustomized = signal(false);
       activeWorkContextId = 'some-project-id';
+      moveToArchive = jasmine.createSpy('moveToArchive').and.resolveTo();
+      dailySettlementService = jasmine.createSpyObj<DailySettlementService>(
+        'DailySettlementService',
+        ['clearMatrixTagsFromCompletedTasks', 'finishPersistenceAndSync'],
+      );
+      dailySettlementService.clearMatrixTagsFromCompletedTasks.and.resolveTo(1);
+      dailySettlementService.finishPersistenceAndSync.and.resolveTo(true);
+      matDialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
 
       TestBed.configureTestingModule({
         imports: [WorkViewComponent, TranslateModule.forRoot()],
@@ -88,7 +101,7 @@ describe('WorkViewComponent', () => {
             useValue: {
               selectedTaskId,
               setSelectedId,
-              moveToArchive: () => Promise.resolve(),
+              moveToArchive,
             },
           },
           { provide: TakeABreakService, useValue: { resetTimer: () => {} } },
@@ -140,6 +153,8 @@ describe('WorkViewComponent', () => {
             },
           },
           { provide: SnackService, useValue: { open: () => {} } },
+          { provide: DailySettlementService, useValue: dailySettlementService },
+          { provide: MatDialog, useValue: matDialog },
           {
             provide: GlobalConfigService,
             useValue: {
@@ -274,6 +289,30 @@ describe('WorkViewComponent', () => {
 
       expect(setSelectedId).not.toHaveBeenCalled();
     });
+
+    it('clears matrix tags only after the user confirms', async () => {
+      matDialog.open.and.returnValue({
+        afterClosed: () => of(true),
+      } as any);
+      const component = await createComponent({ done: [buildTask('done-1')] });
+
+      await (component as any).clearCompletedMatrixTags();
+
+      expect(dailySettlementService.clearMatrixTagsFromCompletedTasks).toHaveBeenCalled();
+      expect(dailySettlementService.finishPersistenceAndSync).toHaveBeenCalled();
+      expect(moveToArchive).not.toHaveBeenCalled();
+    });
+
+    it('warns before archive and leaves tasks untouched when cancelled', async () => {
+      matDialog.open.and.returnValue({
+        afterClosed: () => of(false),
+      } as any);
+      const component = await createComponent({ done: [buildTask('done-1')] });
+
+      await component.moveDoneToArchive();
+
+      expect(moveToArchive).not.toHaveBeenCalled();
+    });
   });
 
   describe('undoneTasksBySection', () => {
@@ -350,6 +389,13 @@ describe('WorkViewComponent', () => {
             },
           },
           { provide: SnackService, useValue: { open: () => {} } },
+          {
+            provide: DailySettlementService,
+            useValue: {
+              clearMatrixTagsFromCompletedTasks: () => Promise.resolve(0),
+              finishPersistenceAndSync: () => Promise.resolve(true),
+            },
+          },
           {
             provide: GlobalConfigService,
             useValue: {

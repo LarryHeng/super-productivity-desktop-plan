@@ -107,6 +107,99 @@ describe('appendActualTimeSegmentsToScheduleDays', () => {
     ]);
   });
 
+  it('cascades overlapping planned tasks without splitting the earlier task', () => {
+    const secondTask = { ...task, id: 'task-2', title: 'Second task' };
+    const start = Date.UTC(2026, 5, 27, 9, 0);
+    const day: ScheduleDay = {
+      dayDate: '2026-06-27',
+      beyondBudgetTasks: [],
+      isToday: true,
+      entries: [
+        {
+          id: 'task-1',
+          type: SVEType.Task,
+          start,
+          duration: minutes(90),
+          data: task,
+          plannedForDay: '2026-06-27',
+        },
+        {
+          id: 'task-2',
+          type: SVEType.Task,
+          start: start + minutes(60),
+          duration: minutes(30),
+          data: secondTask,
+          plannedForDay: '2026-06-27',
+        },
+      ],
+    };
+
+    const result = appendActualTimeSegmentsToScheduleDays(
+      [day],
+      {},
+      { 'task-1': task, 'task-2': secondTask },
+    );
+    const planned = result[0].entries.filter((entry) => entry.type === SVEType.Task);
+
+    expect(planned.map((entry) => entry.start)).toEqual([start, start + minutes(90)]);
+    expect(planned.map((entry) => entry.duration)).toEqual([minutes(90), minutes(30)]);
+  });
+
+  it('coalesces split fragments and shifts the following plan as one block', () => {
+    const secondTask = { ...task, id: 'task-2', title: 'Second task' };
+    const start = Date.UTC(2026, 5, 27, 9, 0);
+    const day: ScheduleDay = {
+      dayDate: '2026-06-27',
+      beyondBudgetTasks: [],
+      isToday: true,
+      entries: [
+        {
+          id: 'task-1',
+          type: SVEType.SplitTask,
+          start,
+          duration: minutes(30),
+          data: task,
+          plannedForDay: '2026-06-27',
+        },
+        {
+          id: 'task-1_2026-06-27_0',
+          type: SVEType.SplitTaskContinuedLast,
+          start: start + minutes(60),
+          duration: minutes(30),
+          data: task,
+          plannedForDay: '2026-06-27',
+        },
+        {
+          id: 'task-2',
+          type: SVEType.Task,
+          start: start + minutes(75),
+          duration: minutes(30),
+          data: secondTask,
+          plannedForDay: '2026-06-27',
+        },
+      ],
+    };
+
+    const result = appendActualTimeSegmentsToScheduleDays(
+      [day],
+      {},
+      { 'task-1': task, 'task-2': secondTask },
+    );
+    const taskEntries = result[0].entries.filter((entry) =>
+      [SVEType.Task, SVEType.TaskPlannedForDay].includes(entry.type),
+    );
+
+    expect(taskEntries.length).toBe(2);
+    expect(taskEntries[0]).toEqual(
+      jasmine.objectContaining({
+        id: 'task-1',
+        start,
+        duration: minutes(60),
+      }),
+    );
+    expect(taskEntries[1].start).toBe(start + minutes(75));
+  });
+
   it('includes the active timing segment up to the supplied current time', () => {
     const start = Date.UTC(2026, 5, 27, 9, 10);
     const now = Date.UTC(2026, 5, 27, 9, 46);
@@ -173,6 +266,130 @@ describe('appendActualTimeSegmentsToScheduleDays', () => {
     );
 
     expect(result).toEqual([day]);
+  });
+
+  it('lets planned work use ten percent of lunch before continuing after lunch', () => {
+    const start = Date.UTC(2026, 5, 27, 11, 30);
+    const day: ScheduleDay = {
+      dayDate: '2026-06-27',
+      beyondBudgetTasks: [],
+      isToday: true,
+      entries: [
+        {
+          id: 'task-1',
+          type: SVEType.Task,
+          start,
+          duration: minutes(120),
+          data: task,
+          plannedForDay: '2026-06-27',
+        },
+        {
+          id: 'lunch',
+          type: SVEType.LunchBreak,
+          start: Date.UTC(2026, 5, 27, 12, 0),
+          duration: minutes(60),
+          data: { startTime: '12:00', endTime: '13:00' },
+        },
+      ],
+    };
+
+    const result = appendActualTimeSegmentsToScheduleDays([day], {}, { 'task-1': task });
+
+    const plannedEntries = result[0].entries.filter(
+      (entry) =>
+        entry.type !== SVEType.LunchBreak &&
+        (entry.data as { id?: string }).id === 'task-1',
+    );
+    expect(plannedEntries).toEqual([
+      jasmine.objectContaining({
+        start,
+        duration: minutes(36),
+      }),
+      jasmine.objectContaining({
+        start: Date.UTC(2026, 5, 27, 13, 0),
+        duration: minutes(84),
+      }),
+    ]);
+  });
+
+  it('applies the lunch transition to future planning without a visible marker', () => {
+    const start = new Date(2026, 5, 29, 11, 30).getTime();
+    const lunchEnd = new Date(2026, 5, 29, 13, 0).getTime();
+    const day: ScheduleDay = {
+      dayDate: '2026-06-29',
+      beyondBudgetTasks: [],
+      isToday: false,
+      entries: [
+        {
+          id: 'task-1',
+          type: SVEType.Task,
+          start,
+          duration: minutes(120),
+          data: task,
+          plannedForDay: '2026-06-29',
+        },
+      ],
+    };
+
+    const result = appendActualTimeSegmentsToScheduleDays(
+      [day],
+      {},
+      { 'task-1': task },
+      null,
+      Date.now(),
+      5,
+      { startTime: '12:00', endTime: '13:00' },
+    );
+    const plannedEntries = result[0].entries.filter(
+      (entry) => (entry.data as { id?: string }).id === 'task-1',
+    );
+
+    expect(plannedEntries).toEqual([
+      jasmine.objectContaining({ start, duration: minutes(36) }),
+      jasmine.objectContaining({ start: lunchEnd, duration: minutes(84) }),
+    ]);
+    expect(
+      result[0].entries.some((entry) => entry.type === SVEType.LunchBreak),
+    ).toBeFalse();
+  });
+
+  it('trims an earlier actual segment when another task starts before it ends', () => {
+    const otherTask = { ...task, id: 'task-2', title: 'Other task' };
+    const start = Date.UTC(2026, 5, 27, 11, 37);
+    const secondStart = start + minutes(7);
+    const day: ScheduleDay = {
+      dayDate: '2026-06-27',
+      beyondBudgetTasks: [],
+      isToday: true,
+      entries: [],
+    };
+
+    const result = appendActualTimeSegmentsToScheduleDays(
+      [day],
+      {
+        '2026-06-27': [
+          { taskId: 'task-1', start, end: start + minutes(20) },
+          { taskId: 'task-2', start: secondStart, end: start + minutes(30) },
+        ],
+      },
+      { 'task-1': task, 'task-2': otherTask },
+    );
+    const actualEntries = result[0].entries.filter(
+      (entry) => entry.type === SVEType.ActualTask,
+    );
+
+    expect(actualEntries).toEqual([
+      jasmine.objectContaining({
+        data: jasmine.objectContaining({ id: 'task-1' }),
+        start,
+        duration: minutes(7),
+      }),
+      jasmine.objectContaining({
+        data: jasmine.objectContaining({ id: 'task-2' }),
+        start: secondStart,
+        duration: minutes(23),
+      }),
+    ]);
   });
 
   it('should merge adjacent segments for the same task when the gap is under five minutes', () => {

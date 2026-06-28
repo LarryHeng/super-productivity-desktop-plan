@@ -705,13 +705,6 @@ describe('createBlockerBlocks()', () => {
         getDateTimeFromClockString('09:45', 1620172800000),
       );
 
-      const wLunchBlocks = generateBlockedBlocks(
-        getDateTimeFromClockString('13:00', new Date(1620172800000)),
-        getDateTimeFromClockString('14:00', new Date(1620172800000)),
-        30,
-        BlockedBlockType.LunchBreak,
-      );
-
       const wStartEndBlocks = generateBlockedBlocks(
         getDateTimeFromClockString('17:00', new Date(1620172800000)),
         getDateTimeFromClockString('09:00', new Date(1620259200000)),
@@ -719,12 +712,17 @@ describe('createBlockerBlocks()', () => {
         BlockedBlockType.WorkdayStartEnd,
       );
 
-      const blocks = [...wStartEndBlocks, ...wLunchBlocks];
+      const blocks = [...wStartEndBlocks];
 
       // sort blocks by date
       blocks.sort((a, b) => a.start - b.start);
 
-      expect(r.length).toEqual(61);
+      expect(r.length).toEqual(31);
+      expect(
+        r.some((block) =>
+          block.entries.some((entry) => entry.type === BlockedBlockType.LunchBreak),
+        ),
+      ).toBeFalse();
       expect(r).toEqual([
         {
           end: getDateTimeFromClockString('11:00', new Date(1620172800000)),

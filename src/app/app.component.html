@@ -1,6 +1,7 @@
 @if (resolvedBgImage(); as bgImage) {
   <div
     [style.background]="'url(' + bgImage + ')'"
+    [style.background-position]="bgImagePosition()"
     [style.filter]="bgImageBlurFilter()"
     [class.is-blurred]="bgImageBlur() > 0"
     class="bg-image"

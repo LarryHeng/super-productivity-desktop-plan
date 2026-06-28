@@ -27,6 +27,9 @@ export const createSortedBlockerBlocks = (
   nrOfDays: number = PROJECTION_DAYS,
   realNow?: number,
 ): BlockedBlock[] => {
+  // Lunch is a visual reference on the timeline. It must not reserve time or
+  // split/delay tasks that span it.
+  void lunchBreakCfg;
   if (typeof now !== 'number') {
     throw new Error('No valid now given');
   }
@@ -41,7 +44,6 @@ export const createSortedBlockerBlocks = (
       realNow,
     ),
     ...createBlockerBlocksForWorkStartEnd(now, nrOfDays, workStartEndCfg),
-    ...createBlockerBlocksForLunchBreak(now, nrOfDays, lunchBreakCfg),
   ];
 
   blockedBlocks = mergeBlocksRecursively(blockedBlocks);
@@ -163,48 +165,6 @@ const createBlockerBlocksForWorkStartEnd = (
         {
           type: BlockedBlockType.WorkdayStartEnd,
           data: workStartEndCfg,
-          start,
-          end,
-        },
-      ],
-    });
-    i++;
-  }
-
-  return blockedBlocks;
-};
-
-const createBlockerBlocksForLunchBreak = (
-  now: number,
-  nrOfDays: number,
-  lunchBreakCfg?: ScheduleLunchBreakCfg,
-): BlockedBlock[] => {
-  const blockedBlocks: BlockedBlock[] = [];
-
-  if (!lunchBreakCfg) {
-    return blockedBlocks;
-  }
-  let i: number = 0;
-  while (i < nrOfDays) {
-    // Calculate proper day start instead of adding 24-hour increments
-    const nowDate = new Date(now);
-    const targetDate = new Date(nowDate);
-    targetDate.setDate(nowDate.getDate() + i);
-    targetDate.setHours(0, 0, 0, 0);
-    const currentDayTimestamp = targetDate.getTime();
-
-    const start = getDateTimeFromClockString(
-      lunchBreakCfg.startTime,
-      currentDayTimestamp,
-    );
-    const end = getDateTimeFromClockString(lunchBreakCfg.endTime, currentDayTimestamp);
-    blockedBlocks.push({
-      start,
-      end,
-      entries: [
-        {
-          type: BlockedBlockType.LunchBreak,
-          data: lunchBreakCfg,
           start,
           end,
         },

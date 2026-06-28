@@ -24,63 +24,61 @@
     </button>
   </div>
 
-  @if (isMonthView()) {
-    <nav
-      class="period-nav"
-      [attr.aria-label]="T.F.SCHEDULE.VIEW_MONTH | translate"
+  <nav
+    class="date-nav-group"
+    [attr.aria-label]="
+      (isMonthView() ? T.F.SCHEDULE.VIEW_MONTH : T.F.PLANNER.WEEK_NAV) | translate
+    "
+  >
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="
+        (isMonthView() ? T.F.SCHEDULE.PREVIOUS_MONTH : T.F.PLANNER.PREVIOUS_WEEK)
+          | translate
+      "
+      [matTooltip]="
+        (isMonthView() ? T.F.SCHEDULE.PREVIOUS_MONTH : T.F.PLANNER.PREVIOUS_WEEK)
+          | translate
+      "
+      (click)="goToPreviousPeriod()"
     >
-      <button
-        mat-icon-button
-        type="button"
-        [attr.aria-label]="T.F.SCHEDULE.PREVIOUS_MONTH | translate"
-        [matTooltip]="T.F.SCHEDULE.PREVIOUS_MONTH | translate"
-        (click)="shiftMonth(-1)"
-      >
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      <span>{{ monthLabel() }}</span>
-      <button
-        mat-icon-button
-        type="button"
-        [attr.aria-label]="T.F.SCHEDULE.NEXT_MONTH | translate"
-        [matTooltip]="T.F.SCHEDULE.NEXT_MONTH | translate"
-        (click)="shiftMonth(1)"
-      >
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-    </nav>
-  } @else {
-    <nav
-      class="period-nav"
-      [attr.aria-label]="T.F.PLANNER.WEEK_NAV | translate"
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <button
+      mat-icon-button
+      type="button"
+      class="today-btn"
+      [disabled]="isCurrentPeriod()"
+      [attr.aria-label]="T.G.TODAY_TAG_TITLE | translate"
+      [matTooltip]="T.G.TODAY_TAG_TITLE | translate"
+      (click)="goToToday()"
     >
-      <button
-        mat-icon-button
-        type="button"
-        [attr.aria-label]="T.F.PLANNER.PREVIOUS_WEEK | translate"
-        [matTooltip]="T.F.PLANNER.PREVIOUS_WEEK | translate"
-        (click)="planView.shiftWeek(-1)"
-      >
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      <span>{{ weekLabel() }}</span>
-      <button
-        mat-icon-button
-        type="button"
-        [attr.aria-label]="T.F.PLANNER.NEXT_WEEK | translate"
-        [matTooltip]="T.F.PLANNER.NEXT_WEEK | translate"
-        (click)="planView.shiftWeek(1)"
-      >
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-    </nav>
-  }
+      <mat-icon>wb_sunny</mat-icon>
+    </button>
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="
+        (isMonthView() ? T.F.SCHEDULE.NEXT_MONTH : T.F.PLANNER.NEXT_WEEK) | translate
+      "
+      [matTooltip]="
+        (isMonthView() ? T.F.SCHEDULE.NEXT_MONTH : T.F.PLANNER.NEXT_WEEK) | translate
+      "
+      (click)="goToNextPeriod()"
+    >
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </nav>
+
+  <div class="title">{{ isMonthView() ? monthLabel() : weekLabel() }}</div>
 </div>
 
 @if (!isMonthView()) {
   <planner-calendar-nav
     [visibleDayDate]="planView.visibleDayDate()"
     [daysWithTasks]="daysWithTasks()"
+    [overdueDays]="overdueDays()"
     [defaultExpanded]="!layoutService.isXs()"
     (dayTapped)="planView.scrollToDay($event)"
   />
@@ -90,6 +88,7 @@
   <planner-month
     [days]="monthDays()"
     [daysToShow]="monthDaysToShow()"
+    [overdueDays]="overdueDays()"
     (daySelected)="onMonthDaySelected($event)"
     (todaySelected)="showCurrentMonth()"
   />
@@ -99,18 +98,6 @@
   #planView
   cdkDropListGroup
   cdkScrollable
+  [overdueDays]="overdueDays()"
   [hidden]="isMonthView()"
 />
-
-@if (!isMonthView() && !isCurrentWeek()) {
-  <button
-    class="return-current-week"
-    mat-fab
-    type="button"
-    [attr.aria-label]="T.F.PLANNER.CURRENT_WEEK | translate"
-    [matTooltip]="T.F.PLANNER.CURRENT_WEEK | translate"
-    (click)="planView.showCurrentWeek()"
-  >
-    <mat-icon>today</mat-icon>
-  </button>
-}

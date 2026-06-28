@@ -167,6 +167,27 @@
     color: var(--c-primary);
   }
 
+  &.Task,
+  &.SplitTask,
+  &.SplitTaskContinued,
+  &.SplitTaskContinuedLast,
+  &.TaskPlannedForDay,
+  &.SplitTaskPlannedForDay,
+  &.ScheduledTask,
+  &.RepeatProjection,
+  &.RepeatProjectionSplit,
+  &.RepeatProjectionSplitContinued,
+  &.RepeatProjectionSplitContinuedLast,
+  &.ScheduledRepeatProjection {
+    border-color: color-mix(
+      in srgb,
+      var(--schedule-planned-block-color) 72%,
+      var(--separator-color)
+    );
+    border-left-color: var(--schedule-planned-block-color);
+    background: color-mix(in srgb, var(--schedule-planned-block-color) 36%, transparent);
+  }
+
   &.ScheduledTask,
   &.ActualTask {
     border-radius: 0;
@@ -197,7 +218,35 @@
   }
 
   &.ActualTask {
-    border-left: 3px solid var(--c-primary);
+    border-color: color-mix(
+      in srgb,
+      var(--schedule-actual-block-color) 72%,
+      var(--separator-color)
+    );
+    border-left: 3px solid var(--schedule-actual-block-color);
+    background: color-mix(in srgb, var(--schedule-actual-block-color) 36%, transparent);
+  }
+
+  &.ActualTask.very-short-event {
+    min-height: 0;
+    margin-bottom: 0;
+    overflow: hidden !important;
+
+    .ico-wrapper {
+      display: none;
+    }
+
+    .title {
+      align-self: center;
+      padding: 0 4px;
+      font-size: 9px;
+      line-height: 1;
+
+      @include mq(xs, max) {
+        padding: 0 2px;
+        font-size: 7px;
+      }
+    }
   }
 }
 

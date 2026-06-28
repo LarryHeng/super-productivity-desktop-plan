@@ -22,10 +22,12 @@
 
 .planner-toolbar {
   align-items: center;
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) 88px;
+  display: flex;
+  gap: var(--s);
   min-height: 48px;
   padding: 2px 8px;
+  border-top: 1px solid var(--extra-border-color);
+  border-bottom: 1px solid var(--extra-border-color);
 }
 
 .week-month-selector {
@@ -37,32 +39,18 @@
   }
 }
 
-.period-nav {
+.date-nav-group {
   align-items: center;
-  display: grid;
-  grid-column: 2;
-  grid-template-columns: 40px minmax(0, 1fr) 40px;
-  width: min(520px, calc(100% - 32px));
-  margin: 0 auto;
-  text-align: center;
-
-  span {
-    grid-column: 2;
-    overflow: hidden;
-    font-size: 14px;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  display: flex;
 }
 
-.period-nav button:last-child {
-  grid-column: 3;
-}
-
-.return-current-week {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
-  z-index: 5;
+.title {
+  margin-left: auto;
+  overflow: hidden;
+  padding-right: var(--s);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

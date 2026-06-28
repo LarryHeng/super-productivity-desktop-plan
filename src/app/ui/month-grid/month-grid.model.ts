@@ -7,5 +7,6 @@ export interface MonthGridItem {
 export interface MonthGridDay {
   dayDate: string;
   total?: string;
+  isOverdue?: boolean;
   items: MonthGridItem[];
 }

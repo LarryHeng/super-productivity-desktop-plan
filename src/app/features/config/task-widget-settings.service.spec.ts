@@ -21,8 +21,10 @@ describe('TaskWidgetSettingsService', () => {
       isAlwaysShow: true,
       opacity: 95,
       contentOpacity: 100,
-      backgroundImage: null,
+      backgroundImage: 'task-widget:theme',
       backgroundImageOpacity: 45,
+      backgroundPositionX: 50,
+      backgroundPositionY: 50,
     });
   });
 
@@ -36,9 +38,22 @@ describe('TaskWidgetSettingsService', () => {
       isAlwaysShow: true,
       opacity: 70,
       contentOpacity: 100,
-      backgroundImage: null,
+      backgroundImage: 'task-widget:theme',
       backgroundImageOpacity: 45,
+      backgroundPositionX: 50,
+      backgroundPositionY: 50,
     });
+  });
+
+  it('preserves the legacy null value as explicit global-background mode', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ backgroundImage: null, opacity: 70 }),
+    );
+
+    const service = TestBed.inject(TaskWidgetSettingsService);
+
+    expect(service.settings().backgroundImage).toBeNull();
   });
 
   it('merges partial updates and persists them', () => {
@@ -51,16 +66,20 @@ describe('TaskWidgetSettingsService', () => {
       isAlwaysShow: true,
       opacity: 50,
       contentOpacity: 100,
-      backgroundImage: null,
+      backgroundImage: 'task-widget:theme',
       backgroundImageOpacity: 45,
+      backgroundPositionX: 50,
+      backgroundPositionY: 50,
     });
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
       isEnabled: true,
       isAlwaysShow: true,
       opacity: 50,
       contentOpacity: 100,
-      backgroundImage: null,
+      backgroundImage: 'task-widget:theme',
       backgroundImageOpacity: 45,
+      backgroundPositionX: 50,
+      backgroundPositionY: 50,
     });
   });
 
@@ -74,8 +93,10 @@ describe('TaskWidgetSettingsService', () => {
       isAlwaysShow: true,
       opacity: 95,
       contentOpacity: 100,
-      backgroundImage: null,
+      backgroundImage: 'task-widget:theme',
       backgroundImageOpacity: 45,
+      backgroundPositionX: 50,
+      backgroundPositionY: 50,
     });
   });
 });

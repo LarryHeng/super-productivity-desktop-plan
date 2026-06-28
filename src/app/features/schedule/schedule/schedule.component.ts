@@ -43,6 +43,12 @@ import { DEFAULT_FIRST_DAY_OF_WEEK } from '../../../core/locale.constants';
 import { DateTimeFormatService } from '../../../core/date-time-format/date-time-format.service';
 import { getWeekNumber } from '../../../util/get-week-number';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
+import { SnackService } from '../../../core/snack/snack.service';
+import {
+  DEFAULT_ACTUAL_BLOCK_COLOR,
+  DEFAULT_PLANNED_BLOCK_COLOR,
+  normalizeScheduleBlockColors,
+} from './schedule-block-colors.util';
 
 @Component({
   selector: 'schedule',
@@ -65,6 +71,8 @@ import { parseDbDateStr } from '../../../util/parse-db-date-str';
 
   host: {
     '[style.--nr-of-days]': 'daysToShow().length',
+    '[style.--schedule-planned-block-color]': 'blockColors().planned',
+    '[style.--schedule-actual-block-color]': 'blockColors().actual',
   },
 })
 export class ScheduleComponent {
@@ -78,6 +86,19 @@ export class ScheduleComponent {
   private _dateTimeFormatService = inject(DateTimeFormatService);
   private _translate = inject(TranslateService);
   private _hiddenCalendarProviders = inject(HiddenCalendarProvidersService);
+  private _snackService = inject(SnackService);
+
+  readonly blockColors = computed(() => {
+    const cfg = this._globalConfigService.timelineCfg();
+    try {
+      return normalizeScheduleBlockColors(cfg?.plannedBlockColor, cfg?.actualBlockColor);
+    } catch {
+      return {
+        planned: DEFAULT_PLANNED_BLOCK_COLOR,
+        actual: DEFAULT_ACTUAL_BLOCK_COLOR,
+      };
+    }
+  });
 
   readonly hiddenCalendarProviderIds = this._hiddenCalendarProviders.hiddenProviderIds;
   readonly enabledCalendarProviders = toSignal(
@@ -99,6 +120,32 @@ export class ScheduleComponent {
 
   toggleCalProvider(providerId: string): void {
     this._hiddenCalendarProviders.toggle(providerId);
+  }
+
+  updateBlockColor(kind: 'planned' | 'actual', event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const current = this.blockColors();
+
+    try {
+      const next = normalizeScheduleBlockColors(
+        kind === 'planned' ? input.value : current.planned,
+        kind === 'actual' ? input.value : current.actual,
+      );
+      this._globalConfigService.updateSection(
+        'schedule',
+        {
+          plannedBlockColor: next.planned,
+          actualBlockColor: next.actual,
+        },
+        true,
+      );
+    } catch {
+      input.value = current[kind];
+      this._snackService.open({
+        msg: T.F.SCHEDULE.BLOCK_COLORS_MUST_DIFFER,
+        type: 'WARNING',
+      });
+    }
   }
 
   private _currentTimeViewMode = computed(() => this.layoutService.selectedTimeView());

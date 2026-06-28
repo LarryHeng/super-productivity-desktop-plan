@@ -16,6 +16,7 @@ import { SCHEDULE_CONSTANTS } from '../schedule.constants';
 import { GlobalConfigService } from '../../config/global-config.service';
 import { ScheduleDay } from '../schedule.model';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
+import { SnackService } from '../../../core/snack/snack.service';
 
 describe('ScheduleComponent', () => {
   let component: ScheduleComponent;
@@ -26,6 +27,7 @@ describe('ScheduleComponent', () => {
   let mockMatDialog: jasmine.SpyObj<MatDialog>;
   let mockGlobalTrackingIntervalService: jasmine.SpyObj<GlobalTrackingIntervalService>;
   let mockGlobalConfigService: jasmine.SpyObj<GlobalConfigService>;
+  let mockSnackService: jasmine.SpyObj<SnackService>;
   let mockCalendarEventActionsService: jasmine.SpyObj<CalendarEventActionsService>;
   beforeEach(async () => {
     // Create mock services
@@ -91,10 +93,19 @@ describe('ScheduleComponent', () => {
       },
     );
 
-    mockGlobalConfigService = jasmine.createSpyObj('GlobalConfigService', [], {
-      localization: signal({ firstDayOfWeek: 1 }),
-      cfg: signal(undefined),
-    });
+    mockGlobalConfigService = jasmine.createSpyObj(
+      'GlobalConfigService',
+      ['updateSection'],
+      {
+        localization: signal({ firstDayOfWeek: 1 }),
+        cfg: signal(undefined),
+        timelineCfg: signal({
+          plannedBlockColor: '#4f86f7',
+          actualBlockColor: '#2ca58d',
+        }),
+      },
+    );
+    mockSnackService = jasmine.createSpyObj('SnackService', ['open']);
 
     await TestBed.configureTestingModule({
       imports: [ScheduleComponent, TranslateModule.forRoot()],
@@ -113,6 +124,7 @@ describe('ScheduleComponent', () => {
           useValue: mockGlobalTrackingIntervalService,
         },
         { provide: GlobalConfigService, useValue: mockGlobalConfigService },
+        { provide: SnackService, useValue: mockSnackService },
         { provide: DateAdapter, useValue: { getFirstDayOfWeek: () => 1 } },
       ],
     }).compileComponents();
@@ -120,6 +132,35 @@ describe('ScheduleComponent', () => {
     fixture = TestBed.createComponent(ScheduleComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  });
+
+  describe('block colors', () => {
+    it('persists distinct planned and actual colors', () => {
+      const input = document.createElement('input');
+      input.value = '#123456';
+
+      component.updateBlockColor('planned', { target: input } as unknown as Event);
+
+      expect(mockGlobalConfigService.updateSection).toHaveBeenCalledWith(
+        'schedule',
+        {
+          plannedBlockColor: '#123456',
+          actualBlockColor: '#2ca58d',
+        },
+        true,
+      );
+    });
+
+    it('rejects matching planned and actual colors', () => {
+      const input = document.createElement('input');
+      input.value = '#2ca58d';
+
+      component.updateBlockColor('planned', { target: input } as unknown as Event);
+
+      expect(mockGlobalConfigService.updateSection).not.toHaveBeenCalled();
+      expect(mockSnackService.open).toHaveBeenCalled();
+      expect(input.value).toBe('#4f86f7');
+    });
   });
 
   describe('headerTitle computed', () => {

@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { app } from 'electron';
 import { assertPathOutside } from './file-path-guard';
-import { loadSimpleStoreAll } from './simple-store';
+import { loadSimpleStoreAll, saveSimpleStore } from './simple-store';
 import { SimpleStoreKey } from './shared-with-frontend/simple-store.const';
 
 /**
@@ -51,12 +51,24 @@ const MIME_BY_EXT: Record<string, string> = {
 
 const ID_RE = /^[a-f0-9]{32}$/;
 
+const isSamePath = (a: string, b: string): boolean => {
+  const left = path.resolve(a);
+  const right = path.resolve(b);
+  return process.platform === 'win32'
+    ? left.toLowerCase() === right.toLowerCase()
+    : left === right;
+};
+
 const getCacheDir = async (): Promise<string> => {
   if (process.env.SP_IMAGE_CACHE_DIR) {
     return process.env.SP_IMAGE_CACHE_DIR;
   }
 
   const simpleStore = await loadSimpleStoreAll();
+  const configuredDir = simpleStore[SimpleStoreKey.IMAGE_CACHE_DIR];
+  if (typeof configuredDir === 'string' && path.isAbsolute(configuredDir)) {
+    return configuredDir;
+  }
   const backupTarget = simpleStore[SimpleStoreKey.BACKUP_LINK_TARGET];
   if (
     typeof backupTarget === 'string' &&
@@ -66,13 +78,156 @@ const getCacheDir = async (): Promise<string> => {
     return path.join(path.dirname(backupTarget), 'bg-images');
   }
 
-  return path.join(app.getPath('userData'), 'bg-images');
+  const userDataDir = app.getPath('userData');
+  const backupLink = path.join(userDataDir, 'backups');
+  try {
+    const resolvedBackupDir = await fs.realpath(backupLink);
+    if (
+      !isSamePath(resolvedBackupDir, backupLink) &&
+      path.basename(resolvedBackupDir).toLowerCase() === 'backups'
+    ) {
+      return path.join(path.dirname(resolvedBackupDir), 'bg-images');
+    }
+  } catch {
+    // No linked backups directory. Keep the small cache under userData.
+  }
+
+  return path.join(userDataDir, 'bg-images');
 };
 
 const ensureCacheDir = async (): Promise<string> => {
   const dir = await getCacheDir();
   await fs.mkdir(dir, { recursive: true });
+  await migrateLegacyCache(dir);
   return dir;
+};
+
+export interface ImageCachePathInfo {
+  readonly effectiveDir: string;
+  readonly configuredDir: string | null;
+}
+
+export const getImageCachePathInfo = async (): Promise<ImageCachePathInfo> => {
+  const all = await loadSimpleStoreAll();
+  const configured = all[SimpleStoreKey.IMAGE_CACHE_DIR];
+  const effectiveDir = await ensureCacheDir();
+  return {
+    effectiveDir,
+    configuredDir:
+      typeof configured === 'string' && path.isAbsolute(configured) ? configured : null,
+  };
+};
+
+const isManagedImageFileName = (name: string): boolean =>
+  ID_RE.test(path.parse(name).name) && !!MIME_BY_EXT[getExt(name)];
+
+const copyManagedImages = async (
+  sourceDir: string,
+  targetDir: string,
+): Promise<string[]> => {
+  if (isSamePath(sourceDir, targetDir)) {
+    return [];
+  }
+  let names: string[];
+  try {
+    names = await fs.readdir(sourceDir);
+  } catch {
+    return [];
+  }
+
+  const copied: string[] = [];
+  for (const name of names) {
+    if (!isManagedImageFileName(name)) continue;
+    const source = path.join(sourceDir, name);
+    const target = path.join(targetDir, name);
+    try {
+      try {
+        await fs.access(target);
+      } catch {
+        await fs.copyFile(source, target);
+        copied.push(name);
+      }
+    } catch {
+      for (const copiedName of copied) {
+        try {
+          await fs.unlink(path.join(targetDir, copiedName));
+        } catch {
+          // Best-effort rollback; the configured path is not changed below.
+        }
+      }
+      throw new Error('Background image cache migration failed');
+    }
+  }
+  return names.filter(isManagedImageFileName);
+};
+
+/**
+ * Move the managed background library to a user-selected folder.
+ *
+ * Existing cache files are copied before the setting changes. The original
+ * files selected by the user are never touched; only app-managed copies in
+ * the previous cache are cleaned up after the new location is durable.
+ */
+export const setImageCacheDirectory = async (
+  selectedPath: string,
+): Promise<ImageCachePathInfo> => {
+  if (typeof selectedPath !== 'string' || !path.isAbsolute(selectedPath)) {
+    throw new Error('Background image cache path must be absolute');
+  }
+
+  await fs.mkdir(selectedPath, { recursive: true });
+  const targetDir = await fs.realpath(selectedPath);
+  const sourceDir = await ensureCacheDir();
+  const migratedNames = await copyManagedImages(sourceDir, targetDir);
+
+  await saveSimpleStore(SimpleStoreKey.IMAGE_CACHE_DIR, targetDir);
+
+  if (!isSamePath(sourceDir, targetDir)) {
+    for (const name of migratedNames) {
+      try {
+        await fs.unlink(path.join(sourceDir, name));
+      } catch {
+        // The new copy is already durable; a stale old copy is harmless.
+      }
+    }
+  }
+
+  return {
+    effectiveDir: targetDir,
+    configuredDir: targetDir,
+  };
+};
+
+const migrateLegacyCache = async (targetDir: string): Promise<void> => {
+  const legacyDir = path.join(app.getPath('userData'), 'bg-images');
+  if (isSamePath(legacyDir, targetDir)) {
+    return;
+  }
+
+  let names: string[];
+  try {
+    names = await fs.readdir(legacyDir);
+  } catch {
+    return;
+  }
+
+  for (const name of names) {
+    if (!isManagedImageFileName(name)) {
+      continue;
+    }
+    const source = path.join(legacyDir, name);
+    const target = path.join(targetDir, name);
+    try {
+      try {
+        await fs.access(target);
+      } catch {
+        await fs.copyFile(source, target);
+      }
+      await fs.unlink(source);
+    } catch {
+      // Keep the legacy copy when migration is interrupted or the target is read-only.
+    }
+  }
 };
 
 const getExt = (p: string): string => {
@@ -150,7 +305,7 @@ interface CachedImageFile {
 
 const findCachedFile = async (id: string): Promise<CachedImageFile | null> => {
   if (!ID_RE.test(id)) return null;
-  const dir = await getCacheDir();
+  const dir = await ensureCacheDir();
   let entries: string[];
   try {
     entries = await fs.readdir(dir);
@@ -192,6 +347,12 @@ export const getImageDataUrl = async (id: string): Promise<string | null> => {
     return null;
   }
   return `data:${found.mimeType};base64,${buffer.toString('base64')}`;
+};
+
+/** Return the managed cache path for display in settings. */
+export const getImageDisplayPath = async (id: string): Promise<string | null> => {
+  const found = await findCachedFile(id);
+  return found?.absolutePath ?? null;
 };
 
 /** Remove a cached image by id. No-op when the id is unknown. */

@@ -28,6 +28,14 @@
   background: color-mix(in srgb, var(--c-primary) 16%, transparent);
 }
 
+:host.has-overdue {
+  border-top: 3px solid var(--c-warn);
+
+  .day-title {
+    color: var(--c-warn);
+  }
+}
+
 :host header {
   margin-top: var(--s2);
   margin-right: -4px;
@@ -51,6 +59,16 @@
 
   .date {
     font-size: 12px;
+  }
+
+  .overdue-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-quarter);
+    margin-top: var(--s-half);
+    font-size: 12px;
+    font-weight: 600;
   }
 }
 

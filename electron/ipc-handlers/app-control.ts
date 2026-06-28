@@ -52,6 +52,8 @@ export const initAppControlIpc = (): void => {
     updateTaskWidgetGlobalBackground(
       cfg.misc.globalBackgroundImage ?? null,
       cfg.misc.globalBackgroundImageOpacity,
+      cfg.misc.globalBackgroundPositionX,
+      cfg.misc.globalBackgroundPositionY,
     );
 
     if (cfg.misc.isUseCustomWindowTitleBar !== undefined) {

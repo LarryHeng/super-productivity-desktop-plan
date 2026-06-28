@@ -338,6 +338,16 @@
                   listModelId="DONE"
                 ></task-list>
                 <div class="finish-day-button-wrapper">
+                  <button
+                    class="e2e-clear-completed-matrix-tags"
+                    mat-flat-button
+                    color="primary"
+                    (click)="clearCompletedMatrixTags()"
+                    tabindex="1"
+                  >
+                    <mat-icon>label_off</mat-icon>
+                    {{ T.WW.CLEAR_MATRIX_TAGS | translate }}
+                  </button>
                   @if (hasDoneTasks() && (!isOnTodayList() || !isFinishDayEnabled())) {
                     <button
                       class="e2e-move-done-to-archive"

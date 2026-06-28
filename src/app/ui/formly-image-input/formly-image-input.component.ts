@@ -1,8 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   inject,
+  OnInit,
   signal,
   viewChild,
 } from '@angular/core';
@@ -20,6 +22,10 @@ import { SnackService } from '../../core/snack/snack.service';
 import { T } from '../../t.const';
 import { IS_ELECTRON } from '../../app.constants';
 import { Log } from '../../core/log';
+import { startWith } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { resolveBgImageToDataUrl } from '../../core/theme/resolve-bg-image-to-data-url.util';
+import { normalizeBackgroundFocus } from '../../core/theme/background-focus.util';
 
 const MAX_BACKGROUND_IMAGE_FILE_SIZE_BYTES = 256 * 1024;
 
@@ -39,10 +45,15 @@ const MAX_BACKGROUND_IMAGE_FILE_SIZE_BYTES = 256 * 1024;
   styleUrls: ['./formly-image-input.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
+export class FormlyImageInputComponent
+  extends FieldType<FormlyFieldConfig>
+  implements OnInit
+{
   private _dialog = inject(MatDialog);
   private _unsplashService = inject(UnsplashService);
   private _snackService = inject(SnackService);
+  private _destroyRef = inject(DestroyRef);
+  private _pathResolveGeneration = 0;
   readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   readonly T = T;
   readonly IS_ELECTRON = IS_ELECTRON;
@@ -51,6 +62,23 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
   // a second dialog after the first resolves and orphan all but the last
   // selected import in the main-owned background image cache.
   readonly isPickerBusy = signal(false);
+  readonly isLibraryPickerBusy = signal(false);
+  readonly taskWidgetBackgroundReference = signal('');
+  readonly backgroundLibraryPath = signal('');
+  readonly backgroundPreview = signal<string | null>(null);
+  readonly backgroundFocusX = signal(50);
+  readonly backgroundFocusY = signal(50);
+
+  ngOnInit(): void {
+    this._syncBackgroundFocusFromModel();
+    this.formControl.valueChanges
+      .pipe(startWith(this.formControl.value), takeUntilDestroyed(this._destroyRef))
+      .subscribe((value) => {
+        void this._updateManagedImagePath(value);
+        void this._updateBackgroundPreview(value);
+      });
+    void this._loadBackgroundLibraryPath();
+  }
 
   get isUnsplashAvailable(): boolean {
     return this._unsplashService.isAvailable();
@@ -79,6 +107,7 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
       if (!result) {
         return; // user cancelled
       }
+      this._resetBackgroundFocus();
       this.formControl.setValue(`image:${result.id}`);
     } finally {
       this.isPickerBusy.set(false);
@@ -87,6 +116,88 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
 
   clearImage(): void {
     this.formControl.setValue(null);
+  }
+
+  restoreTaskWidgetTheme(): void {
+    this.formControl.setValue('task-widget:theme');
+  }
+
+  useGlobalTaskWidgetBackground(): void {
+    this.formControl.setValue(null);
+  }
+
+  async chooseBackgroundLibraryDirectory(): Promise<void> {
+    if (
+      !this.IS_ELECTRON ||
+      this.isLibraryPickerBusy() ||
+      typeof window.ea?.imageCachePickDirectory !== 'function'
+    ) {
+      return;
+    }
+
+    this.isLibraryPickerBusy.set(true);
+    try {
+      const result = await window.ea.imageCachePickDirectory();
+      if (!result) return;
+      if ('error' in result) {
+        this._snackService.open({
+          msg: result.error,
+          type: 'ERROR',
+          isSkipTranslate: true,
+        });
+        return;
+      }
+      this.backgroundLibraryPath.set(result.effectiveDir);
+      await this._updateManagedImagePath(this.formControl.value);
+      this._snackService.open({
+        msg: T.F.PROJECT.FORM_THEME.S_BACKGROUND_LIBRARY_CHANGED,
+        type: 'SUCCESS',
+        translateParams: { path: result.effectiveDir },
+      });
+    } finally {
+      this.isLibraryPickerBusy.set(false);
+    }
+  }
+
+  setBackgroundFocus(event: PointerEvent): void {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const x = normalizeBackgroundFocus(((event.clientX - rect.left) / rect.width) * 100);
+    const y = normalizeBackgroundFocus(((event.clientY - rect.top) / rect.height) * 100);
+    this._writeBackgroundFocus(x, y);
+  }
+
+  get isTaskWidgetBackgroundMode(): boolean {
+    return !!(
+      (this.props as Record<string, unknown>)?.['taskWidgetBackgroundModes'] ??
+      (this.field.templateOptions as Record<string, unknown> | undefined)?.[
+        'taskWidgetBackgroundModes'
+      ]
+    );
+  }
+
+  get isTaskWidgetThemeSelected(): boolean {
+    return this.formControl.value === 'task-widget:theme';
+  }
+
+  get isTaskWidgetGlobalSelected(): boolean {
+    return this.formControl.value === null;
+  }
+
+  get isManagedImageSelected(): boolean {
+    return (
+      typeof this.formControl.value === 'string' &&
+      this.formControl.value.startsWith('image:')
+    );
+  }
+
+  get hasBackgroundFocusPicker(): boolean {
+    return !!(this._backgroundFocusXKey && this._backgroundFocusYKey);
+  }
+
+  get hasManagedImageLibraryControls(): boolean {
+    return !!this._getOption('managedImageLibraryControls');
   }
 
   onFileSelected(event: Event): void {
@@ -112,6 +223,7 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
+      this._resetBackgroundFocus();
       this.formControl.setValue(result);
     };
     reader.onerror = () => {
@@ -139,10 +251,118 @@ export class FormlyImageInputComponent extends FieldType<FormlyFieldConfig> {
         // Handle both string (legacy) and object (new) return formats
         const url = typeof result === 'string' ? result : result.url;
         if (url) {
+          this._resetBackgroundFocus();
           this.formControl.setValue(url);
           // TODO: Store attribution data if needed for compliance display
         }
       }
     });
+  }
+
+  private async _updateManagedImagePath(value: unknown): Promise<void> {
+    const generation = ++this._pathResolveGeneration;
+    if (typeof value !== 'string' || !value.startsWith('image:')) {
+      this.taskWidgetBackgroundReference.set(
+        typeof value === 'string' && value !== 'task-widget:theme' ? value : '',
+      );
+      return;
+    }
+
+    const id = value.substring('image:'.length);
+    const getDisplayPath = window.ea?.imageCacheGetDisplayPath;
+    if (!this.IS_ELECTRON || !id || typeof getDisplayPath !== 'function') {
+      this.taskWidgetBackgroundReference.set(value);
+      return;
+    }
+
+    const displayPath = await getDisplayPath(id);
+    if (generation === this._pathResolveGeneration) {
+      this.taskWidgetBackgroundReference.set(displayPath ?? value);
+    }
+  }
+
+  private async _updateBackgroundPreview(value: unknown): Promise<void> {
+    if (
+      !this.hasBackgroundFocusPicker ||
+      typeof value !== 'string' ||
+      value === 'task-widget:theme'
+    ) {
+      this.backgroundPreview.set(null);
+      return;
+    }
+    this.backgroundPreview.set(await resolveBgImageToDataUrl(value));
+  }
+
+  private async _loadBackgroundLibraryPath(): Promise<void> {
+    if (
+      !this.IS_ELECTRON ||
+      !this.hasManagedImageLibraryControls ||
+      typeof window.ea?.imageCacheGetPathInfo !== 'function'
+    ) {
+      return;
+    }
+    const info = await window.ea.imageCacheGetPathInfo();
+    this.backgroundLibraryPath.set(info.effectiveDir);
+  }
+
+  private _getOption(key: string): unknown {
+    return (
+      (this.props as Record<string, unknown>)?.[key] ??
+      (this.field.templateOptions as Record<string, unknown> | undefined)?.[key]
+    );
+  }
+
+  private get _backgroundFocusXKey(): string | null {
+    const value = this._getOption('backgroundFocusXKey');
+    return typeof value === 'string' && value ? value : null;
+  }
+
+  private get _backgroundFocusYKey(): string | null {
+    const value = this._getOption('backgroundFocusYKey');
+    return typeof value === 'string' && value ? value : null;
+  }
+
+  private _syncBackgroundFocusFromModel(): void {
+    const model = this.model as Record<string, unknown> | undefined;
+    this.backgroundFocusX.set(
+      normalizeBackgroundFocus(
+        this._backgroundFocusXKey ? model?.[this._backgroundFocusXKey] : 50,
+      ),
+    );
+    this.backgroundFocusY.set(
+      normalizeBackgroundFocus(
+        this._backgroundFocusYKey ? model?.[this._backgroundFocusYKey] : 50,
+      ),
+    );
+  }
+
+  private _resetBackgroundFocus(): void {
+    if (this.hasBackgroundFocusPicker) {
+      this._writeBackgroundFocus(50, 50);
+    }
+  }
+
+  private _writeBackgroundFocus(x: number, y: number): void {
+    const xKey = this._backgroundFocusXKey;
+    const yKey = this._backgroundFocusYKey;
+    if (!xKey || !yKey) return;
+
+    this.backgroundFocusX.set(x);
+    this.backgroundFocusY.set(y);
+
+    const xControl = this.form?.get(xKey) ?? this.formControl.parent?.get(xKey);
+    const yControl = this.form?.get(yKey) ?? this.formControl.parent?.get(yKey);
+    if (xControl && yControl) {
+      xControl.setValue(x);
+      yControl.setValue(y);
+      return;
+    }
+
+    const model = this.model as Record<string, unknown> | undefined;
+    if (model) {
+      model[xKey] = x;
+      model[yKey] = y;
+      this.formControl.setValue(this.formControl.value);
+    }
   }
 }

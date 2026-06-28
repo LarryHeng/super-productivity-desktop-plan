@@ -5,14 +5,17 @@ import { Log } from '../../core/log';
 
 const STORAGE_KEY = 'sp_task_widget_settings';
 const IMAGE_CACHE_PREFIX = 'image:';
+export const TASK_WIDGET_THEME_BACKGROUND = 'task-widget:theme';
 
 const DEFAULT_TASK_WIDGET_CONFIG: Required<TaskWidgetConfig> = {
   isEnabled: false,
   isAlwaysShow: true,
   opacity: 95,
   contentOpacity: 100,
-  backgroundImage: null,
+  backgroundImage: TASK_WIDGET_THEME_BACKGROUND,
   backgroundImageOpacity: 45,
+  backgroundPositionX: 50,
+  backgroundPositionY: 50,
 };
 
 const getCachedImageId = (value: string | null | undefined): string | null =>

@@ -1,4 +1,4 @@
-import { ScheduleDay, SVE } from '../schedule.model';
+import { ScheduleDay, ScheduleLunchBreakCfg, SVE } from '../schedule.model';
 import { SVEType } from '../schedule.const';
 import {
   TTActiveTaskSegment,
@@ -6,10 +6,13 @@ import {
   TTActualTaskSegmentByDateMap,
 } from '../../time-tracking/time-tracking.model';
 import { TaskCopy } from '../../tasks/task.model';
+import { dateStrToUtcDate } from '../../../util/date-str-to-utc-date';
+import { getDateTimeFromClockString } from '../../../util/get-date-time-from-clock-string';
 
 export const DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES = 5;
 export const MAX_ACTUAL_SEGMENT_MERGE_GAP_MINUTES = 30;
 const MINUTE_IN_MS = 60 * 1000;
+const LUNCH_TRANSITION_RATIO = 0.1;
 
 export const appendActualTimeSegmentsToScheduleDays = (
   days: ScheduleDay[],
@@ -18,6 +21,7 @@ export const appendActualTimeSegmentsToScheduleDays = (
   activeSegment: TTActiveTaskSegment | null = null,
   currentTime: number = Date.now(),
   mergeGapMinutes: number = DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES,
+  lunchBreakCfg?: ScheduleLunchBreakCfg,
 ): ScheduleDay[] => {
   if (!tasksById) {
     return days;
@@ -34,16 +38,14 @@ export const appendActualTimeSegmentsToScheduleDays = (
             },
           ]
         : [];
-    const actualSegments = mergeNearbyActualTaskSegments(
-      [...(taskSegments?.[day.dayDate] ?? []), ...activeSegments].filter(
-        (segment) => isValidActualSegment(segment) && !!tasksById[segment.taskId],
+    const actualSegments = trimOverlappingActualTaskSegments(
+      mergeNearbyActualTaskSegments(
+        [...(taskSegments?.[day.dayDate] ?? []), ...activeSegments].filter(
+          (segment) => isValidActualSegment(segment) && !!tasksById[segment.taskId],
+        ),
+        normalizeMergeGapMinutes(mergeGapMinutes) * MINUTE_IN_MS,
       ),
-      normalizeMergeGapMinutes(mergeGapMinutes) * MINUTE_IN_MS,
     );
-
-    if (!actualSegments.length) {
-      return day;
-    }
 
     const actualEntries: SVE[] = actualSegments.map((segment) => {
       const task = tasksById[segment.taskId] as TaskCopy;
@@ -56,8 +58,16 @@ export const appendActualTimeSegmentsToScheduleDays = (
         plannedForDay: day.dayDate,
       };
     });
+    const shiftedEntries = shiftPlannedEntriesAfterActualTime(
+      coalesceSplitPlannedEntries(day.entries),
+      actualEntries,
+    );
+    const lunchAdjustedEntries = splitPlannedEntriesAroundLunch(
+      shiftedEntries,
+      getLunchEntriesForPlanning(shiftedEntries, day.dayDate, lunchBreakCfg),
+    );
     const shiftedPlannedEntries = shiftPlannedEntriesAfterActualTime(
-      day.entries,
+      lunchAdjustedEntries,
       actualEntries,
     );
 
@@ -96,6 +106,29 @@ export const mergeNearbyActualTaskSegments = (
   return merged;
 };
 
+const trimOverlappingActualTaskSegments = (
+  segments: readonly TTActualTaskSegment[],
+): TTActualTaskSegment[] => {
+  const normalized: TTActualTaskSegment[] = [];
+
+  for (const segment of [...segments].sort((a, b) => a.start - b.start)) {
+    const previous = normalized[normalized.length - 1];
+    if (previous && segment.start < previous.end) {
+      if (segment.start <= previous.start) {
+        normalized.pop();
+      } else {
+        normalized[normalized.length - 1] = {
+          ...previous,
+          end: segment.start,
+        };
+      }
+    }
+    normalized.push({ ...segment });
+  }
+
+  return normalized;
+};
+
 const normalizeMergeGapMinutes = (minutes: number): number => {
   if (!Number.isFinite(minutes)) {
     return DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES;
@@ -124,13 +157,197 @@ const PLANNED_BLOCK_TYPES = new Set<SVEType>([
   SVEType.ScheduledRepeatProjection,
 ]);
 
+const SPLIT_TASK_TYPES = new Set<SVEType>([
+  SVEType.SplitTask,
+  SVEType.SplitTaskPlannedForDay,
+  SVEType.SplitTaskContinued,
+  SVEType.SplitTaskContinuedLast,
+]);
+
+const SPLIT_REPEAT_TYPES = new Set<SVEType>([
+  SVEType.RepeatProjectionSplit,
+  SVEType.RepeatProjectionSplitContinued,
+  SVEType.RepeatProjectionSplitContinuedLast,
+]);
+
+const coalesceSplitPlannedEntries = (entries: readonly SVE[]): SVE[] => {
+  const result: SVE[] = [];
+  const groups = new Map<string, SVE>();
+
+  for (const entry of [...entries].sort((a, b) => a.start - b.start)) {
+    const dataId = (entry.data as { id?: string } | undefined)?.id;
+    const isSplitTask = SPLIT_TASK_TYPES.has(entry.type);
+    const isSplitRepeat = SPLIT_REPEAT_TYPES.has(entry.type);
+    if (!dataId || (!isSplitTask && !isSplitRepeat)) {
+      result.push(entry);
+      continue;
+    }
+
+    const key = `${isSplitTask ? 'task' : 'repeat'}:${dataId}:${
+      entry.plannedForDay ?? ''
+    }`;
+    const existing = groups.get(key);
+    if (existing) {
+      groups.set(key, {
+        ...existing,
+        start: Math.min(existing.start, entry.start),
+        duration: existing.duration + entry.duration,
+        isBeyondBudget: existing.isBeyondBudget || entry.isBeyondBudget,
+      } as SVE);
+      continue;
+    }
+
+    const type = isSplitRepeat
+      ? SVEType.RepeatProjection
+      : entry.type === SVEType.SplitTaskPlannedForDay
+        ? SVEType.TaskPlannedForDay
+        : SVEType.Task;
+    groups.set(key, {
+      ...entry,
+      id: dataId,
+      type,
+    } as SVE);
+  }
+
+  return [...result, ...groups.values()].sort((a, b) => a.start - b.start);
+};
+
+const getLunchEntriesForPlanning = (
+  entries: readonly SVE[],
+  dayDate: string,
+  lunchBreakCfg?: ScheduleLunchBreakCfg,
+): SVE[] => {
+  const visibleEntries = entries.filter((entry) => entry.type === SVEType.LunchBreak);
+  if (visibleEntries.length || !lunchBreakCfg) {
+    return visibleEntries;
+  }
+
+  const date = dateStrToUtcDate(dayDate);
+  const start = getDateTimeFromClockString(lunchBreakCfg.startTime, date);
+  const end = getDateTimeFromClockString(lunchBreakCfg.endTime, date);
+  return end > start
+    ? [
+        {
+          id: `PLANNING_LUNCH_BREAK_${dayDate}`,
+          type: SVEType.LunchBreak,
+          start,
+          duration: end - start,
+          data: lunchBreakCfg,
+        },
+      ]
+    : [];
+};
+
+const splitPlannedEntriesAroundLunch = (
+  entries: readonly SVE[],
+  lunchEntries: readonly SVE[],
+): SVE[] => {
+  const sortedLunchEntries = [...lunchEntries].sort((a, b) => a.start - b.start);
+  if (!sortedLunchEntries.length) {
+    return [...entries];
+  }
+
+  return entries
+    .flatMap((entry) => {
+      if (!PLANNED_BLOCK_TYPES.has(entry.type)) {
+        return [entry];
+      }
+      return sortedLunchEntries.reduce<SVE[]>(
+        (fragments, lunch) =>
+          fragments.flatMap((fragment) => splitEntryAroundLunch(fragment, lunch)),
+        [entry],
+      );
+    })
+    .sort((a, b) => a.start - b.start);
+};
+
+const splitEntryAroundLunch = (entry: SVE, lunch: SVE): SVE[] => {
+  const lunchEnd = lunch.start + lunch.duration;
+  const transitionDuration = lunch.duration * LUNCH_TRANSITION_RATIO;
+  const transitionEnd = lunch.start + transitionDuration;
+  const entryEnd = entry.start + entry.duration;
+
+  if (entryEnd <= transitionEnd || entry.start >= lunchEnd) {
+    return [entry];
+  }
+  if (entry.start >= transitionEnd) {
+    return [{ ...entry, start: lunchEnd } as SVE];
+  }
+
+  const firstDuration = transitionEnd - entry.start;
+  const remainingDuration = entry.duration - firstDuration;
+  if (firstDuration <= 0 || remainingDuration <= 0) {
+    return [entry];
+  }
+
+  const { firstType, continuedType } = getLunchSplitTypes(entry.type);
+  const first = {
+    ...entry,
+    type: firstType,
+    duration: firstDuration,
+  } as SVE;
+  const continued = {
+    ...entry,
+    id: `${entry.id}__lunch_${lunch.start}`,
+    type: continuedType,
+    start: lunchEnd,
+    duration: remainingDuration,
+    ...(continuedType === SVEType.RepeatProjectionSplitContinuedLast
+      ? { splitIndex: 0 }
+      : {}),
+  } as SVE;
+
+  return [first, continued];
+};
+
+const getLunchSplitTypes = (
+  type: SVEType,
+): { firstType: SVEType; continuedType: SVEType } => {
+  if (
+    type === SVEType.RepeatProjection ||
+    type === SVEType.RepeatProjectionSplit ||
+    type === SVEType.RepeatProjectionSplitContinued ||
+    type === SVEType.RepeatProjectionSplitContinuedLast
+  ) {
+    return {
+      firstType: SVEType.RepeatProjectionSplit,
+      continuedType: SVEType.RepeatProjectionSplitContinuedLast,
+    };
+  }
+  if (type === SVEType.ScheduledRepeatProjection) {
+    return {
+      firstType: SVEType.ScheduledRepeatProjection,
+      continuedType: SVEType.RepeatProjectionSplitContinuedLast,
+    };
+  }
+  if (type === SVEType.TaskPlannedForDay || type === SVEType.SplitTaskPlannedForDay) {
+    return {
+      firstType: SVEType.SplitTaskPlannedForDay,
+      continuedType: SVEType.SplitTaskContinuedLast,
+    };
+  }
+  if (type === SVEType.ScheduledTask) {
+    return {
+      firstType: SVEType.ScheduledTask,
+      continuedType: SVEType.SplitTaskContinuedLast,
+    };
+  }
+  return {
+    firstType: SVEType.SplitTask,
+    continuedType: SVEType.SplitTaskContinuedLast,
+  };
+};
+
 const shiftPlannedEntriesAfterActualTime = (
   entries: readonly SVE[],
   actualEntries: readonly SVE[],
 ): SVE[] => {
   const sortedEntries = [...entries].sort((a, b) => a.start - b.start);
   const blockers: SVE[] = [
-    ...sortedEntries.filter((entry) => !PLANNED_BLOCK_TYPES.has(entry.type)),
+    ...sortedEntries.filter(
+      (entry) =>
+        !PLANNED_BLOCK_TYPES.has(entry.type) && entry.type !== SVEType.LunchBreak,
+    ),
     ...actualEntries,
   ];
   const shiftedEntries: SVE[] = [];

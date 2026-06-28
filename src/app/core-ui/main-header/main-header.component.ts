@@ -24,7 +24,7 @@ import { SnackService } from '../../core/snack/snack.service';
 import { NavigationEnd, Router } from '@angular/router';
 import { GlobalConfigService } from '../../features/config/global-config.service';
 import { KeyboardConfig } from '@sp/keyboard-config';
-import { MatIconButton } from '@angular/material/button';
+import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -57,6 +57,7 @@ import { UserProfileService } from '../../features/user-profile/user-profile.ser
   animations: [fadeAnimation, expandFadeHorizontalAnimation],
   imports: [
     MatIconButton,
+    MatButton,
     MatIcon,
     MatTooltip,
     TranslatePipe,

@@ -48,6 +48,8 @@ export type MiscConfig = Readonly<{
   unsplashApiKey?: string | null;
   globalBackgroundImage?: string | null;
   globalBackgroundImageOpacity?: number;
+  globalBackgroundPositionX?: number;
+  globalBackgroundPositionY?: number;
 
   // @todo: remove deprecated items in future major releases, after giving users time to migrate
   isConfirmBeforeTaskDelete?: boolean; // Deprecated
@@ -227,6 +229,8 @@ export type SyncConfig = Readonly<{
 
 export type ScheduleConfig = Readonly<{
   actualTimeMergeGapMinutes?: number;
+  plannedBlockColor?: string;
+  actualBlockColor?: string;
   isWorkStartEndEnabled: boolean;
   workStart: string;
   workEnd: string;
@@ -295,6 +299,8 @@ export type TaskWidgetConfig = Readonly<{
   backgroundImage?: string | null;
   /** @deprecated Background visibility is controlled by opacity. */
   backgroundImageOpacity?: number;
+  backgroundPositionX?: number;
+  backgroundPositionY?: number;
 }>;
 
 export type ClipboardImagesConfig = Readonly<{

@@ -122,8 +122,22 @@ export interface ElectronAPI {
    */
   imageCacheGetDataUrl(id: string): Promise<string | null>;
 
+  /** Return the managed cache path for a known image id for display only. */
+  imageCacheGetDisplayPath(id: string): Promise<string | null>;
+
   /** Remove a cached image id from the main-owned background image cache. */
   imageCacheRemove(id: string): Promise<void>;
+
+  /** Return the current managed background image library folder. */
+  imageCacheGetPathInfo(): Promise<{
+    effectiveDir: string;
+    configuredDir: string | null;
+  }>;
+
+  /** Pick a folder and migrate all managed background image copies into it. */
+  imageCachePickDirectory(): Promise<
+    { effectiveDir: string; configuredDir: string | null } | { error: string } | undefined
+  >;
 
   // checkDirExists(dirPath: string): Promise<true | Error>;
 

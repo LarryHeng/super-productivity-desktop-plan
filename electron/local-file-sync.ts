@@ -17,7 +17,14 @@ import { getWin } from './main-window';
 import { resolveSyncPath, type ResolvedSyncPath } from './sync-path-resolver';
 import { loadSimpleStoreAll, saveSimpleStore } from './simple-store';
 import { assertPathOutside } from './file-path-guard';
-import { getImageDataUrl, importImage, removeCachedImage } from './image-cache';
+import {
+  getImageDataUrl,
+  getImageDisplayPath,
+  getImageCachePathInfo,
+  importImage,
+  removeCachedImage,
+  setImageCacheDirectory,
+} from './image-cache';
 
 // SECURITY: file-sync must never read/write/list inside the app's private dir,
 // which holds settings/grants/db — touching it is a privilege-escalation
@@ -369,9 +376,49 @@ export const initLocalFileSyncAdapter = (): void => {
     },
   );
 
+  ipcMain.handle(
+    IPC.IMAGE_CACHE_GET_DISPLAY_PATH,
+    async (_, id: string): Promise<string | null> => {
+      return getImageDisplayPath(id);
+    },
+  );
+
   ipcMain.handle(IPC.IMAGE_CACHE_REMOVE, async (_, id: string): Promise<void> => {
     await removeCachedImage(id);
   });
+
+  ipcMain.handle(IPC.IMAGE_CACHE_GET_PATH_INFO, async () => {
+    return getImageCachePathInfo();
+  });
+
+  ipcMain.handle(
+    IPC.IMAGE_CACHE_PICK_DIRECTORY,
+    async (): Promise<
+      Awaited<ReturnType<typeof getImageCachePathInfo>> | { error: string } | undefined
+    > => {
+      const current = await getImageCachePathInfo();
+      const { canceled, filePaths } = (await dialog.showOpenDialog(getWin(), {
+        title: '选择背景图片存储目录',
+        buttonLabel: '选择文件夹',
+        defaultPath: current.effectiveDir,
+        properties: [
+          'openDirectory',
+          'createDirectory',
+          'promptToCreate',
+          'dontAddToRecent',
+        ],
+      })) as unknown as { canceled: boolean; filePaths: string[] };
+      if (canceled || !filePaths[0]) {
+        return undefined;
+      }
+      try {
+        return await setImageCacheDirectory(filePaths[0]);
+      } catch (e) {
+        error('Background image folder migration failed', getSafeErrorMeta(e));
+        return { error: '背景图片存储目录无法更改。' };
+      }
+    },
+  );
 
   ipcMain.handle(
     IPC.SHOW_OPEN_DIALOG,
