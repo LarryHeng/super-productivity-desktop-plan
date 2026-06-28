@@ -165,7 +165,7 @@ export class OperationCaptureService {
    * Captures TIME_TRACKING changes from action payload.
    * This is more efficient than state diffing for the nested TIME_TRACKING structure.
    *
-   * Supports both syncTimeTracking and updateWorkContextData actions.
+   * Supports session sync, work-context edits, and actual task time segments.
    */
   private _captureTimeTrackingFromAction(action: PersistentAction): EntityChange[] {
     // syncTimeTracking action: { contextType, contextId, date, data }
@@ -204,6 +204,24 @@ export class OperationCaptureService {
           entityId: `${ctx.type}:${ctx.id}:${date}`,
           opType: OpType.Update,
           changes: { ctx, date, updates },
+        },
+      ];
+    }
+
+    // addActualTimeSegment action: { taskId, date, start, end }
+    if ('taskId' in action && 'date' in action && 'start' in action && 'end' in action) {
+      const { taskId, date, start, end } = action as unknown as {
+        taskId: string;
+        date: string;
+        start: number;
+        end: number;
+      };
+      return [
+        {
+          entityType: 'TIME_TRACKING',
+          entityId: `TASK_SEGMENT:${date}:${taskId}:${start}:${end}`,
+          opType: OpType.Update,
+          changes: { taskId, date, start, end },
         },
       ];
     }

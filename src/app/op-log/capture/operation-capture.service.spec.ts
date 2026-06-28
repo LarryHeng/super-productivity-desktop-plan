@@ -171,6 +171,37 @@ describe('OperationCaptureService', () => {
       expect(changes[0].opType).toBe(OpType.Update);
     });
 
+    it('should extract an actual task time segment', () => {
+      const action = createPersistentAction(
+        '[TimeTracking] Add actual time segment',
+        'TIME_TRACKING' as EntityType,
+        'TASK_SEGMENT:2026-06-27:task-1:1000:2000',
+        OpType.Update,
+        {
+          taskId: 'task-1',
+          date: '2026-06-27',
+          start: 1_000,
+          end: 2_000,
+        },
+      );
+
+      const changes = service.extractEntityChanges(action);
+
+      expect(changes).toEqual([
+        {
+          entityType: 'TIME_TRACKING',
+          entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000',
+          opType: OpType.Update,
+          changes: {
+            taskId: 'task-1',
+            date: '2026-06-27',
+            start: 1_000,
+            end: 2_000,
+          },
+        },
+      ]);
+    });
+
     it('should return empty array for unknown TIME_TRACKING action format', () => {
       const action = {
         type: '[TimeTracking] Unknown Format',

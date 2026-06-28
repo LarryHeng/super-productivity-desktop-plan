@@ -1,15 +1,15 @@
 name: CI
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
-      - master
       - main
     paths-ignore:
       - 'docs/wiki/**'
   workflow_dispatch:
     inputs: {}
-  release:
-    types: [published]
 permissions:
   contents: read
 

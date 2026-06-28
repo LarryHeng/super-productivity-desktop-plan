@@ -293,6 +293,25 @@ describe('validateOperationPayload', () => {
       expect(result.warnings).toBeUndefined();
     });
 
+    it('should validate TIME_TRACKING UPDATE with actual segment shape', () => {
+      const op = createTestOperation({
+        opType: OpType.Update,
+        entityType: 'TIME_TRACKING' as EntityType,
+        entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000',
+        payload: {
+          taskId: 'task-1',
+          date: '2026-06-27',
+          start: 1_000,
+          end: 2_000,
+        },
+      });
+
+      const result = validateOperationPayload(op);
+
+      expect(result.success).toBe(true);
+      expect(result.warnings).toBeUndefined();
+    });
+
     it('should allow TIME_TRACKING UPDATE with unusual shape but with warning', () => {
       const op = createTestOperation({
         opType: OpType.Update,

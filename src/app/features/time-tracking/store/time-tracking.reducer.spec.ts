@@ -9,6 +9,7 @@ import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 import { AppDataComplete } from '../../../op-log/model/model-config';
 import { TaskCopy } from '../../tasks/task.model';
 import { WorkContextType } from '../../work-context/work-context.model';
+import { OpType } from '../../../op-log/core/operation.types';
 
 describe('TimeTracking Reducer', () => {
   it('should return the previous state for an unknown action', () => {
@@ -196,6 +197,15 @@ describe('TimeTracking Reducer', () => {
         start: 1_000,
         end: 2_000,
       });
+
+      expect(action.meta).toEqual(
+        jasmine.objectContaining({
+          isPersistent: true,
+          entityType: 'TIME_TRACKING',
+          entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000',
+          opType: OpType.Update,
+        }),
+      );
 
       const result = timeTrackingReducer(initialTimeTrackingState, action);
 

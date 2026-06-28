@@ -1,6 +1,13 @@
 import { nanoid } from 'nanoid';
 import typia from 'typia';
-import { distinctUntilChanged, first, map, take, withLatestFrom } from 'rxjs/operators';
+import {
+  distinctUntilChanged,
+  filter,
+  first,
+  map,
+  take,
+  withLatestFrom,
+} from 'rxjs/operators';
 import { computed, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Observable } from 'rxjs';
@@ -107,6 +114,11 @@ import { TTActiveTaskSegment } from '../time-tracking/time-tracking.model';
 import { DeletedTaskIssueSidecarService } from '../issue/two-way-sync/deleted-task-issue-sidecar.service';
 import { TimeBlockDeleteSidecarService } from '../calendar-integration/time-block/time-block-delete-sidecar.service';
 import { getDeadlineAutoPlanFields } from './util/get-deadline-auto-plan-fields';
+import { IS_ELECTRON } from '../../app.constants';
+import { ExecBeforeCloseService } from '../../core/electron/exec-before-close.service';
+import { OperationWriteFlushService } from '../../op-log/sync/operation-write-flush.service';
+
+const TIME_TRACKING_BEFORE_CLOSE_ID = 'TIME_TRACKING_BEFORE_CLOSE';
 
 @Injectable({
   providedIn: 'root',
@@ -265,6 +277,28 @@ export class TaskService {
       }
       this._flushAccumulatedTimeSpent();
     });
+
+    if (IS_ELECTRON) {
+      const execBeforeCloseService = inject(ExecBeforeCloseService);
+      const operationWriteFlushService = inject(OperationWriteFlushService);
+      execBeforeCloseService.schedule(TIME_TRACKING_BEFORE_CLOSE_ID);
+      execBeforeCloseService.onBeforeClose$
+        .pipe(filter((ids) => ids.includes(TIME_TRACKING_BEFORE_CLOSE_ID)))
+        .subscribe(() => {
+          this.setCurrentId(null);
+          this._flushAccumulatedTimeSpent();
+          setTimeout(() => {
+            void operationWriteFlushService
+              .flushPendingWrites()
+              .catch((error) =>
+                TaskLog.err('Failed to persist time tracking before close', error),
+              )
+              .finally(() =>
+                execBeforeCloseService.setDone(TIME_TRACKING_BEFORE_CLOSE_ID),
+              );
+          }, 0);
+        });
+    }
 
     effect(() => {
       if (!this.isTimeTrackingEnabled() && untracked(this.currentTaskId) != null) {

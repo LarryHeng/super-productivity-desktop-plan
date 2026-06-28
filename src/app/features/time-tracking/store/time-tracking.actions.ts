@@ -57,12 +57,20 @@ export const TimeTrackingActions = createActionGroup({
       duration: number;
       isFromTrackingReminder: boolean;
     }>(),
-    'Add actual time segment': props<{
+    'Add actual time segment': (actionProps: {
       taskId: string;
       date: string;
       start: number;
       end: number;
-    }>(),
+    }) => ({
+      ...actionProps,
+      meta: {
+        isPersistent: true,
+        entityType: 'TIME_TRACKING',
+        entityId: `TASK_SEGMENT:${actionProps.date}:${actionProps.taskId}:${actionProps.start}:${actionProps.end}`,
+        opType: OpType.Update,
+      } satisfies PersistentActionMeta,
+    }),
     'Update whole State': props<{
       newState: TimeTrackingState;
     }>(),
