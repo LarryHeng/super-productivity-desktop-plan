@@ -5,20 +5,67 @@ import { PlannerService } from './planner.service';
 import { DateService } from '../../core/date/date.service';
 import { CalendarIntegrationService } from '../calendar-integration/calendar-integration.service';
 import { GlobalTrackingIntervalService } from '../../core/global-tracking-interval/global-tracking-interval.service';
+import { TaskService } from '../tasks/task.service';
+import {
+  selectAllTasksWithDueTime,
+  selectMapOfAllTasksInActiveProjects,
+} from '../tasks/store/task.selectors';
+import { selectActiveTaskRepeatCfgs } from '../task-repeat-cfg/store/task-repeat-cfg.selectors';
+import { selectTodayTaskIds } from '../work-context/store/work-context.selectors';
+import { selectPlannerState } from './store/planner.selectors';
+import { selectTimelineConfig } from '../config/store/global-config.reducer';
+import { selectStartOfNextDayDiffMs } from '../../root-store/app-state/app-state.selectors';
+import { Task } from '../tasks/task.model';
 
 describe('PlannerService weekly pages', () => {
   let service: PlannerService;
   let todayDateStr$: BehaviorSubject<string>;
   let dateService: DateService;
+  let archivedTask: Task;
 
   beforeEach(() => {
     todayDateStr$ = new BehaviorSubject('2026-01-14');
+    archivedTask = {
+      id: 'archived-plan',
+      title: 'Archived plan',
+      projectId: 'INBOX_PROJECT',
+      created: Date.now(),
+      isDone: true,
+      subTaskIds: [],
+      tagIds: [],
+      attachments: [],
+      timeEstimate: 30 * 60 * 1000,
+      timeSpent: 0,
+      timeSpentOnDay: {},
+    } as Task;
 
     TestBed.configureTestingModule({
       providers: [
         PlannerService,
         DateService,
-        provideMockStore(),
+        provideMockStore({
+          selectors: [
+            { selector: selectActiveTaskRepeatCfgs, value: [] },
+            { selector: selectTodayTaskIds, value: [] },
+            { selector: selectAllTasksWithDueTime, value: [] },
+            {
+              selector: selectMapOfAllTasksInActiveProjects,
+              value: new Map(),
+            },
+            {
+              selector: selectPlannerState,
+              value: {
+                days: { ['2026-01-13']: ['archived-plan'] },
+                addPlannedTasksDialogLastShown: undefined,
+              },
+            },
+            {
+              selector: selectTimelineConfig,
+              value: { isWorkStartEndEnabled: false },
+            },
+            { selector: selectStartOfNextDayDiffMs, value: 0 },
+          ],
+        }),
         {
           provide: CalendarIntegrationService,
           useValue: { calendarEvents$: of([]) },
@@ -26,6 +73,12 @@ describe('PlannerService weekly pages', () => {
         {
           provide: GlobalTrackingIntervalService,
           useValue: { todayDateStr$: todayDateStr$.asObservable() },
+        },
+        {
+          provide: TaskService,
+          useValue: {
+            getArchivedTasks: () => Promise.resolve([archivedTask]),
+          },
         },
       ],
     });
@@ -59,6 +112,12 @@ describe('PlannerService weekly pages', () => {
       '2025-12-06',
       '2025-12-07',
     ]);
+  });
+
+  it('renders an archived task retained by a historical planner day', async () => {
+    const days = await firstValueFrom(service.getDaysForDates$(['2026-01-13']));
+
+    expect(days[0].tasks.map((task) => task.id)).toEqual(['archived-plan']);
   });
 
   it('keeps a selected Monday in its own week', async () => {

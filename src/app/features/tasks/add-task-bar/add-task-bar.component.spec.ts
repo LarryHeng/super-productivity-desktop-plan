@@ -219,6 +219,14 @@ describe('AddTaskBarComponent', () => {
     mockDateService.todayStr.and.callFake(() => getDbDateStr(new Date()));
     mockDateService.getStartOfNextDayDiffMs.and.returnValue(0);
     mockDateService.getLogicalTodayDate.and.callFake(() => new Date());
+    mockTaskService.getByIdOnce$.and.callFake((id: string) =>
+      of({
+        id,
+        title: 'Created task',
+        subTaskIds: [],
+        tagIds: [],
+      } as unknown as TaskCopy),
+    );
     // Setup method returns
     mockAddTaskBarIssueSearchService.getFilteredIssueSuggestions$.and.returnValue(of([]));
 
@@ -299,6 +307,72 @@ describe('AddTaskBarComponent', () => {
   });
 
   describe('addTask', () => {
+    it('schedules a task without a start time at least five minutes from now', async () => {
+      const now = new Date(2026, 5, 29, 10, 0, 0, 0).getTime();
+      spyOn(Date, 'now').and.returnValue(now);
+      mockDateService.todayStr.and.returnValue('2026-06-29');
+      mockTaskService.add.and.returnValue('task-1');
+      (component as any)._allTimedTasks = signal([]);
+      component.stateService.updateDate(null, undefined);
+      component.stateService.updateInputTxt('Auto planned task');
+      component.stateService.updateCleanText('Auto planned task');
+
+      await component.addTask();
+
+      const taskData = mockTaskService.add.calls.mostRecent()
+        .args[2] as Partial<TaskCopy>;
+      expect(taskData.dueDay).toBeUndefined();
+      expect(taskData.dueWithTime).toBe(new Date(2026, 5, 29, 10, 5).getTime());
+      expect(taskData.hasPlannedTime).toBeTrue();
+    });
+
+    it('places another untimed task after an overlapping scheduled task', async () => {
+      const now = new Date(2026, 5, 29, 10, 0, 0, 0).getTime();
+      spyOn(Date, 'now').and.returnValue(now);
+      mockDateService.todayStr.and.returnValue('2026-06-29');
+      mockTaskService.add.and.returnValue('task-2');
+      (component as any)._allTimedTasks = signal([
+        {
+          id: 'task-1',
+          title: 'First task',
+          dueWithTime: new Date(2026, 5, 29, 10, 5).getTime(),
+          timeEstimate: 25 * 60 * 1000,
+          timeSpent: 0,
+          subTaskIds: [],
+          tagIds: [],
+          isDone: false,
+        } as unknown as TaskCopy,
+      ]);
+      component.stateService.updateDate(null, undefined);
+      component.stateService.updateEstimate(10 * 60 * 1000);
+      component.stateService.updateInputTxt('Second task');
+      component.stateService.updateCleanText('Second task');
+
+      await component.addTask();
+
+      const taskData = mockTaskService.add.calls.mostRecent()
+        .args[2] as Partial<TaskCopy>;
+      expect(taskData.dueWithTime).toBe(new Date(2026, 5, 29, 10, 30).getTime());
+    });
+
+    it('does not auto-schedule a legacy logical yesterday date on natural today', async () => {
+      const now = new Date(2026, 5, 30, 2, 0, 0, 0).getTime();
+      spyOn(Date, 'now').and.returnValue(now);
+      mockDateService.todayStr.and.returnValue('2026-06-29');
+      mockTaskService.add.and.returnValue('task-2');
+      component.stateService.updateDate('2026-06-29', undefined);
+      component.stateService.updateEstimate(10 * 60 * 1000);
+      component.stateService.updateInputTxt('Yesterday task');
+      component.stateService.updateCleanText('Yesterday task');
+
+      await component.addTask();
+
+      const taskData = mockTaskService.add.calls.mostRecent()
+        .args[2] as Partial<TaskCopy>;
+      expect(taskData.dueDay).toBe('2026-06-29');
+      expect(taskData.dueWithTime).toBeUndefined();
+    });
+
     it('requires an estimate before creating a task', async () => {
       component.stateService.updateInputTxt('Task without estimate');
       component.stateService.updateCleanText('Task without estimate');

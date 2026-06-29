@@ -391,6 +391,55 @@ describe('Planner Selectors - selectPlannerDays', () => {
     expect(result[0].tasks[0].id).toBe('t1');
   });
 
+  it('should preserve a past dueDay task when it is no longer listed in planner state', () => {
+    const pastDay = '2026-06-28';
+    const task = createMockTask({
+      id: 'past-task',
+      title: 'Past plan',
+      dueDay: pastDay,
+      isDone: true,
+    });
+
+    const selector = fromSelectors.selectPlannerDays([pastDay], [], [], [], [], today);
+    const tasks = createTasksMapFromTasksArray([task]);
+    const result = selector.projector(tasks, emptyPlannerState, defaultScheduleConfig, 0);
+
+    expect(result[0].tasks.map((plannerTask) => plannerTask.id)).toEqual(['past-task']);
+  });
+
+  it('should resolve an archived task retained by a historical planner day', () => {
+    const pastDay = '2026-06-27';
+    const archivedTask = createMockTask({
+      id: 'archived-plan',
+      title: 'Archived historical plan',
+      isDone: true,
+    });
+    const plannerState: PlannerState = {
+      ...emptyPlannerState,
+      days: { [pastDay]: ['archived-plan'] },
+    };
+
+    const selector = (fromSelectors.selectPlannerDays as any)(
+      [pastDay],
+      [],
+      [],
+      [],
+      [],
+      today,
+      [archivedTask],
+    );
+    const result = selector.projector(
+      createTasksMapFromTasksArray([]),
+      plannerState,
+      defaultScheduleConfig,
+      0,
+    );
+
+    expect(result[0].tasks.map((plannerTask: Task) => plannerTask.id)).toEqual([
+      'archived-plan',
+    ]);
+  });
+
   it('should include unplanned today tasks passed to factory', () => {
     const task = createMockTask({ id: 't1', title: 'Today task' });
 

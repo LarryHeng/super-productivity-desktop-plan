@@ -26,7 +26,7 @@ import { AsyncPipe } from '@angular/common';
 import { LS } from '../../../core/persistence/storage-keys.const';
 import { blendInOutAnimation } from 'src/app/ui/animations/blend-in-out.ani';
 import { fadeAnimation } from '../../../ui/animations/fade.ani';
-import { TaskCopy, TaskReminderOptionId } from '../task.model';
+import { TaskCopy, TaskReminderOptionId, TaskWithDueTime } from '../task.model';
 import { TaskService } from '../task.service';
 import { WorkContextService } from '../../work-context/work-context.service';
 import { WorkContext, WorkContextType } from '../../work-context/work-context.model';
@@ -85,6 +85,13 @@ import { PlannerActions } from '../../planner/store/planner.actions';
 import { DateService } from '../../../core/date/date.service';
 import { MenuTreeService } from '../../menu-tree/menu-tree.service';
 import { SelectOptionRowComponent } from '../../../ui/select-option-row/select-option-row.component';
+import { selectAllTasksWithDueTime } from '../store/task.selectors';
+import { getTimeLeftForTask } from '../../../util/get-time-left-for-task';
+import { getDbDateStr } from '../../../util/get-db-date-str';
+
+const DEFAULT_START_DELAY_MS = 5 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const MIN_SCHEDULE_BLOCK_MS = MINUTE_MS;
 
 @Component({
   selector: 'add-task-bar',
@@ -169,6 +176,10 @@ export class AddTaskBarComponent implements AfterViewInit, OnInit, OnDestroy {
   tags$ = this._tagService.tags$;
   suggestions$!: Observable<AddTaskSuggestion[]>;
   activatedIssueTask = toSignal(this.activatedSuggestion$, { initialValue: null });
+  private readonly _allTimedTasks = toSignal(
+    this._store.select(selectAllTasksWithDueTime),
+    { initialValue: [] as TaskWithDueTime[] },
+  );
 
   // Computed values
   projectFolderMap = computed(() => this._menuTreeService.projectFolderMap());
@@ -490,7 +501,19 @@ export class AddTaskBarComponent implements AfterViewInit, OnInit, OnDestroy {
         }
       }
 
-      if (state.date) {
+      const isDefaultScheduleCandidate =
+        !state.time &&
+        !state.repeatQuickSetting &&
+        !additionalFields?.dueWithTime &&
+        !additionalFields?.dueDay &&
+        (!state.date || state.date === getDbDateStr(Date.now()));
+
+      if (isDefaultScheduleCandidate) {
+        taskData.dueWithTime = this._getNextDefaultScheduleStart(
+          taskData.timeEstimate ?? 0,
+        );
+        taskData.hasPlannedTime = true;
+      } else if (state.date) {
         // Parse date components to create date in local timezone
         // This avoids timezone issues when parsing date strings like "2024-01-15"
         const [year, month, day] = state.date.split('-').map(Number);
@@ -577,6 +600,31 @@ export class AddTaskBarComponent implements AfterViewInit, OnInit, OnDestroy {
     } finally {
       this._isAddingTask = false;
     }
+  }
+
+  private _getNextDefaultScheduleStart(duration: number): number {
+    const roundedNow = Math.ceil(Date.now() / MINUTE_MS) * MINUTE_MS;
+    let candidate = roundedNow + DEFAULT_START_DELAY_MS;
+    const blockDuration = Math.max(duration, MIN_SCHEDULE_BLOCK_MS);
+    const scheduledIntervals = this._allTimedTasks()
+      .filter((task) => !task.isDone)
+      .map((task) => ({
+        start: task.dueWithTime,
+        end: task.dueWithTime + Math.max(getTimeLeftForTask(task), MIN_SCHEDULE_BLOCK_MS),
+      }))
+      .sort((a, b) => a.start - b.start);
+
+    for (const interval of scheduledIntervals) {
+      if (interval.end <= candidate) {
+        continue;
+      }
+      if (candidate + blockDuration <= interval.start) {
+        break;
+      }
+      candidate = interval.end;
+    }
+
+    return candidate;
   }
 
   onTaskSuggestionActivated(suggestion: AddTaskSuggestion | null): void {

@@ -100,10 +100,15 @@ export const selectPlannerDays = (
   calendarEvents: ScheduleCalendarMapEntry[],
   allPlannedTasks: TaskWithDueTime[],
   todayStr: string,
+  archivedTasks: Task[] = [],
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 ) => {
+  const archivedPlannedTasks = archivedTasks.filter(
+    (task): task is TaskWithDueTime => typeof task.dueWithTime === 'number',
+  );
+  const allKnownPlannedTasks = [...archivedPlannedTasks, ...allPlannedTasks];
   // Use Set for O(1) lookup instead of O(n) .includes() in filter
-  const allPlannedIdSet = new Set(allPlannedTasks.map((t) => t.id));
+  const allPlannedIdSet = new Set(allKnownPlannedTasks.map((t) => t.id));
   const unplannedTaskIdsToday = todayListTaskIds.filter((id) => !allPlannedIdSet.has(id));
 
   return createSelector(
@@ -112,20 +117,21 @@ export const selectPlannerDays = (
     selectTimelineConfig,
     selectStartOfNextDayDiffMs,
     (activeTasks, plannerState, scheduleConfig, startOfNextDayDiffMs): PlannerDay[] => {
+      const taskMap = new Map<string, Task>(archivedTasks.map((task) => [task.id, task]));
+      for (const [taskId, task] of activeTasks) {
+        taskMap.set(taskId, task);
+      }
       // Pre-compute deadline tasks grouped by day (O(N) once, then O(1) per day)
-      const deadlineMap = groupDeadlineTasksByDay(
-        activeTasks.values(),
-        startOfNextDayDiffMs,
-      );
+      const deadlineMap = groupDeadlineTasksByDay(taskMap.values(), startOfNextDayDiffMs);
 
       return dayDates.map((dayDate) =>
         getPlannerDay(
           dayDate,
           todayStr,
-          activeTasks,
+          taskMap,
           plannerState,
           taskRepeatCfgs,
-          allPlannedTasks,
+          allKnownPlannedTasks,
           calendarEvents,
           unplannedTaskIdsToday,
           deadlineMap,
@@ -168,11 +174,17 @@ const getPlannerDay = (
   const isTodayI = dayDate === todayStr;
   const currentDayDate = dateStrToUtcDate(dayDate);
   const currentDayTimestamp = currentDayDate.getTime();
-  const tIds =
+  const dayTaskIds = new Set<string>(
     isTodayI && unplannedTaskIdsToday
       ? unplannedTaskIdsToday
-      : plannerState.days[dayDate] || [];
-  const normalTasks = tIds
+      : (plannerState.days[dayDate] as string[] | undefined) || [],
+  );
+  for (const task of taskMap.values()) {
+    if (task.dueDay === dayDate) {
+      dayTaskIds.add(task.id);
+    }
+  }
+  const normalTasks = [...dayTaskIds]
     .map((id) => taskMap.get(id) as TaskCopy)
     .filter((t) => !!t)
     // Filter out tasks with dueDay in future if it is Today's column

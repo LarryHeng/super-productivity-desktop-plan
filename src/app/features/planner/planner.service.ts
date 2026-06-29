@@ -1,12 +1,19 @@
 import { inject, Injectable } from '@angular/core';
-import { BehaviorSubject, combineLatest, Observable, of } from 'rxjs';
-import { distinctUntilChanged, first, map, shareReplay, switchMap } from 'rxjs/operators';
+import { BehaviorSubject, combineLatest, from, Observable, of } from 'rxjs';
+import {
+  catchError,
+  distinctUntilChanged,
+  first,
+  map,
+  shareReplay,
+  switchMap,
+} from 'rxjs/operators';
 import { selectAllTasksWithDueTime } from '../tasks/store/task.selectors';
 import { Store } from '@ngrx/store';
 import { CalendarIntegrationService } from '../calendar-integration/calendar-integration.service';
 import { PlannerDay } from './planner.model';
 import { selectPlannerDays } from './store/planner.selectors';
-import { TaskWithDueTime } from '../tasks/task.model';
+import { Task, TaskWithDueTime } from '../tasks/task.model';
 import { DateService } from '../../core/date/date.service';
 import { GlobalTrackingIntervalService } from '../../core/global-tracking-interval/global-tracking-interval.service';
 import { selectTodayTaskIds } from '../work-context/store/work-context.selectors';
@@ -15,6 +22,7 @@ import { getDbDateStr } from '../../util/get-db-date-str';
 import { parseDbDateStr } from '../../util/parse-db-date-str';
 import { selectActiveTaskRepeatCfgs } from '../task-repeat-cfg/store/task-repeat-cfg.selectors';
 import { getPlannerWeekStart } from './util/get-planner-week-start';
+import { TaskService } from '../tasks/task.service';
 
 @Injectable({
   providedIn: 'root',
@@ -24,8 +32,15 @@ export class PlannerService {
   private _calendarIntegrationService = inject(CalendarIntegrationService);
   private _dateService = inject(DateService);
   private _globalTrackingIntervalService = inject(GlobalTrackingIntervalService);
+  private _taskService = inject(TaskService);
   private _selectedWeekStart$ = new BehaviorSubject<string | null>(null);
   public isLoadingMore$ = new BehaviorSubject<boolean>(false);
+  private _archivedTasks$: Observable<Task[]> = from(
+    this._taskService.getArchivedTasks(),
+  ).pipe(
+    catchError(() => of([] as Task[])),
+    shareReplay({ bufferSize: 1, refCount: true }),
+  );
 
   includedWeekDays$ = of([0, 1, 2, 3, 4, 5, 6]);
 
@@ -79,6 +94,7 @@ export class PlannerService {
           this._calendarIntegrationService.calendarEvents$,
           this.allDueWithTimeTasks$,
           this._globalTrackingIntervalService.todayDateStr$,
+          this._archivedTasks$,
         ]).pipe(
           switchMap(
             ([
@@ -87,6 +103,7 @@ export class PlannerService {
               calendarEvents,
               allTasksPlanned,
               todayStr,
+              archivedTasks,
             ]) =>
               this._store.select(
                 selectPlannerDays(
@@ -96,6 +113,7 @@ export class PlannerService {
                   calendarEvents,
                   allTasksPlanned,
                   todayStr,
+                  archivedTasks,
                 ),
               ),
           ),

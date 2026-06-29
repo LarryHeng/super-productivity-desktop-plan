@@ -277,7 +277,7 @@ export interface ElectronAPI {
   backupAppData(args: {
     data: AppDataCompleteLegacy | AppDataComplete;
     maxBackupFiles?: number | null;
-  }): void;
+  }): Promise<void>;
 
   updateCurrentTask(
     task: Task | null,

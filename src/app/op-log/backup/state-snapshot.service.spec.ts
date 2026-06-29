@@ -20,6 +20,8 @@ import { selectPluginMetadataFeatureState } from '../../plugins/store/plugin-met
 import { selectReminderFeatureState } from '../../features/reminder/store/reminder.reducer';
 import { ArchiveModel } from '../../features/time-tracking/time-tracking.model';
 import { initialTimeTrackingState } from '../../features/time-tracking/store/time-tracking.reducer';
+import { selectSectionFeatureState } from '../../features/section/store/section.selectors';
+import { MODEL_CONFIGS } from '../model/model-config';
 
 describe('StateSnapshotService', () => {
   let service: StateSnapshotService;
@@ -48,6 +50,7 @@ describe('StateSnapshotService', () => {
   const mockPluginUserDataState = {};
   const mockPluginMetadataState = {};
   const mockReminderState = { ids: [], entities: {} };
+  const mockSectionState = { ids: ['section1'], entities: { section1: {} } };
 
   const DEFAULT_ARCHIVE: ArchiveModel = {
     task: { ids: [], entities: {} },
@@ -125,6 +128,7 @@ describe('StateSnapshotService', () => {
       mockPluginMetadataState as any,
     );
     store.overrideSelector(selectReminderFeatureState, mockReminderState as any);
+    store.overrideSelector(selectSectionFeatureState, mockSectionState as any);
   });
 
   afterEach(() => {
@@ -150,6 +154,8 @@ describe('StateSnapshotService', () => {
       expect(snapshot.pluginUserData).toEqual(mockPluginUserDataState);
       expect(snapshot.pluginMetadata).toEqual(mockPluginMetadataState);
       expect(snapshot.reminders).toEqual(mockReminderState);
+      expect(snapshot.section).toEqual(mockSectionState);
+      expect(Object.keys(snapshot).sort()).toEqual(Object.keys(MODEL_CONFIGS).sort());
     });
 
     it('should return default empty archives', () => {

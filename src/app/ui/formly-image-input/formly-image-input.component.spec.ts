@@ -55,6 +55,10 @@ describe('FormlyImageInputComponent', () => {
     } as unknown as Event;
   };
 
+  it('always floats the label so an asynchronously resolved image path cannot overlap it', () => {
+    expect(component.defaultOptions?.props?.floatLabel).toBe('always');
+  });
+
   it('sets data url for successful file reads', () => {
     const fileReaderMock: Partial<FileReader> = {
       result: 'data:image/png;base64,ok',

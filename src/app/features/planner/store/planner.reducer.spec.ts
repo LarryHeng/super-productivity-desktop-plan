@@ -59,7 +59,7 @@ describe('Planner Reducer', () => {
   });
 
   describe('cleanupOldAndUndefinedPlannerTasks', () => {
-    it('keeps historical days and only removes task ids that no longer exist', () => {
+    it('preserves missing task references on historical days but cleans current days', () => {
       const result = plannerReducer(
         {
           ...plannerInitialState,
@@ -75,7 +75,7 @@ describe('Planner Reducer', () => {
       );
 
       expect(result.days).toEqual({
-        '2026-06-20': ['existing'],
+        '2026-06-20': ['existing', 'deleted'],
         '2026-06-27': ['existing'],
       });
     });

@@ -223,7 +223,7 @@ const ea: ElectronAPI = {
   makeJiraRequest: (args) => _send('JIRA_MAKE_REQUEST_EVENT', args),
   jiraSetupImgHeaders: (args) => _send('JIRA_SETUP_IMG_HEADERS', args),
 
-  backupAppData: (appData) => _send('BACKUP', appData),
+  backupAppData: (appData) => _invoke('BACKUP', appData) as Promise<void>,
 
   updateCurrentTask: (
     task,

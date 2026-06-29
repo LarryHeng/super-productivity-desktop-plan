@@ -10,6 +10,7 @@ require('ts-node/register/transpile-only');
 
 const originalModuleLoad = Module._load;
 let userDataDir;
+let installDir;
 
 const modulePath = path.resolve(__dirname, 'image-cache.ts');
 
@@ -17,7 +18,13 @@ const installMocks = () => {
   Module._load = function patchedLoad(request, parent, isMain) {
     if (request === 'electron') {
       return {
-        app: { getPath: () => userDataDir },
+        app: {
+          isPackaged: true,
+          getPath: (name) =>
+            name === 'exe'
+              ? path.join(installDir, 'Super Productivity.exe')
+              : userDataDir,
+        },
       };
     }
     return originalModuleLoad.call(this, request, parent, isMain);
@@ -37,6 +44,9 @@ test.beforeEach(async () => {
   userDataDir = fsModule.realpathSync.native(
     await fs.mkdtemp(path.join(os.tmpdir(), 'sp-img-cache-')),
   );
+  installDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-img-install-')),
+  );
   installMocks();
 });
 
@@ -44,6 +54,7 @@ test.afterEach(async () => {
   Module._load = originalModuleLoad;
   reset();
   await fs.rm(userDataDir, { recursive: true, force: true });
+  await fs.rm(installDir, { recursive: true, force: true });
 });
 
 const mkPng = async (dir, name = 'bg.png', bytes = Buffer.from('fakepngdata')) => {
@@ -63,8 +74,42 @@ test('importImage copies a valid image and returns an opaque id', async () => {
     assert.ok(result);
     assert.match(result.id, /^[a-f0-9]{32}$/);
     assert.equal(result.mimeType, 'image/png');
-    const cached = path.join(userDataDir, 'bg-images', `${result.id}.png`);
+    const cached = path.join(installDir, 'bg-images', `${result.id}.png`);
     assert.equal(fsModule.existsSync(cached), true);
+  } finally {
+    await fs.rm(sourceDir, { recursive: true, force: true });
+  }
+});
+
+test('backs up and restores referenced managed background images', async () => {
+  const cache = load();
+  const sourceDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-src-')),
+  );
+  const backupAssetsDir = path.join(userDataDir, 'backup-assets');
+  try {
+    const source = await mkPng(sourceDir);
+    const imported = await cache.importImage(source);
+    assert.ok(imported);
+    const data = {
+      globalConfig: {
+        misc: { globalBackgroundImage: `image:${imported.id}` },
+      },
+    };
+
+    const backedUp = await cache.backupManagedImagesForData(data, backupAssetsDir);
+    assert.equal(backedUp, 1);
+    assert.equal(
+      fsModule.existsSync(path.join(backupAssetsDir, `${imported.id}.png`)),
+      true,
+    );
+
+    await cache.removeCachedImage(imported.id);
+    assert.equal(await cache.getImageDataUrl(imported.id), null);
+
+    const restored = await cache.restoreManagedImagesForData(data, backupAssetsDir);
+    assert.equal(restored, 1);
+    assert.match(await cache.getImageDataUrl(imported.id), /^data:image\/png;base64,/);
   } finally {
     await fs.rm(sourceDir, { recursive: true, force: true });
   }
@@ -132,6 +177,28 @@ test('detects a backups junction and migrates legacy cached images beside its ta
   } finally {
     await fs.rm(externalRoot, { recursive: true, force: true });
   }
+});
+
+test('does not delete images when the legacy path links to the active cache', async () => {
+  const activeCacheDir = path.join(installDir, 'bg-images');
+  const legacyCacheLink = path.join(userDataDir, 'bg-images');
+  const id = 'b'.repeat(32);
+  await fs.mkdir(activeCacheDir);
+  await fs.writeFile(path.join(activeCacheDir, `${id}.png`), 'keep-this-image');
+  await fs.symlink(
+    activeCacheDir,
+    legacyCacheLink,
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+
+  const cache = load();
+  const url = await cache.getImageDataUrl(id);
+
+  assert.match(url, /^data:image\/png;base64,/);
+  assert.equal(
+    await fs.readFile(path.join(activeCacheDir, `${id}.png`), 'utf8'),
+    'keep-this-image',
+  );
 });
 
 test('importImage accepts avif and bmp (restored legacy formats)', async () => {
@@ -247,7 +314,7 @@ test('getImageDataUrl returns the data url for a known id', async () => {
     assert.match(url, /^data:image\/png;base64,/);
     assert.equal(
       await cache.getImageDisplayPath(imported.id),
-      path.join(userDataDir, 'bg-images', `${imported.id}.png`),
+      path.join(installDir, 'bg-images', `${imported.id}.png`),
     );
     const base64 = url.split(',')[1];
     assert.equal(Buffer.from(base64, 'base64').toString('utf8'), 'imgbytes');
@@ -293,7 +360,7 @@ test('moves managed copies to a selected cache directory without touching source
     const src = await mkPng(sourceDir, 'original.png', Buffer.from('keep-source'));
     const imported = await cache.importImage(src);
     assert.ok(imported);
-    const oldCopy = path.join(userDataDir, 'bg-images', `${imported.id}.png`);
+    const oldCopy = path.join(installDir, 'bg-images', `${imported.id}.png`);
     const result = await cache.setImageCacheDirectory(selectedDir);
     const newCopy = path.join(selectedDir, `${imported.id}.png`);
 

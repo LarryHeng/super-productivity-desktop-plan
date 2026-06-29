@@ -56,6 +56,7 @@ win:
   publish:
     - github
 nsis:
+  include: build/installer.nsh
   # Hardcoded to avoid spaces (SignPath converts spaces to dots). Also referenced in build.yml.
   artifactName: Super-Productivity-Setup-${arch}.${ext}
   # allow to install to custom location

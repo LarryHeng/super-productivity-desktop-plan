@@ -59,6 +59,19 @@ const isSamePath = (a: string, b: string): boolean => {
     : left === right;
 };
 
+const isSamePhysicalPath = async (a: string, b: string): Promise<boolean> => {
+  const [left, right] = await Promise.all(
+    [a, b].map(async (candidate) => {
+      try {
+        return await fs.realpath(candidate);
+      } catch {
+        return path.resolve(candidate);
+      }
+    }),
+  );
+  return isSamePath(left, right);
+};
+
 const getCacheDir = async (): Promise<string> => {
   if (process.env.SP_IMAGE_CACHE_DIR) {
     return process.env.SP_IMAGE_CACHE_DIR;
@@ -89,7 +102,15 @@ const getCacheDir = async (): Promise<string> => {
       return path.join(path.dirname(resolvedBackupDir), 'bg-images');
     }
   } catch {
-    // No linked backups directory. Keep the small cache under userData.
+    // No linked backups directory.
+  }
+
+  if (app.isPackaged) {
+    try {
+      return path.join(path.dirname(app.getPath('exe')), 'bg-images');
+    } catch {
+      // Fall back to userData when the executable path is unavailable.
+    }
   }
 
   return path.join(userDataDir, 'bg-images');
@@ -125,7 +146,7 @@ const copyManagedImages = async (
   sourceDir: string,
   targetDir: string,
 ): Promise<string[]> => {
-  if (isSamePath(sourceDir, targetDir)) {
+  if (await isSamePhysicalPath(sourceDir, targetDir)) {
     return [];
   }
   let names: string[];
@@ -178,11 +199,12 @@ export const setImageCacheDirectory = async (
   await fs.mkdir(selectedPath, { recursive: true });
   const targetDir = await fs.realpath(selectedPath);
   const sourceDir = await ensureCacheDir();
+  const isSameSourceAndTarget = await isSamePhysicalPath(sourceDir, targetDir);
   const migratedNames = await copyManagedImages(sourceDir, targetDir);
 
   await saveSimpleStore(SimpleStoreKey.IMAGE_CACHE_DIR, targetDir);
 
-  if (!isSamePath(sourceDir, targetDir)) {
+  if (!isSameSourceAndTarget) {
     for (const name of migratedNames) {
       try {
         await fs.unlink(path.join(sourceDir, name));
@@ -200,7 +222,7 @@ export const setImageCacheDirectory = async (
 
 const migrateLegacyCache = async (targetDir: string): Promise<void> => {
   const legacyDir = path.join(app.getPath('userData'), 'bg-images');
-  if (isSamePath(legacyDir, targetDir)) {
+  if (await isSamePhysicalPath(legacyDir, targetDir)) {
     return;
   }
 
@@ -364,4 +386,106 @@ export const removeCachedImage = async (id: string): Promise<void> => {
   } catch {
     // ignore
   }
+};
+
+const collectManagedImageIds = (data: unknown): string[] => {
+  const ids = new Set<string>();
+  const seen = new Set<object>();
+  const stack: unknown[] = [data];
+
+  while (stack.length) {
+    const value = stack.pop();
+    if (typeof value === 'string') {
+      const match = /^image:([a-f0-9]{32})$/.exec(value);
+      if (match) {
+        ids.add(match[1]);
+      }
+      continue;
+    }
+    if (!value || typeof value !== 'object' || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    if (Array.isArray(value)) {
+      for (const nested of value) {
+        stack.push(nested);
+      }
+    } else {
+      for (const nested of Object.values(value)) {
+        stack.push(nested);
+      }
+    }
+  }
+
+  return Array.from(ids);
+};
+
+export const backupManagedImagesForData = async (
+  data: unknown,
+  backupAssetsDir: string,
+): Promise<number> => {
+  const ids = collectManagedImageIds(data);
+  if (!ids.length) {
+    return 0;
+  }
+
+  await fs.mkdir(backupAssetsDir, { recursive: true });
+  let copied = 0;
+  for (const id of ids) {
+    const cached = await findCachedFile(id);
+    if (!cached) {
+      continue;
+    }
+    const target = path.join(backupAssetsDir, path.basename(cached.absolutePath));
+    try {
+      await fs.access(target);
+    } catch {
+      await fs.copyFile(cached.absolutePath, target);
+      copied++;
+    }
+  }
+  return copied;
+};
+
+export const restoreManagedImagesForData = async (
+  data: unknown,
+  backupAssetsDir: string,
+): Promise<number> => {
+  const ids = collectManagedImageIds(data);
+  if (!ids.length) {
+    return 0;
+  }
+
+  let backupNames: string[];
+  try {
+    backupNames = await fs.readdir(backupAssetsDir);
+  } catch {
+    return 0;
+  }
+
+  const cacheDir = await ensureCacheDir();
+  let restored = 0;
+  for (const id of ids) {
+    if (await findCachedFile(id)) {
+      continue;
+    }
+    const name = backupNames.find(
+      (candidate) => candidate.startsWith(`${id}.`) && isManagedImageFileName(candidate),
+    );
+    if (!name) {
+      continue;
+    }
+    const source = path.join(backupAssetsDir, name);
+    const sourceStat = await fs.stat(source);
+    if (
+      !sourceStat.isFile() ||
+      sourceStat.size === 0 ||
+      sourceStat.size > MAX_IMAGE_BYTES
+    ) {
+      continue;
+    }
+    await fs.copyFile(source, path.join(cacheDir, name));
+    restored++;
+  }
+  return restored;
 };

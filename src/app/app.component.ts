@@ -83,7 +83,6 @@ import { OnboardingHintComponent } from './features/onboarding/onboarding-hint.c
 import { OnboardingHintService } from './features/onboarding/onboarding-hint.service';
 import { MaterialIconsLoaderService } from './ui/material-icons-loader.service';
 import { BrowserTitleService } from './core/browser-title/browser-title.service';
-import { DailySettlementSchedulerService } from './features/daily-settlement/daily-settlement-scheduler.service';
 import { normalizeBackgroundFocus } from './core/theme/background-focus.util';
 
 const ONBOARDING_PRESET_EXIT_DELAY = 1000;
@@ -201,7 +200,6 @@ export class AppComponent implements OnDestroy, AfterViewInit {
   readonly _store = inject(Store);
   private _sectionService = inject(SectionService);
   private _browserTitleService = inject(BrowserTitleService);
-  private _dailySettlementSchedulerService = inject(DailySettlementSchedulerService);
   private _hasShownLegacyFileBgSnack = false;
   readonly T = T;
   readonly TODAY_TAG_ID = TODAY_TAG.id;
@@ -262,7 +260,6 @@ export class AppComponent implements OnDestroy, AfterViewInit {
 
   constructor() {
     this._startupService.init();
-    this._dailySettlementSchedulerService.init();
     void this._materialIconsLoaderService.ensureFontReady();
 
     // Skip onboarding for existing users with data

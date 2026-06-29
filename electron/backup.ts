@@ -28,6 +28,7 @@ import {
 import { getWin } from './main-window';
 import { saveSimpleStore } from './simple-store';
 import { SimpleStoreKey } from './shared-with-frontend/simple-store.const';
+import { backupManagedImagesForData, restoreManagedImagesForData } from './image-cache';
 
 export const BACKUP_DIR = path.join(app.getPath('userData'), `backups`);
 export const BACKUP_DIR_WINSTORE = BACKUP_DIR.replace(
@@ -50,6 +51,41 @@ const safeRealpath = (p: string): string => {
   } catch {
     return path.resolve(p);
   }
+};
+
+const getInstallDataDir = (folderName: 'backups' | 'bg-images'): string | null => {
+  if (!app.isPackaged) {
+    return null;
+  }
+  try {
+    return path.join(path.dirname(app.getPath('exe')), folderName);
+  } catch {
+    return null;
+  }
+};
+
+const ensureDefaultBackupDirectory = (): void => {
+  if (existsSync(BACKUP_DIR)) {
+    return;
+  }
+
+  const installBackupDir = getInstallDataDir('backups');
+  if (installBackupDir) {
+    try {
+      mkdirSync(path.dirname(BACKUP_DIR), { recursive: true });
+      mkdirSync(installBackupDir, { recursive: true });
+      symlinkSync(
+        installBackupDir,
+        BACKUP_DIR,
+        process.platform === 'win32' ? 'junction' : 'dir',
+      );
+      return;
+    } catch (e) {
+      error('Failed to initialize install-local backup directory:', e);
+    }
+  }
+
+  mkdirSync(BACKUP_DIR, { recursive: true });
 };
 
 export interface BackupPathSelectionError {
@@ -106,9 +142,12 @@ const replaceBackupDirWithLink = (targetDir: string): void => {
   mkdirSync(parentDir, { recursive: true });
 
   if (existsSync(backupDir)) {
-    const stats = lstatSync(backupDir);
-    if (stats.isDirectory() && !stats.isSymbolicLink()) {
-      copyEntriesToTarget(backupDir, targetDir);
+    const sourceDir = safeRealpath(backupDir);
+    if (
+      statSync(sourceDir).isDirectory() &&
+      normalizeForCompare(sourceDir) !== normalizeForCompare(targetDir)
+    ) {
+      copyEntriesToTarget(sourceDir, targetDir);
     }
     rmSync(backupDir, { recursive: true, force: true });
   }
@@ -151,11 +190,12 @@ export const pickBackupLinkTarget = async (): Promise<
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
 export function initBackupAdapter(): void {
+  ensureDefaultBackupDirectory();
   console.log('Saving backups to', BACKUP_DIR);
   log('Saving backups to', BACKUP_DIR);
 
   // BACKUP
-  ipcMain.on(IPC.BACKUP, backupData);
+  ipcMain.handle(IPC.BACKUP, backupData);
 
   ipcMain.handle(IPC.GET_BACKUP_PATH_INFO, (): BackupPathInfo => getBackupPathInfo());
   ipcMain.handle(
@@ -170,7 +210,12 @@ export function initBackupAdapter(): void {
       return false;
     }
 
-    const files = readdirSync(BACKUP_DIR);
+    const files = readdirSync(BACKUP_DIR).filter((fileName) => {
+      if (!fileName.endsWith('.json')) {
+        return false;
+      }
+      return statSync(path.join(BACKUP_DIR, fileName)).isFile();
+    });
     if (!files.length) {
       return false;
     }
@@ -192,23 +237,33 @@ export function initBackupAdapter(): void {
   });
 
   // RESTORE_BACKUP
-  ipcMain.handle(IPC.BACKUP_LOAD_DATA, (ev, backupPath: string): string => {
-    // `backupPath` comes from the renderer, which runs untrusted plugin code,
-    // so it must be constrained to the backup directory. Otherwise any plugin
-    // (or XSS payload) could read arbitrary files via window.ea.loadBackupData.
-    // See GHSA-x937-wf3j-88q3. Both the regular and the Windows-Store backup
-    // dirs are accepted; the legitimate caller only ever passes paths built
-    // from BACKUP_DIR (see IPC.BACKUP_IS_AVAILABLE above).
-    if (
-      !isPathInsideDir(BACKUP_DIR, backupPath) &&
-      !isPathInsideDir(BACKUP_DIR_WINSTORE, backupPath)
-    ) {
-      throw new Error('BACKUP_LOAD_DATA: refused path outside backup directory');
-    }
-    const resolved = path.resolve(backupPath);
-    log('Reading backup file: ', resolved);
-    return readFileSync(resolved, { encoding: 'utf8' });
-  });
+  ipcMain.handle(
+    IPC.BACKUP_LOAD_DATA,
+    async (ev, backupPath: string): Promise<string> => {
+      // `backupPath` comes from the renderer, which runs untrusted plugin code,
+      // so it must be constrained to the backup directory. Otherwise any plugin
+      // (or XSS payload) could read arbitrary files via window.ea.loadBackupData.
+      // See GHSA-x937-wf3j-88q3. Both the regular and the Windows-Store backup
+      // dirs are accepted; the legitimate caller only ever passes paths built
+      // from BACKUP_DIR (see IPC.BACKUP_IS_AVAILABLE above).
+      if (
+        !isPathInsideDir(BACKUP_DIR, backupPath) &&
+        !isPathInsideDir(BACKUP_DIR_WINSTORE, backupPath)
+      ) {
+        throw new Error('BACKUP_LOAD_DATA: refused path outside backup directory');
+      }
+      const resolved = path.resolve(backupPath);
+      log('Reading backup file: ', resolved);
+      const backup = readFileSync(resolved, { encoding: 'utf8' });
+      try {
+        const data = JSON.parse(backup) as unknown;
+        await restoreManagedImagesForData(data, path.join(BACKUP_DIR, '.assets'));
+      } catch (e) {
+        error('Failed to restore managed background images from backup:', e);
+      }
+      return backup;
+    },
+  );
 }
 
 interface BackupDataArgs {
@@ -223,10 +278,10 @@ const isBackupDataArgs = (arg: unknown): arg is BackupDataArgs =>
   typeof (arg as { data?: unknown }).data === 'object';
 
 // eslint-disable-next-line prefer-arrow/prefer-arrow-functions
-function backupData(
+async function backupData(
   ev: IpcMainEvent,
   dataOrArgs: AppDataCompleteLegacy | BackupDataArgs,
-): void {
+): Promise<void> {
   if (!existsSync(BACKUP_DIR)) {
     mkdirSync(BACKUP_DIR);
   }
@@ -237,6 +292,7 @@ function backupData(
     : DEFAULT_MAX_BACKUP_FILES;
 
   try {
+    await backupManagedImagesForData(data, path.join(BACKUP_DIR, '.assets'));
     const backup = JSON.stringify(data);
     writeFileSync(filePath, backup);
     cleanupOldBackups(maxBackupFiles);

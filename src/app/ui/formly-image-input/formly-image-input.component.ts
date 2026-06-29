@@ -49,6 +49,12 @@ export class FormlyImageInputComponent
   extends FieldType<FormlyFieldConfig>
   implements OnInit
 {
+  override defaultOptions = {
+    props: {
+      floatLabel: 'always' as const,
+    },
+  };
+
   private _dialog = inject(MatDialog);
   private _unsplashService = inject(UnsplashService);
   private _snackService = inject(SnackService);
