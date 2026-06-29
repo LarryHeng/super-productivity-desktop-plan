@@ -2,7 +2,9 @@
   <task-context-menu-inner
     #taskContextMenuInner
     [isAdvancedControls]="isAdvancedControls()"
-    [isTimeEditHidden]="isTimeEditHidden()"
+    [isTimeSpentEditHidden]="isTimeSpentEditHidden()"
+    [isManualRecordAvailable]="isManualRecordAvailable()"
+    (manualRecord)="manualRecord.emit()"
     (close)="isShowInner = false"
     [task]="task()"
   ></task-context-menu-inner>

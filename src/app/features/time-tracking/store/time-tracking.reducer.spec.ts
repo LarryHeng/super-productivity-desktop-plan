@@ -230,6 +230,27 @@ describe('TimeTracking Reducer', () => {
 
       expect(result).toBe(initialTimeTrackingState);
     });
+
+    it('should preserve the source of a manually recorded segment', () => {
+      const action = TimeTrackingActions.addActualTimeSegment({
+        taskId: 'task-1',
+        date: '2026-06-27',
+        start: 1_000,
+        end: 2_000,
+        source: 'manual',
+      });
+
+      const result = timeTrackingReducer(initialTimeTrackingState, action);
+
+      expect(result.taskSegments?.['2026-06-27']).toEqual([
+        {
+          taskId: 'task-1',
+          start: 1_000,
+          end: 2_000,
+          source: 'manual',
+        },
+      ]);
+    });
   });
 
   it('should update work context data', () => {

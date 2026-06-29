@@ -41,13 +41,15 @@ const makeTaskScheduleEvent = (overlap?: ScheduleEvent['overlap']): ScheduleEven
 describe('ScheduleEventComponent – isReferenceCalendar', () => {
   let fixture: ComponentFixture<ScheduleEventComponent>;
   let component: ScheduleEventComponent;
+  let matDialog: jasmine.SpyObj<MatDialog>;
 
   beforeEach(async () => {
+    matDialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
     await TestBed.configureTestingModule({
       imports: [ScheduleEventComponent, DragDropModule, TranslateModule.forRoot()],
       providers: [
         provideMockStore(),
-        { provide: MatDialog, useValue: { open: jasmine.createSpy('open') } },
+        { provide: MatDialog, useValue: matDialog },
         {
           provide: TaskService,
           useValue: { setSelectedId: jasmine.createSpy('setSelectedId') },
@@ -183,11 +185,32 @@ describe('ScheduleEventComponent – isReferenceCalendar', () => {
     });
   });
 
-  it('uses a time-table context menu that hides time editing', () => {
+  it('uses a time-table context menu that hides spent-time editing', () => {
     fixture.componentRef.setInput('event', makeTaskScheduleEvent());
     fixture.detectChanges();
 
-    expect(component.taskContextMenu()?.isTimeEditHidden()).toBe(true);
+    expect(component.taskContextMenu()?.isTimeSpentEditHidden()).toBe(true);
+  });
+
+  it('opens manual recording with the planned block interval', () => {
+    const start = new Date(2026, 5, 28, 9, 0).getTime();
+    const duration = 30 * 60 * 1000;
+    fixture.componentRef.setInput('event', {
+      ...makeTaskScheduleEvent(),
+      start,
+      duration,
+    });
+
+    component.openManualRecord();
+
+    expect(matDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+      data: {
+        task: jasmine.objectContaining({ id: 'task-1' }),
+        start,
+        end: start + duration,
+        isFromPlannedBlock: true,
+      },
+    });
   });
 
   describe('style', () => {

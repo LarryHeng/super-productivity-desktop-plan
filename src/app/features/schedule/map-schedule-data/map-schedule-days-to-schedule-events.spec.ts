@@ -90,6 +90,8 @@ describe('mapScheduleDaysToScheduleEvents()', () => {
           dayOfMonth: undefined,
           plannedForDay: undefined,
           id: 'AAA',
+          start: new Date(2020, 0, 1, 5, 0).getTime(),
+          duration: H,
           startHours: 5,
           style: 'grid-column: 2;  grid-row: 61 / span 12',
           timeLeftInHours: 1,
@@ -108,6 +110,8 @@ describe('mapScheduleDaysToScheduleEvents()', () => {
           dayOfMonth: undefined,
           plannedForDay: undefined,
           id: 'BBB',
+          start: new Date(2020, 0, 1, 6, 0).getTime(),
+          duration: 0.5 * H,
           startHours: 6,
           style: 'grid-column: 2;  grid-row: 73 / span 6',
           timeLeftInHours: 0.5,
@@ -137,7 +141,7 @@ describe('mapScheduleDaysToScheduleEvents()', () => {
     expect(res.eventsFlat[0].isBeyondBudget).toBe(true);
   });
 
-  it('maps a completed planned task to an immutable completed-planned event', () => {
+  it('does not turn ordinary completion into a backfilled event', () => {
     const res = mapScheduleDaysToScheduleEvents(
       [
         fakeDay({
@@ -155,7 +159,7 @@ describe('mapScheduleDaysToScheduleEvents()', () => {
       FH,
     );
 
-    expect(res.eventsFlat[0].type).toBe(SVEType.CompletedPlannedTask);
+    expect(res.eventsFlat[0].type).toBe(SVEType.TaskPlannedForDay);
     expect(
       (res.eventsFlat[0].data as TaskWithPlannedForDayIndication).plannedForDay,
     ).toBe('2020-12-12');

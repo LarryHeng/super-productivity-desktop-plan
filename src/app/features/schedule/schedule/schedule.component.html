@@ -104,6 +104,15 @@
     </ng-template>
   </mat-menu>
 
+  <button
+    mat-icon-button
+    (click)="openManualRecord()"
+    [matTooltip]="T.F.SCHEDULE.MANUAL_RECORD | translate"
+    [attr.aria-label]="T.F.SCHEDULE.MANUAL_RECORD | translate"
+  >
+    <mat-icon>history_toggle_off</mat-icon>
+  </button>
+
   <div class="date-nav-group">
     <button
       mat-icon-button

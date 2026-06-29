@@ -16,6 +16,7 @@ import { IS_ELECTRON } from './app/app.constants';
 import {
   DEFAULT_LANGUAGE,
   DEFAULT_LOCALE_DATA,
+  getLocaleRegistrationCode,
   LocaleImportFns,
 } from './app/core/locale.constants';
 import { IS_ANDROID_WEB_VIEW } from './app/util/is-android-web-view';
@@ -343,9 +344,11 @@ bootstrapApplication(AppComponent, {
 
   // Lazily load and register remaining locales during idle time
   const registerRemainingLocales = (): void => {
-    Object.keys(LocaleImportFns).forEach((locale) => {
+    Object.keys(LocaleImportFns).forEach((localeKey) => {
+      const importKey = localeKey as keyof typeof LocaleImportFns;
+      const locale = getLocaleRegistrationCode(importKey);
       if (locale !== DEFAULT_LANGUAGE) {
-        LocaleImportFns[locale as keyof typeof LocaleImportFns]()
+        LocaleImportFns[importKey]()
           .then((m) => {
             registerLocaleData(m.default, locale);
           })

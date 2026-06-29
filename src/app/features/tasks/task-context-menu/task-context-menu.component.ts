@@ -3,6 +3,7 @@ import {
   ChangeDetectorRef,
   Component,
   input,
+  output,
   viewChild,
   inject,
 } from '@angular/core';
@@ -21,7 +22,9 @@ export class TaskContextMenuComponent {
 
   task = input.required<TaskWithSubTasks | Task>();
   isAdvancedControls = input<boolean>(false);
-  isTimeEditHidden = input<boolean>(false);
+  isTimeSpentEditHidden = input<boolean>(false);
+  isManualRecordAvailable = input<boolean>(false);
+  manualRecord = output<void>();
 
   isShowInner: boolean = false;
 

@@ -184,6 +184,14 @@ describe('ScheduleComponent', () => {
     });
   });
 
+  it('opens direct manual time recording from the time-table toolbar', () => {
+    component.openManualRecord();
+
+    expect(mockMatDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+      data: {},
+    });
+  });
+
   describe('headerTitle computed', () => {
     it('returns week label and date range in week view', () => {
       const translate = TestBed.inject(TranslateService);

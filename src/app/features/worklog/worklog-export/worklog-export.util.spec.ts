@@ -1,6 +1,11 @@
 import { WorkStartEnd } from 'src/app/features/work-context/work-context.model';
 import { WorklogGrouping } from '../worklog.model';
-import { createRows, formatRows, formatText } from './worklog-export.util';
+import {
+  createRows,
+  expandTitleColumnsForCsv,
+  formatRows,
+  formatText,
+} from './worklog-export.util';
 import { DEFAULT_TASK, WorklogTask } from '../../tasks/task.model';
 import { DEFAULT_PROJECT } from '../../project/project.const';
 import { DEFAULT_TAG } from '../../tag/tag.const';
@@ -482,6 +487,42 @@ describe('formatText', () => {
     );
 
     expect(csv).toBe('Date,Worked,Titles\n2026-06-27,2:15,Review | Rest');
+  });
+
+  it('exports each task title into its own horizontal column', () => {
+    const rows = createRows(
+      createWorklogData({
+        tasks: [
+          createTask({ id: 'Task A' }),
+          createTask({ id: 'Task B' }),
+          createTask({ id: 'Task C' }),
+        ],
+        workTimes,
+      }),
+      WorklogGrouping.DATE,
+    );
+    const options = {
+      roundWorkTimeTo: null,
+      roundStartTimeTo: null,
+      roundEndTimeTo: null,
+      separateTasksBy: ' | ',
+      cols: ['DATE', 'START', 'END', 'TIME_CLOCK', 'TITLES'] as const,
+      groupBy: WorklogGrouping.DATE,
+    };
+
+    const expanded = expandTitleColumnsForCsv(
+      rows,
+      { ...options, cols: [...options.cols] },
+      ['Date', 'Start', 'End', 'Worked', 'Titles'],
+    );
+    const csv = formatText(expanded.headlineCols, expanded.rows);
+
+    expect(csv.split('\n')[0]).toBe('Date,Start,End,Worked,Titles,,');
+    expect(csv.split('\n')[1].split(',').slice(-3)).toEqual([
+      'Task A',
+      'Task B',
+      'Task C',
+    ]);
   });
 
   it('quotes commas, quotes and line breaks inside cells', () => {

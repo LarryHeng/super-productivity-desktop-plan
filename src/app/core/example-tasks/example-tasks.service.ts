@@ -14,24 +14,35 @@ import { SyncTriggerService } from '../../imex/sync/sync-trigger.service';
 interface ExampleTaskDef {
   titleKey: string;
   notesKey: string;
+  legacyEnglishTitle: string;
+  legacyEnglishNotesStart: string;
 }
 
 const EXAMPLE_TASK_DEFS: ExampleTaskDef[] = [
   {
     titleKey: T.EXAMPLE_TASKS.CREATE_PROJECT.TITLE,
     notesKey: T.EXAMPLE_TASKS.CREATE_PROJECT.NOTES,
+    legacyEnglishTitle: 'Create your first project',
+    legacyEnglishNotesStart: 'Projects help you organize your tasks by topic.',
   },
   {
     titleKey: T.EXAMPLE_TASKS.SET_UP_SYNC.TITLE,
     notesKey: T.EXAMPLE_TASKS.SET_UP_SYNC.NOTES,
+    legacyEnglishTitle: 'Set up Sync',
+    legacyEnglishNotesStart: 'Keep your data safe and accessible across devices.',
   },
   {
     titleKey: T.EXAMPLE_TASKS.LEARN_KEYBOARD_SHORTCUTS.TITLE,
     notesKey: T.EXAMPLE_TASKS.LEARN_KEYBOARD_SHORTCUTS.NOTES,
+    legacyEnglishTitle: 'Learn the keyboard shortcuts',
+    legacyEnglishNotesStart:
+      'Super Productivity is designed to be used with the keyboard.',
   },
   {
     titleKey: T.EXAMPLE_TASKS.GO_FURTHER.TITLE,
     notesKey: T.EXAMPLE_TASKS.GO_FURTHER.NOTES,
+    legacyEnglishTitle: 'Go further',
+    legacyEnglishNotesStart: 'There is much more to discover!',
   },
 ];
 
@@ -51,6 +62,7 @@ export class ExampleTasksService {
 
   constructor() {
     if (localStorage.getItem(LS.EXAMPLE_TASKS_CREATED)) {
+      this._localizeLegacyExamplesAfterSync();
       return;
     }
 
@@ -72,6 +84,7 @@ export class ExampleTasksService {
         tap((tasks) => {
           if (tasks.length > 0) {
             localStorage.setItem(LS.EXAMPLE_TASKS_CREATED, 'true');
+            void this._localizeLegacyExamples();
           }
         }),
         filter((tasks) => tasks.length === 0),
@@ -103,5 +116,48 @@ export class ExampleTasksService {
         }
         localStorage.setItem(LS.EXAMPLE_TASKS_CREATED, 'true');
       });
+  }
+
+  private _localizeLegacyExamplesAfterSync(): void {
+    this._syncTriggerService.afterInitialSyncDoneStrict$
+      .pipe(first())
+      .subscribe(() => void this._localizeLegacyExamples());
+  }
+
+  private async _localizeLegacyExamples(): Promise<void> {
+    if (
+      localStorage.getItem(LS.EXAMPLE_TASKS_LOCALIZED_ZH_V1) ||
+      !this._translateService.currentLang?.toLowerCase().startsWith('zh')
+    ) {
+      return;
+    }
+
+    const tasks = await this._taskService.getAllTasksEverywhere();
+    const updates: Promise<void>[] = [];
+    for (const task of tasks) {
+      const def = EXAMPLE_TASK_DEFS.find(
+        (candidate) => candidate.legacyEnglishTitle === task.title,
+      );
+      if (!def) {
+        continue;
+      }
+
+      const translatedTitle = this._translateService.instant(def.titleKey);
+      const translatedNotes = this._translateService.instant(def.notesKey);
+      if (translatedTitle === def.titleKey) {
+        continue;
+      }
+      updates.push(
+        this._taskService.updateEverywhere(task.id, {
+          title: translatedTitle,
+          ...(task.notes?.startsWith(def.legacyEnglishNotesStart) &&
+          translatedNotes !== def.notesKey
+            ? { notes: translatedNotes }
+            : {}),
+        }),
+      );
+    }
+    await Promise.all(updates);
+    localStorage.setItem(LS.EXAMPLE_TASKS_LOCALIZED_ZH_V1, 'true');
   }
 }

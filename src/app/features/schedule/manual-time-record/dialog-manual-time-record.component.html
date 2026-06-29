@@ -1,0 +1,93 @@
+<h1 mat-dialog-title>{{ T.F.SCHEDULE.MANUAL_RECORD_TITLE | translate }}</h1>
+
+<mat-dialog-content>
+  <form
+    class="manual-record-form"
+    (submit)="$event.preventDefault(); submit()"
+  >
+    @if (!data.task) {
+      <select-task
+        [isIncludeDoneTasks]="true"
+        [isShowSuggestionsWithoutSearch]="true"
+        (taskChange)="selectTask($event)"
+      ></select-task>
+    } @else {
+      <div class="selected-task">
+        <mat-icon>task_alt</mat-icon>
+        <span>{{ data.task.title }}</span>
+      </div>
+    }
+
+    <div class="time-fields">
+      <mat-form-field>
+        <mat-label>{{ T.F.SCHEDULE.MANUAL_RECORD_START | translate }}</mat-label>
+        <input
+          matInput
+          required
+          type="datetime-local"
+          name="manualRecordStart"
+          [(ngModel)]="startValue"
+        />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>{{ T.F.SCHEDULE.MANUAL_RECORD_END | translate }}</mat-label>
+        <input
+          matInput
+          required
+          type="datetime-local"
+          name="manualRecordEnd"
+          [(ngModel)]="endValue"
+        />
+      </mat-form-field>
+    </div>
+
+    @if (data.isFromPlannedBlock) {
+      <section class="continuation">
+        <div class="section-label">
+          {{ T.F.SCHEDULE.MANUAL_RECORD_CONTINUATION | translate }}
+        </div>
+        <mat-radio-group
+          name="manualRecordContinuation"
+          [(ngModel)]="continuation"
+        >
+          <mat-radio-button value="continue">
+            {{ T.F.SCHEDULE.MANUAL_RECORD_CONTINUE | translate }}
+          </mat-radio-button>
+          <mat-radio-button value="done">
+            {{ T.F.SCHEDULE.MANUAL_RECORD_COMPLETE | translate }}
+          </mat-radio-button>
+        </mat-radio-group>
+
+        @if (continuation === 'continue') {
+          <input-duration-slider
+            [(model)]="remainingEstimate"
+            [label]="T.F.SCHEDULE.MANUAL_RECORD_REMAINING | translate"
+          ></input-duration-slider>
+        }
+      </section>
+    }
+
+    @if (errorKey) {
+      <mat-error class="form-error">{{ errorKey | translate }}</mat-error>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button
+    mat-button
+    type="button"
+    (click)="cancel()"
+  >
+    {{ T.G.CANCEL | translate }}
+  </button>
+  <button
+    mat-stroked-button
+    color="primary"
+    type="button"
+    (click)="submit()"
+  >
+    <mat-icon>history_toggle_off</mat-icon>
+    {{ T.F.SCHEDULE.MANUAL_RECORD_SAVE | translate }}
+  </button>
+</mat-dialog-actions>

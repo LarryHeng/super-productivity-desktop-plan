@@ -25,7 +25,12 @@ import { WORKLOG_EXPORT_DEFAULTS } from '../../work-context/work-context.const';
 import { WorkContextService } from '../../work-context/work-context.service';
 import { ProjectService } from '../../project/project.service';
 import { TagService } from '../../tag/tag.service';
-import { createRows, formatRows, formatText } from './worklog-export.util';
+import {
+  createRows,
+  expandTitleColumnsForCsv,
+  formatRows,
+  formatText,
+} from './worklog-export.util';
 import { MatDialogActions, MatDialogContent } from '@angular/material/dialog';
 import { FormsModule } from '@angular/forms';
 import { MatAnchor, MatButton, MatMiniFabButton } from '@angular/material/button';
@@ -227,7 +232,12 @@ export class WorklogExportComponent implements OnInit, OnDestroy {
               }
             });
 
-            this.txt = formatText(this.headlineCols, this.formattedRows);
+            const csvTable = expandTitleColumnsForCsv(
+              rows,
+              this.options,
+              this.headlineCols,
+            );
+            this.txt = formatText(csvTable.headlineCols, csvTable.rows);
             this._changeDetectorRef.detectChanges();
           }
         }),

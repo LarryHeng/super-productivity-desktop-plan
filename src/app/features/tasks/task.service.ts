@@ -913,6 +913,31 @@ export class TaskService {
     );
   }
 
+  addManualTimeSegment(task: Task, start: number, end: number): void {
+    const duration = end - start;
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      !Number.isFinite(duration) ||
+      duration <= 0
+    ) {
+      return;
+    }
+
+    const date = this._dateService.todayStr(end);
+    this.addTimeSpent(task, duration, date);
+    this._store.dispatch(syncTimeSpent({ taskId: task.id, date, duration }));
+    this._store.dispatch(
+      TimeTrackingActions.addActualTimeSegment({
+        taskId: task.id,
+        date,
+        start,
+        end,
+        source: 'manual',
+      }),
+    );
+  }
+
   /**
    * Adds time spent to a task AND dispatches the persistent syncTimeSpent action.
    * Use this instead of addTimeSpent when the caller is NOT using BatchedTimeSyncAccumulator

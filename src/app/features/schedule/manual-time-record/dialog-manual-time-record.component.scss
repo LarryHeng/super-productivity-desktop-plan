@@ -1,0 +1,53 @@
+.manual-record-form {
+  display: grid;
+  gap: 16px;
+  min-width: min(520px, 78vw);
+}
+
+.selected-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.continuation {
+  display: grid;
+  gap: 12px;
+}
+
+.section-label {
+  font-weight: 500;
+}
+
+mat-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.form-error {
+  display: block;
+}
+
+@media (max-width: 600px) {
+  .manual-record-form {
+    min-width: 0;
+  }
+
+  .time-fields {
+    grid-template-columns: 1fr;
+  }
+}

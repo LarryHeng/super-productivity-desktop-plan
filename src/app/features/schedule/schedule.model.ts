@@ -9,6 +9,8 @@ export interface ScheduleEvent {
   style: string;
   startHours: number;
   timeLeftInHours: number;
+  start?: number;
+  duration?: number;
   dayOfMonth?: number;
   plannedForDay?: string;
   data?: SVE['data'];

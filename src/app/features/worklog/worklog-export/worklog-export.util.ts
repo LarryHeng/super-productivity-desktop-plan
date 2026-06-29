@@ -8,7 +8,11 @@ import { ProjectCopy } from '../../project/project.model';
 import { TagCopy } from '../../tag/tag.model';
 import { WorklogTask } from '../../tasks/task.model';
 import { resolveDisplayTagIds } from '../../tasks/util/resolve-display-tag-ids.util';
-import { WorklogExportSettingsCopy, WorklogGrouping } from '../worklog.model';
+import {
+  WorklogColTypes,
+  WorklogExportSettingsCopy,
+  WorklogGrouping,
+} from '../worklog.model';
 import { Log } from '../../../core/log';
 import {
   ItemsByKey,
@@ -337,6 +341,53 @@ export const formatRows = (
     });
   });
 };
+
+export const expandTitleColumnsForCsv = (
+  rows: RowItem[],
+  options: WorklogExportSettingsCopy,
+  headlineCols: string[],
+): {
+  headlineCols: string[];
+  rows: (string | number | undefined)[][];
+} => {
+  const formattedRows = formatRows(rows, options);
+  const titleWidths = options.cols.map((col) => {
+    if (!isTitleColumn(col)) {
+      return 1;
+    }
+    return Math.max(
+      1,
+      ...rows.map((row) =>
+        col === 'TITLES' ? row.titles.length : row.titlesWithSub.length,
+      ),
+    );
+  });
+
+  const expandedHeadlineCols = headlineCols.flatMap((headline, index) => [
+    headline,
+    ...Array(Math.max(0, titleWidths[index] - 1)).fill(''),
+  ]);
+  const expandedRows = rows.map((row, rowIndex) =>
+    options.cols.flatMap((col, colIndex) => {
+      if (!isTitleColumn(col)) {
+        return [formattedRows[rowIndex][colIndex]];
+      }
+      const titles = col === 'TITLES' ? row.titles : row.titlesWithSub;
+      return [
+        ...titles,
+        ...Array(Math.max(0, titleWidths[colIndex] - titles.length)).fill(undefined),
+      ];
+    }),
+  );
+
+  return {
+    headlineCols: expandedHeadlineCols,
+    rows: expandedRows,
+  };
+};
+
+const isTitleColumn = (col: WorklogColTypes): boolean =>
+  col === 'TITLES' || col === 'TITLES_INCLUDING_SUB';
 
 /**
  * Prepares the csv for export

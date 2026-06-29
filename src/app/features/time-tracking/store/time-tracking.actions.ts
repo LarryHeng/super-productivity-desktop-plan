@@ -62,12 +62,13 @@ export const TimeTrackingActions = createActionGroup({
       date: string;
       start: number;
       end: number;
+      source?: 'manual';
     }) => ({
       ...actionProps,
       meta: {
         isPersistent: true,
         entityType: 'TIME_TRACKING',
-        entityId: `TASK_SEGMENT:${actionProps.date}:${actionProps.taskId}:${actionProps.start}:${actionProps.end}`,
+        entityId: `TASK_SEGMENT:${actionProps.date}:${actionProps.taskId}:${actionProps.start}:${actionProps.end}${actionProps.source ? `:${actionProps.source}` : ''}`,
         opType: OpType.Update,
       } satisfies PersistentActionMeta,
     }),

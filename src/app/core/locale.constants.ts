@@ -134,6 +134,10 @@ export const LocaleImportFns: Record<
   vi: () => import('@angular/common/locales/vi'),
 };
 
+export const getLocaleRegistrationCode = (
+  key: keyof typeof DateTimeLocales,
+): DateTimeLocale => DateTimeLocales[key];
+
 /** Default locale data, statically imported for instant availability */
 export const DEFAULT_LOCALE_DATA = localeEnGB;
 

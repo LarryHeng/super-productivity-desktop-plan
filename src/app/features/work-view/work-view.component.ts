@@ -504,37 +504,8 @@ export class WorkViewComponent implements OnInit, OnDestroy {
     this.takeABreakService.resetTimer();
   }
 
-  async moveDoneToArchive(): Promise<void> {
-    const doneTasks = this.doneTasks();
-
-    if (!doneTasks || doneTasks.length === 0) {
-      return;
-    }
-    const isConfirmed = await firstValueFrom(
-      this._matDialog
-        .open(DialogConfirmComponent, {
-          data: {
-            title: T.WW.ARCHIVE_DONE_WARNING_TITLE,
-            titleIcon: 'warning',
-            message: T.WW.ARCHIVE_DONE_WARNING,
-            okTxt: T.WW.MOVE_DONE_TO_ARCHIVE,
-          },
-        })
-        .afterClosed(),
-    );
-    if (!isConfirmed) {
-      return;
-    }
-
-    await this.taskService.moveToArchive(doneTasks);
-    this._snackService.open({
-      msg: T.F.TASK.S.MOVED_TO_ARCHIVE,
-      type: 'SUCCESS',
-      ico: 'done_all',
-      translateParams: {
-        nr: doneTasks.length,
-      },
-    });
+  hideDoneTasks(): void {
+    this.isDoneHidden.set(true);
   }
 
   async clearCompletedMatrixTags(): Promise<void> {

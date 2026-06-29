@@ -46,6 +46,7 @@ describe('TaskContextMenuInnerComponent', () => {
   let fixture: ComponentFixture<TaskContextMenuInnerComponent>;
   let taskService: jasmine.SpyObj<TaskService>;
   let addSubtaskInputService: jasmine.SpyObj<AddSubtaskInputService>;
+  let matDialog: jasmine.SpyObj<MatDialog>;
   let store: MockStore;
 
   beforeEach(async () => {
@@ -59,6 +60,8 @@ describe('TaskContextMenuInnerComponent', () => {
       'AddSubtaskInputService',
       ['requestOpen'],
     );
+    matDialog = jasmine.createSpyObj<MatDialog>('MatDialog', ['open']);
+    matDialog.open.and.returnValue({ afterClosed: () => of() } as any);
 
     await TestBed.configureTestingModule({
       imports: [
@@ -74,7 +77,7 @@ describe('TaskContextMenuInnerComponent', () => {
           provide: TaskRepeatCfgService,
           useValue: { getTaskRepeatCfgById$: () => of(null) },
         },
-        { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of() }) } },
+        { provide: MatDialog, useValue: matDialog },
         {
           provide: IssueService,
           useValue: { issueLink: () => Promise.resolve('') },
@@ -156,14 +159,35 @@ describe('TaskContextMenuInnerComponent', () => {
   });
 
   describe('time editing visibility', () => {
-    it('hides estimate and spent-time controls for the time-table context', () => {
-      fixture.componentRef.setInput('isTimeEditHidden', true);
+    it('accepts the time-table spent-time restriction without disabling estimates', () => {
+      fixture.componentRef.setInput('isTimeSpentEditHidden', true);
       fixture.detectChanges();
 
-      expect(
-        fixture.nativeElement.querySelector('[data-testid="task-estimate-menu-trigger"]'),
-      ).toBeNull();
+      expect(component.isTimeSpentEditHidden()).toBe(true);
     });
+
+    it('opens the custom estimate dialog without spent-time editing', () => {
+      fixture.componentRef.setInput('isTimeSpentEditHidden', true);
+
+      component.estimateTime();
+
+      expect(matDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+        data: {
+          task: component.task,
+          isEstimateOnly: true,
+        },
+      });
+    });
+  });
+
+  it('emits a manual-record request for time-table planned blocks', () => {
+    fixture.componentRef.setInput('isManualRecordAvailable', true);
+    const emitSpy = jasmine.createSpy('manualRecord');
+    component.manualRecord.subscribe(emitSpy);
+
+    component.requestManualRecord();
+
+    expect(emitSpy).toHaveBeenCalled();
   });
 
   describe('duplicate()', () => {

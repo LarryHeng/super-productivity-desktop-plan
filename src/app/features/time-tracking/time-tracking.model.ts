@@ -34,6 +34,7 @@ export interface TTActualTaskSegment {
   taskId: string;
   start: number;
   end: number;
+  source?: 'manual';
 }
 
 export interface TTActiveTaskSegment {

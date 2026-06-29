@@ -348,15 +348,15 @@
                     <mat-icon>label_off</mat-icon>
                     {{ T.WW.CLEAR_MATRIX_TAGS | translate }}
                   </button>
-                  @if (hasDoneTasks() && (!isOnTodayList() || !isFinishDayEnabled())) {
+                  @if (hasDoneTasks()) {
                     <button
-                      class="e2e-move-done-to-archive"
+                      class="e2e-hide-done-tasks"
                       mat-stroked-button
-                      (click)="moveDoneToArchive()"
+                      (click)="hideDoneTasks()"
                       tabindex="1"
                     >
-                      <mat-icon>done_all</mat-icon>
-                      {{ T.WW.MOVE_DONE_TO_ARCHIVE | translate }}
+                      <mat-icon>visibility_off</mat-icon>
+                      {{ T.WW.HIDE_DONE_TASKS | translate }}
                     </button>
                   }
                 </div>

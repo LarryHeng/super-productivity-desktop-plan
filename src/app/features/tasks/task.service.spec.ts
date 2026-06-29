@@ -886,6 +886,52 @@ describe('TaskService', () => {
     });
   });
 
+  describe('addManualTimeSegment', () => {
+    it('adds time spent, syncs it, and stores a manual segment', () => {
+      const task = createMockTask('task-1');
+      const start = new Date(2026, 0, 5, 11, 30).getTime();
+      const end = new Date(2026, 0, 5, 12, 0).getTime();
+
+      service.addManualTimeSegment(task, start, end);
+
+      expect(store.dispatch).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          type: '[TimeTracking] Add time spent',
+          task,
+          date: '2026-01-05',
+          duration: end - start,
+        }),
+      );
+      expect(store.dispatch).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          type: '[TimeTracking] Sync time spent',
+          taskId: task.id,
+          date: '2026-01-05',
+          duration: end - start,
+        }),
+      );
+      expect(store.dispatch).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          type: '[TimeTracking] Add actual time segment',
+          taskId: task.id,
+          date: '2026-01-05',
+          start,
+          end,
+          source: 'manual',
+        }),
+      );
+    });
+
+    it('ignores an invalid interval', () => {
+      const task = createMockTask('task-1');
+      (store.dispatch as jasmine.Spy).calls.reset();
+
+      service.addManualTimeSegment(task, 2_000, 1_000);
+
+      expect(store.dispatch).not.toHaveBeenCalled();
+    });
+  });
+
   describe('removeTimeSpent', () => {
     it('should dispatch removeTimeSpent action', () => {
       service.removeTimeSpent('task-1', 30000);

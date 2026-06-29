@@ -88,41 +88,48 @@ const timeTrackingReducerInternal = createReducer(
     };
   }),
 
-  on(TimeTrackingActions.addActualTimeSegment, (state, { taskId, date, start, end }) => {
-    if (
-      !taskId ||
-      !date ||
-      !Number.isFinite(start) ||
-      !Number.isFinite(end) ||
-      end <= start
-    ) {
-      return state;
-    }
+  on(
+    TimeTrackingActions.addActualTimeSegment,
+    (state, { taskId, date, start, end, source }) => {
+      if (
+        !taskId ||
+        !date ||
+        !Number.isFinite(start) ||
+        !Number.isFinite(end) ||
+        end <= start
+      ) {
+        return state;
+      }
 
-    const existingSegments = state.taskSegments?.[date] ?? [];
-    const isDuplicate = existingSegments.some(
-      (segment) =>
-        segment.taskId === taskId && segment.start === start && segment.end === end,
-    );
-    if (isDuplicate) {
-      return state;
-    }
+      const existingSegments = state.taskSegments?.[date] ?? [];
+      const isDuplicate = existingSegments.some(
+        (segment) =>
+          segment.taskId === taskId &&
+          segment.start === start &&
+          segment.end === end &&
+          segment.source === source,
+      );
+      if (isDuplicate) {
+        return state;
+      }
 
-    return {
-      ...state,
-      taskSegments: {
-        ...(state.taskSegments ?? {}),
-        [date]: [
-          ...existingSegments,
-          {
-            taskId,
-            start,
-            end,
-          },
-        ],
-      },
-    };
-  }),
+      return {
+        ...state,
+        taskSegments: {
+          ...(state.taskSegments ?? {}),
+          [date]: [
+            ...existingSegments,
+            {
+              taskId,
+              start,
+              end,
+              ...(source ? { source } : {}),
+            },
+          ],
+        },
+      };
+    },
+  ),
 
   on(updateWorkContextData, (state, { ctx, date, updates }) => {
     const prop = ctx.type === 'TAG' ? 'tag' : 'project';

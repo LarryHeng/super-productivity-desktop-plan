@@ -303,15 +303,14 @@ describe('WorkViewComponent', () => {
       expect(moveToArchive).not.toHaveBeenCalled();
     });
 
-    it('warns before archive and leaves tasks untouched when cancelled', async () => {
-      matDialog.open.and.returnValue({
-        afterClosed: () => of(false),
-      } as any);
+    it('hides completed tasks without archiving them', async () => {
       const component = await createComponent({ done: [buildTask('done-1')] });
 
-      await component.moveDoneToArchive();
+      component.hideDoneTasks();
 
+      expect(component.isDoneHidden()).toBeTrue();
       expect(moveToArchive).not.toHaveBeenCalled();
+      expect(matDialog.open).not.toHaveBeenCalled();
     });
   });
 

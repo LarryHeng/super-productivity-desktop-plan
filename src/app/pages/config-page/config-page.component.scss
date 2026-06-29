@@ -1,5 +1,9 @@
 @use '../../../styles/_globals.scss' as *;
 
+:host {
+  overflow-anchor: none;
+}
+
 .page-settings {
   text-align: start;
 

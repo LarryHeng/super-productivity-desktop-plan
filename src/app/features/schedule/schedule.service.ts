@@ -1,4 +1,4 @@
-import { computed, inject, Injectable, Signal } from '@angular/core';
+import { computed, inject, Injectable, signal, Signal } from '@angular/core';
 import { DateService } from '../../core/date/date.service';
 import { timer } from 'rxjs';
 import {
@@ -50,12 +50,28 @@ export class ScheduleService {
   private _plannerDayMap = toSignal(this._store.select(selectPlannerDayMap));
   private _timeTrackingState = toSignal(this._store.select(selectTimeTrackingState));
   private _taskEntities = toSignal(this._store.select(selectTaskEntities));
+  private _archivedTaskEntities = signal<
+    Record<string, TaskCopy | Readonly<TaskCopy> | undefined>
+  >({});
   private _calendarEvents = toSignal(this._calendarIntegrationService.calendarEvents$, {
     initialValue: [],
   });
   scheduleRefreshTick = toSignal(timer(0, 1000), {
     initialValue: 0,
   });
+
+  constructor() {
+    if (typeof this._taskService.getArchivedTasks === 'function') {
+      void this._taskService
+        .getArchivedTasks()
+        .then((tasks) => {
+          this._archivedTaskEntities.set(
+            Object.fromEntries(tasks.map((task) => [task.id, task])),
+          );
+        })
+        .catch(() => undefined);
+    }
+  }
 
   createScheduleDaysComputed(daysToShow: Signal<string[]>): Signal<ScheduleDay[]> {
     return computed(() => {
@@ -65,7 +81,10 @@ export class ScheduleService {
       const timelineCfg = this._timelineConfig();
       const plannerDayMap = this._plannerDayMap();
       const timeTrackingState = this._timeTrackingState();
-      const taskEntities = this._taskEntities();
+      const taskEntities = {
+        ...this._archivedTaskEntities(),
+        ...this._taskEntities(),
+      };
       const calendarEvents = this._calendarEvents();
       const currentTaskId = this._taskService.currentTaskId() ?? null;
       const activeActualTimeSegment =
@@ -156,7 +175,10 @@ export class ScheduleService {
     const timelineCfg = this._timelineConfig();
     const plannerDayMap = this._plannerDayMap();
     const timeTrackingState = this._timeTrackingState();
-    const taskEntities = this._taskEntities();
+    const taskEntities = {
+      ...this._archivedTaskEntities(),
+      ...this._taskEntities(),
+    };
     const activeActualTimeSegment = this._taskService.activeActualTimeSegment?.() ?? null;
     const hiddenProviderIds = this._hiddenCalendarProviders.hiddenProviderIds();
     const calendarEvents = hiddenProviderIds.length

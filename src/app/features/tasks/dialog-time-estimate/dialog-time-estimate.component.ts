@@ -76,11 +76,13 @@ export class DialogTimeEstimateComponent implements AfterViewInit {
   task: Task;
   taskCopy: TaskCopy;
   timeSpentOnDayCopy: TimeSpentOnDayCopy;
+  isEstimateOnly: boolean;
 
   constructor() {
     const _taskService = this._taskService;
 
     this.task = this.data.task;
+    this.isEstimateOnly = Boolean(this.data.isEstimateOnly);
     this.todayStr = getTodayStr();
     this._taskService = _taskService;
     this.taskCopy = createTaskCopy(this.task);
@@ -89,11 +91,22 @@ export class DialogTimeEstimateComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     if (this.data.isFocusEstimateOnMousePrimaryDevice) {
-      this._el.nativeElement.querySelectorAll('input')?.[1]?.focus();
+      const estimateInputIndex = this.isEstimateOnly ? 0 : 1;
+      this._el.nativeElement.querySelectorAll('input')?.[estimateInputIndex]?.focus();
     }
   }
 
   submit(): void {
+    if (this.isEstimateOnly) {
+      this._taskService.update(this.taskCopy.id, {
+        timeEstimate: this.taskCopy.timeEstimate,
+      });
+      this._matDialogRef.close({
+        timeEstimate: this.taskCopy.timeEstimate,
+      });
+      return;
+    }
+
     this._taskService.update(this.taskCopy.id, {
       timeEstimate: this.taskCopy.timeEstimate,
       timeSpentOnDay: this.timeSpentOnDayCopy,

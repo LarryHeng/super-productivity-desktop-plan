@@ -44,6 +44,8 @@ import { DateTimeFormatService } from '../../../core/date-time-format/date-time-
 import { getWeekNumber } from '../../../util/get-week-number';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
 import { SnackService } from '../../../core/snack/snack.service';
+import { MatDialog } from '@angular/material/dialog';
+import { DialogManualTimeRecordComponent } from '../manual-time-record/dialog-manual-time-record.component';
 import {
   DEFAULT_ACTUAL_BLOCK_COLOR,
   DEFAULT_COMPLETED_PLANNED_BLOCK_COLOR,
@@ -90,6 +92,7 @@ export class ScheduleComponent {
   private _translate = inject(TranslateService);
   private _hiddenCalendarProviders = inject(HiddenCalendarProvidersService);
   private _snackService = inject(SnackService);
+  private _matDialog = inject(MatDialog);
 
   readonly blockColors = computed(() => {
     const cfg = this._globalConfigService.timelineCfg();
@@ -128,6 +131,12 @@ export class ScheduleComponent {
 
   toggleCalProvider(providerId: string): void {
     this._hiddenCalendarProviders.toggle(providerId);
+  }
+
+  openManualRecord(): void {
+    this._matDialog.open(DialogManualTimeRecordComponent, {
+      data: {},
+    });
   }
 
   updateBlockColor(kind: 'planned' | 'actual' | 'completedPlanned', event: Event): void {

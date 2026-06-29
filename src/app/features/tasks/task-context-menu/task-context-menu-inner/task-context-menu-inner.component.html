@@ -156,6 +156,18 @@
     </button>
   }
 
+  @if (isManualRecordAvailable()) {
+    <button
+      (click)="requestManualRecord()"
+      mat-menu-item
+    >
+      <span class="menuItemLeft">
+        <mat-icon>history_toggle_off</mat-icon>
+        {{ T.F.SCHEDULE.MANUAL_RECORD | translate }}
+      </span>
+    </button>
+  }
+
   @if (isAdvancedControls() && !task.parentId && !task.isDone) {
     <button
       (click)="moveToTop()"
@@ -251,7 +263,7 @@
     </button>
   }
 
-  @if (!isTimeEditHidden() && !task.subTaskIds.length) {
+  @if (!task.subTaskIds.length) {
     <button
       #estimateMenuTrigger="matMenuTrigger"
       data-testid="task-estimate-menu-trigger"

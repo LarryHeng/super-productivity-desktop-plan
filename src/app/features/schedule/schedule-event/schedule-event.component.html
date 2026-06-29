@@ -97,7 +97,9 @@
   <task-context-menu
     #taskContextMenu
     [task]="task()"
-    [isTimeEditHidden]="true"
+    [isTimeSpentEditHidden]="true"
+    [isManualRecordAvailable]="isManualRecordAvailable()"
+    (manualRecord)="openManualRecord()"
   ></task-context-menu>
 }
 

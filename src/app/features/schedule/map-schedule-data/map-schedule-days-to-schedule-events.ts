@@ -1,7 +1,7 @@
 import { ScheduleDay, ScheduleEvent } from '../schedule.model';
 import { getTimeLeftForTask } from '../../../util/get-time-left-for-task';
 import { SVEType } from '../schedule.const';
-import { TaskCopy, TaskWithPlannedForDayIndication } from '../../tasks/task.model';
+import { TaskWithPlannedForDayIndication } from '../../tasks/task.model';
 import { dateStrToUtcDate } from '../../../util/date-str-to-utc-date';
 
 export const mapScheduleDaysToScheduleEvents = (
@@ -57,15 +57,14 @@ export const mapScheduleDaysToScheduleEvents = (
         const rowSpan = Math.max(1, Math.round(timeLeftInHours * FH));
 
         const eventIndex = eventsFlat.length;
-        const type = isCompletedPlannedTaskEntry(entry)
-          ? SVEType.CompletedPlannedTask
-          : (entry.type as SVEType);
         eventsFlat.push({
           dayOfMonth: getDayOfMonth(
             (entry.data as TaskWithPlannedForDayIndication)?.plannedForDay,
           ),
           id: entry.id,
-          type,
+          type: entry.type as SVEType,
+          start: entry.start,
+          duration: entry.duration,
           startHours: hoursToday,
           timeLeftInHours,
           style: `grid-column: ${dayIndex + 2};  grid-row: ${startRow} / span ${rowSpan}`,
@@ -139,14 +138,3 @@ export const mapScheduleDaysToScheduleEvents = (
 
 const getDayOfMonth = (dayDate: string | undefined): number | undefined =>
   dayDate ? dateStrToUtcDate(dayDate).getDate() : undefined;
-
-const isCompletedPlannedTaskEntry = (entry: ScheduleDay['entries'][number]): boolean =>
-  !!(entry.data as TaskCopy | undefined)?.isDone &&
-  !!(
-    entry.plannedForDay ||
-    (entry.data as TaskWithPlannedForDayIndication | undefined)?.plannedForDay
-  ) &&
-  (entry.type === SVEType.TaskPlannedForDay ||
-    entry.type === SVEType.SplitTaskPlannedForDay ||
-    entry.type === SVEType.SplitTaskContinued ||
-    entry.type === SVEType.SplitTaskContinuedLast);

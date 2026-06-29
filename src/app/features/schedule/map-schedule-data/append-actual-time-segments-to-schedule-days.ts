@@ -51,7 +51,8 @@ export const appendActualTimeSegmentsToScheduleDays = (
       const task = tasksById[segment.taskId] as TaskCopy;
       return {
         id: `actual-${segment.taskId}-${segment.start}-${segment.end}`,
-        type: SVEType.ActualTask,
+        type:
+          segment.source === 'manual' ? SVEType.CompletedPlannedTask : SVEType.ActualTask,
         start: segment.start,
         duration: segment.end - segment.start,
         data: task,
@@ -92,6 +93,7 @@ export const mergeNearbyActualTaskSegments = (
     if (
       previous &&
       previous.taskId === segment.taskId &&
+      previous.source === segment.source &&
       segment.start - previous.end <= mergeGapMs
     ) {
       merged[merged.length - 1] = {

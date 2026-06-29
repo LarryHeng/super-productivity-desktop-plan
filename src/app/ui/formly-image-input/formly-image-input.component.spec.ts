@@ -188,6 +188,26 @@ describe('FormlyImageInputComponent', () => {
     expect(formEmissions).toBe(1);
   });
 
+  it('prevents pointer focus from moving the settings viewport', () => {
+    const preventDefault = jasmine.createSpy('preventDefault');
+
+    component.setBackgroundFocus({
+      clientX: 150,
+      clientY: 125,
+      preventDefault,
+      currentTarget: {
+        getBoundingClientRect: () => ({
+          left: 100,
+          top: 50,
+          width: 200,
+          height: 100,
+        }),
+      },
+    } as unknown as PointerEvent);
+
+    expect(preventDefault).toHaveBeenCalled();
+  });
+
   it('keeps the settings scroll position while saving a focal point', fakeAsync(() => {
     const form = new FormGroup({
       backgroundImage: formControl,
@@ -240,6 +260,62 @@ describe('FormlyImageInputComponent', () => {
     tick(40);
 
     expect(scrollHost.scrollTop).toBe(240);
+    scrollHost.remove();
+  }));
+
+  it('restores the settings scroll position after a delayed preview rebuild', fakeAsync(() => {
+    const form = new FormGroup({
+      backgroundImage: formControl,
+      backgroundPositionX: new FormControl(50),
+      backgroundPositionY: new FormControl(50),
+    });
+    Object.defineProperty(component, 'form', {
+      get: () => form,
+      configurable: true,
+    });
+    component.field = {
+      props: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+      templateOptions: {
+        backgroundFocusXKey: 'backgroundPositionX',
+        backgroundFocusYKey: 'backgroundPositionY',
+      },
+    } as any;
+
+    const scrollHost = document.createElement('div');
+    scrollHost.style.overflowY = 'auto';
+    Object.defineProperty(scrollHost, 'clientHeight', { value: 200 });
+    Object.defineProperty(scrollHost, 'scrollHeight', { value: 1000 });
+    let scrollTop = 360;
+    Object.defineProperty(scrollHost, 'scrollTop', {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = value;
+      },
+    });
+    const focusTarget = document.createElement('button');
+    scrollHost.appendChild(focusTarget);
+    document.body.appendChild(scrollHost);
+    spyOn(focusTarget, 'getBoundingClientRect').and.returnValue({
+      left: 100,
+      top: 50,
+      width: 200,
+      height: 100,
+    } as DOMRect);
+
+    component.setBackgroundFocus({
+      clientX: 150,
+      clientY: 125,
+      currentTarget: focusTarget,
+    } as unknown as PointerEvent);
+    tick(100);
+    scrollHost.scrollTop = 180;
+    tick(250);
+
+    expect(scrollHost.scrollTop).toBe(360);
     scrollHost.remove();
   }));
 

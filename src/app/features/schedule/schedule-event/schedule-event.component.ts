@@ -42,6 +42,7 @@ import { TaskContextMenuComponent } from '../../tasks/task-context-menu/task-con
 import { DateTimeFormatService } from '../../../core/date-time-format/date-time-format.service';
 import { FH } from '../schedule.const';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
+import { DialogManualTimeRecordComponent } from '../manual-time-record/dialog-manual-time-record.component';
 
 const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
 
@@ -128,6 +129,8 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     if (
       evt.type === SVEType.Task ||
       evt.type === SVEType.SplitTask ||
+      evt.type === SVEType.SplitTaskContinued ||
+      evt.type === SVEType.SplitTaskContinuedLast ||
       evt.type === SVEType.TaskPlannedForDay ||
       evt.type === SVEType.SplitTaskPlannedForDay ||
       evt.type === SVEType.ScheduledTask ||
@@ -137,6 +140,19 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
       return evt.data as TaskCopy;
     }
     return undefined;
+  });
+
+  readonly isManualRecordAvailable = computed(() => {
+    const type = this.se().type;
+    return (
+      type === SVEType.Task ||
+      type === SVEType.TaskPlannedForDay ||
+      type === SVEType.ScheduledTask ||
+      type === SVEType.SplitTask ||
+      type === SVEType.SplitTaskPlannedForDay ||
+      type === SVEType.SplitTaskContinued ||
+      type === SVEType.SplitTaskContinuedLast
+    );
   });
 
   readonly title = computed(() => {
@@ -484,7 +500,35 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     if (!t) return;
 
     this._matDialog.open(DialogTimeEstimateComponent, {
-      data: { task: t, isFocusEstimateOnMousePrimaryDevice: true },
+      data: {
+        task: t,
+        isFocusEstimateOnMousePrimaryDevice: true,
+        isEstimateOnly: true,
+      },
+    });
+  }
+
+  openManualRecord(): void {
+    const evt = this.se();
+    const task = this.task();
+    if (
+      !task ||
+      !this.isManualRecordAvailable() ||
+      !Number.isFinite(evt.start) ||
+      !Number.isFinite(evt.duration)
+    ) {
+      return;
+    }
+
+    const start = evt.start as number;
+    const duration = evt.duration as number;
+    this._matDialog.open(DialogManualTimeRecordComponent, {
+      data: {
+        task,
+        start,
+        end: start + duration,
+        isFromPlannedBlock: true,
+      },
     });
   }
 

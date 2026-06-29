@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { fakeAsync, flushMicrotasks, TestBed } from '@angular/core/testing';
 import { MockStore, provideMockStore } from '@ngrx/store/testing';
 import { of, Subject } from 'rxjs';
 import { TranslateService } from '@ngx-translate/core';
@@ -21,9 +21,16 @@ describe('ExampleTasksService', () => {
 
   beforeEach(() => {
     localStorage.removeItem(LS.EXAMPLE_TASKS_CREATED);
+    localStorage.removeItem(LS.EXAMPLE_TASKS_LOCALIZED_ZH_V1);
 
     syncReady$ = new Subject();
-    taskService = jasmine.createSpyObj('TaskService', ['createNewTaskWithDefaults']);
+    taskService = jasmine.createSpyObj('TaskService', [
+      'createNewTaskWithDefaults',
+      'getAllTasksEverywhere',
+      'updateEverywhere',
+    ]);
+    taskService.getAllTasksEverywhere.and.resolveTo([]);
+    taskService.updateEverywhere.and.resolveTo();
     translateService = jasmine.createSpyObj('TranslateService', ['instant', 'get']);
 
     translateService.instant.and.callFake((key: string) => `translated:${key}`);
@@ -65,6 +72,7 @@ describe('ExampleTasksService', () => {
 
   afterEach(() => {
     localStorage.removeItem(LS.EXAMPLE_TASKS_CREATED);
+    localStorage.removeItem(LS.EXAMPLE_TASKS_LOCALIZED_ZH_V1);
     store.resetSelectors();
   });
 
@@ -122,6 +130,31 @@ describe('ExampleTasksService', () => {
     expect(taskService.createNewTaskWithDefaults).not.toHaveBeenCalled();
     expect(dispatchSpy).not.toHaveBeenCalled();
   });
+
+  it('localizes untouched legacy example notes and titles for Chinese users', fakeAsync(() => {
+    localStorage.setItem(LS.EXAMPLE_TASKS_CREATED, 'true');
+    Object.defineProperty(translateService, 'currentLang', {
+      configurable: true,
+      value: 'zh',
+    });
+    taskService.getAllTasksEverywhere.and.resolveTo([
+      {
+        id: 'legacy-sync',
+        title: 'Set up Sync',
+        notes: 'Keep your data safe and accessible across devices.\n\nOld instructions',
+      } as Task,
+    ]);
+
+    TestBed.inject(ExampleTasksService);
+    syncReady$.next(true);
+    flushMicrotasks();
+
+    expect(taskService.updateEverywhere).toHaveBeenCalledWith('legacy-sync', {
+      title: 'translated:EXAMPLE_TASKS.SET_UP_SYNC.TITLE',
+      notes: 'translated:EXAMPLE_TASKS.SET_UP_SYNC.NOTES',
+    });
+    expect(localStorage.getItem(LS.EXAMPLE_TASKS_LOCALIZED_ZH_V1)).toBe('true');
+  }));
 
   it('should NOT create example tasks when translations return raw keys', () => {
     store.overrideSelector(selectAllTasks, [] as Task[]);

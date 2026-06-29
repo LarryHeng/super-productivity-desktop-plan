@@ -160,6 +160,7 @@ export class FormlyImageInputComponent
   }
 
   setBackgroundFocus(event: PointerEvent): void {
+    event.preventDefault?.();
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
@@ -168,20 +169,24 @@ export class FormlyImageInputComponent
     const y = normalizeBackgroundFocus(((event.clientY - rect.top) / rect.height) * 100);
     const scrollHost = this._findScrollHost(target);
     const scrollTop = scrollHost?.scrollTop;
+    const previousOverflowAnchor = scrollHost?.style.overflowAnchor;
+    if (scrollHost) {
+      scrollHost.style.overflowAnchor = 'none';
+    }
     this._writeBackgroundFocus(x, y);
     if (scrollHost && scrollTop !== undefined) {
-      queueMicrotask(() => {
-        requestAnimationFrame(() => {
-          if (scrollHost.isConnected) {
-            scrollHost.scrollTop = scrollTop;
-          }
-          requestAnimationFrame(() => {
-            if (scrollHost.isConnected) {
-              scrollHost.scrollTop = scrollTop;
-            }
-          });
-        });
-      });
+      const restore = (): void => {
+        if (scrollHost.isConnected) {
+          scrollHost.scrollTop = scrollTop;
+        }
+      };
+      restore();
+      queueMicrotask(restore);
+      [50, 150, 300].forEach((delay) => window.setTimeout(restore, delay));
+      window.setTimeout(() => {
+        restore();
+        scrollHost.style.overflowAnchor = previousOverflowAnchor ?? '';
+      }, 350);
     }
   }
 

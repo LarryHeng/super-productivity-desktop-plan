@@ -55,6 +55,40 @@ describe('appendActualTimeSegmentsToScheduleDays', () => {
     );
   });
 
+  it('renders manually recorded segments with the third block style', () => {
+    const day: ScheduleDay = {
+      dayDate: '2026-06-27',
+      beyondBudgetTasks: [],
+      isToday: true,
+      entries: [],
+    };
+    const start = Date.UTC(2026, 5, 27, 9, 10);
+    const end = Date.UTC(2026, 5, 27, 9, 45);
+
+    const result = appendActualTimeSegmentsToScheduleDays(
+      [day],
+      {
+        '2026-06-27': [
+          {
+            taskId: 'task-1',
+            start,
+            end,
+            source: 'manual',
+          },
+        ],
+      },
+      { 'task-1': task },
+    );
+
+    expect(result[0].entries).toContain(
+      jasmine.objectContaining({
+        type: SVEType.CompletedPlannedTask,
+        start,
+        duration: end - start,
+      }),
+    );
+  });
+
   it('pushes later planned blocks forward while preserving their order and duration', () => {
     const secondTask = { ...task, id: 'task-2', title: 'Second task' };
     const thirdTask = { ...task, id: 'task-3', title: 'Third task' };
