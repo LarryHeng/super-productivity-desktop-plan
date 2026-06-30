@@ -1,9 +1,8 @@
 import { test, expect } from '../../fixtures/test.fixture';
 
 const TASK = 'task';
-const TASK_TITLE = 'task task-title';
+const TASK_TITLE = 'task-title';
 const FIRST_TASK = 'task:first-child';
-const SECOND_TASK = 'task:nth-child(2)';
 const TASK_DONE_BTN = 'done-toggle';
 
 test.describe('Task CRUD Operations', () => {
@@ -14,29 +13,29 @@ test.describe('Task CRUD Operations', () => {
     // Create first task
     await workViewPage.addTask('First task');
     await page.waitForSelector(TASK, { state: 'visible' });
-    await expect(page.locator(TASK_TITLE).first()).toContainText(/First task/);
+    const firstTask = page.locator(TASK).filter({ hasText: 'First task' }).first();
+    await expect(firstTask.locator(TASK_TITLE)).toContainText(/First task/);
 
     // Create second task
     await workViewPage.addTask('Second task');
-    await expect(page.locator(`${FIRST_TASK} task-title`)).toContainText(/Second task/);
-    await expect(page.locator(`${SECOND_TASK} task-title`)).toContainText(/First task/);
+    const secondTask = page.locator(TASK).filter({ hasText: 'Second task' }).first();
+    await expect(secondTask.locator(TASK_TITLE)).toContainText(/Second task/);
+    await expect(firstTask.locator(TASK_TITLE)).toContainText(/First task/);
 
-    // Edit first task (newest)
-    await page.click(`${FIRST_TASK} task-title`);
-    await page.waitForSelector(`${FIRST_TASK} textarea`, { state: 'visible' });
-    await page.fill(`${FIRST_TASK} textarea`, 'Edited second task');
+    // Edit the second task without relying on its position in the planned list.
+    await secondTask.locator(TASK_TITLE).click();
+    await secondTask.locator('textarea').waitFor({ state: 'visible' });
+    await secondTask.locator('textarea').fill('Edited second task');
     await page.keyboard.press('Tab'); // Blur to save
-    await expect(page.locator(`${FIRST_TASK} task-title`)).toContainText(
-      /Edited second task/,
-    );
+    await expect(secondTask.locator(TASK_TITLE)).toContainText(/Edited second task/);
 
-    // Mark first task as done
-    await page.hover(FIRST_TASK);
-    await page.waitForSelector(`${FIRST_TASK} ${TASK_DONE_BTN}`, { state: 'visible' });
-    await page.click(`${FIRST_TASK} ${TASK_DONE_BTN}`);
+    // Mark the edited task as done.
+    await secondTask.hover();
+    await secondTask.locator(TASK_DONE_BTN).waitFor({ state: 'visible' });
+    await secondTask.locator(TASK_DONE_BTN).click();
 
     // Verify task is marked as done
-    await expect(page.locator(`${FIRST_TASK}.isDone`)).toBeVisible();
+    await expect(secondTask).toHaveClass(/isDone/);
 
     // Verify we have one done task and one undone task
     await expect(page.locator(`${TASK}.isDone`)).toHaveCount(1);

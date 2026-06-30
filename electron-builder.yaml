@@ -44,6 +44,7 @@ directories:
 afterPack: ./tools/afterPack.js
 
 win:
+  icon: build/windows-icon.ico
   target:
     - target: nsis
       arch:

@@ -103,6 +103,10 @@ export const selectTaskRepeatCfgsForExactDay = createSelector(
           return false;
         }
 
+        if (taskRepeatCfg.endDate && dateStr > taskRepeatCfg.endDate) {
+          return false;
+        }
+
         const effectiveLastDay = getEffectiveLastTaskCreationDay(taskRepeatCfg);
         if (
           effectiveLastDay === dateStr ||
@@ -152,13 +156,8 @@ export const selectAllUnprocessedTaskRepeatCfgs = createSelector(
           return false;
         }
 
-        // Check if this date is in the deleted instances list
-        if (taskRepeatCfg.deletedInstanceDates?.includes(dateStr)) {
-          return false;
-        }
-
         const rd = getNewestPossibleDueDate(taskRepeatCfg, dateToCheckDate);
-        return !!rd;
+        return !!rd && !taskRepeatCfg.deletedInstanceDates?.includes(getDbDateStr(rd));
       })
     );
   },

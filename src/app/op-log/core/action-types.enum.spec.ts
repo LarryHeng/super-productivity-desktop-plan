@@ -12,8 +12,8 @@ describe('ActionType enum', () => {
   const enumValues = Object.values(ActionType) as string[];
   const mappingKeys = Object.keys(ACTION_TYPE_TO_CODE);
 
-  it('should have exactly 146 members', () => {
-    expect(enumValues.length).toBe(146);
+  it('should have exactly 149 members', () => {
+    expect(enumValues.length).toBe(149);
   });
 
   it('should have 1:1 correspondence with ACTION_TYPE_TO_CODE', () => {
@@ -48,6 +48,12 @@ describe('ActionType enum', () => {
       expect(ActionType.TASK_SHARED_PLAN_DEADLINE_FOR_TODAY).toBe(
         '[Task Shared] planDeadlineTasksForToday',
       );
+      expect(ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE).toBe(
+        '[Task Shared] stopTaskRepeatCfgFromDate',
+      );
+      expect(ActionType.TASK_SHARED_MATERIALIZE_REPEAT_CFG_INSTANCE).toBe(
+        '[Task Shared] materializeTaskRepeatCfgInstance',
+      );
     });
 
     it('should have correct Tag action types', () => {
@@ -59,6 +65,10 @@ describe('ActionType enum', () => {
     it('should have correct Project action types', () => {
       expect(ActionType.PROJECT_ADD).toBe('[Project] Add Project');
       expect(ActionType.PROJECT_UPDATE).toBe('[Project] Update Project');
+    });
+
+    it('should include persisted actual time segments', () => {
+      expect(enumValues).toContain('[TimeTracking] Add actual time segment');
     });
 
     it('should handle inconsistent spacing in SimpleCounter', () => {

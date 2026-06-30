@@ -14,7 +14,7 @@ test.describe('Project', () => {
     await workViewPage.waitForTaskList();
   });
 
-  test('move done tasks to archive without error', async ({ page }) => {
+  test('@legacy-archive move done tasks to archive without error', async ({ page }) => {
     // First navigate to Inbox project (not Today view) since archive button only shows in project views
     const inboxMenuItem = page.locator('magic-side-nav button:has-text("Inbox")');
     await inboxMenuItem.click();

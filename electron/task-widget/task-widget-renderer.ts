@@ -2,6 +2,7 @@ const showMainBtn = document.getElementById('show-main') as HTMLButtonElement;
 const hideWidgetBtn = document.getElementById('hide-widget') as HTMLButtonElement;
 const container = document.getElementById('task-widget-container') as HTMLDivElement;
 const taskTitle = document.getElementById('task-title') as HTMLSpanElement;
+const activeLabel = document.getElementById('active-label') as HTMLSpanElement;
 const timeDisplay = document.getElementById('time-display') as HTMLSpanElement;
 const matrixGrid = document.getElementById('matrix-grid') as HTMLDivElement;
 const widgetBg = document.getElementById('widget-bg') as HTMLDivElement;
@@ -11,6 +12,11 @@ const extendMinutes = document.getElementById('extend-minutes') as HTMLInputElem
 const extendConfirm = document.getElementById('extend-confirm') as HTMLButtonElement;
 const extendCancel = document.getElementById('extend-cancel') as HTMLButtonElement;
 let expiredTaskId: string | null = null;
+let labels = {
+  activeTask: '',
+  noActiveTask: '',
+  noTasks: '',
+};
 
 type TaskWidgetListTask = Readonly<{
   id: string;
@@ -77,16 +83,12 @@ const formatTime = (value: number | undefined): string => {
   });
 };
 
-const renderList = (
-  target: HTMLDivElement,
-  tasks: TaskWidgetListTask[],
-  emptyLabel: string,
-): void => {
+const renderList = (target: HTMLDivElement, tasks: TaskWidgetListTask[]): void => {
   target.textContent = '';
   if (!tasks.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    empty.textContent = emptyLabel;
+    empty.textContent = labels.noTasks;
     target.appendChild(empty);
     return;
   }
@@ -161,7 +163,7 @@ const renderPanels = (
     const list = document.createElement('div');
     list.className = 'task-list';
 
-    renderList(list, panel.tasks || [], 'No tasks');
+    renderList(list, panel.tasks || []);
     section.appendChild(header);
     section.appendChild(list);
     matrixGrid.appendChild(section);
@@ -169,11 +171,13 @@ const renderPanels = (
 };
 
 window.taskWidgetAPI.onUpdateContent((data) => {
+  labels = { ...labels, ...data.labels };
   container.classList.remove('mode-pomodoro', 'mode-focus', 'mode-task', 'mode-idle');
   if (data.mode) {
     container.classList.add(`mode-${data.mode}`);
   }
-  taskTitle.textContent = data.title || 'No active task';
+  activeLabel.textContent = labels.activeTask;
+  taskTitle.textContent = data.title || labels.noActiveTask;
   timeDisplay.textContent = data.time || '--:--';
   renderPanels(data.panels || []);
 });

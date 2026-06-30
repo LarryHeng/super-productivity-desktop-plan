@@ -8,7 +8,10 @@ const THIRTY_MINUTES = 30 * 60 * 1000;
 type TaskStateSnapshot = {
   title: string;
   dueDay?: string | null;
+  dueWithTime?: number | null;
   timeEstimate?: number | null;
+  isDone?: boolean;
+  created?: number;
 };
 
 const getDbDateStr = async (page: Page, offsetDays = 0): Promise<string> =>
@@ -20,6 +23,14 @@ const getDbDateStr = async (page: Page, offsetDays = 0): Promise<string> =>
     return `${date.getFullYear()}-${month}-${day}`;
   }, offsetDays);
 
+const getDbDateStrForTimestamp = async (page: Page, timestamp: number): Promise<string> =>
+  page.evaluate((value) => {
+    const date = new Date(value);
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+  }, timestamp);
+
 const getTaskStateByTitle = async (
   page: Page,
   taskTitle: string,
@@ -28,7 +39,10 @@ const getTaskStateByTitle = async (
     type TaskLike = {
       title?: string;
       dueDay?: string | null;
+      dueWithTime?: number | null;
       timeEstimate?: number | null;
+      isDone?: boolean;
+      created?: number;
     };
     type StoreState = {
       tasks?: {
@@ -66,7 +80,10 @@ const getTaskStateByTitle = async (
       ? {
           title: task.title ?? '',
           dueDay: task.dueDay ?? null,
+          dueWithTime: task.dueWithTime ?? null,
           timeEstimate: task.timeEstimate ?? null,
+          isDone: task.isDone ?? false,
+          created: task.created,
         }
       : null;
   }, taskTitle);
@@ -92,7 +109,10 @@ const addTaskWithoutWaitingForTodayList = async (
   await input.waitFor({ state: 'visible', timeout: 10000 });
   await input.click();
   await input.clear();
-  await input.fill(rawTaskInput);
+  const hasEstimate = /(?:^|\s)\d+(?:[.,]\d+)?\s*(?:m|min|h|d)(?=\s|$)/i.test(
+    rawTaskInput,
+  );
+  await input.fill(hasEstimate ? rawTaskInput : `${rawTaskInput} 25m`);
   await page.locator('.e2e-add-task-submit').click();
 };
 
@@ -136,14 +156,18 @@ test.describe('Scheduled Task Operations', () => {
     const taskTitle = `${testPrefix}-Scheduled Task`;
     await workViewPage.addTask(`${taskTitle} @today`);
 
-    // Verify task is visible
-    const task = page.locator('task').filter({ hasText: taskTitle });
-    await expect(task).toBeVisible({ timeout: 10000 });
-    await expect(task.locator('task-title')).not.toContainText('@today');
-
     const expectedDueDay = await getDbDateStr(page);
     const taskState = await expectTaskTitleWithoutShortSyntax(page, taskTitle, '@today');
-    expect(taskState.dueDay).toBe(expectedDueDay);
+    expect(taskState.dueDay).toBeNull();
+    expect(taskState.dueWithTime).not.toBeNull();
+    expect(await getDbDateStrForTimestamp(page, taskState.dueWithTime!)).toBe(
+      expectedDueDay,
+    );
+    expect(taskState.created).toBeDefined();
+    const fiveMinutesInMs = 5 * 60 * 1000;
+    expect(taskState.dueWithTime! - taskState.created!).toBeGreaterThanOrEqual(
+      fiveMinutesInMs - 1000,
+    );
   });
 
   test('should create task with time estimate using short syntax', async ({
@@ -277,7 +301,11 @@ test.describe('Scheduled Task Operations', () => {
       '@today',
     );
     expect(task1State.title).not.toContain('30m');
-    expect(task1State.dueDay).toBe(expectedDueDay);
+    expect(task1State.dueDay).toBeNull();
+    expect(task1State.dueWithTime).not.toBeNull();
+    expect(await getDbDateStrForTimestamp(page, task1State.dueWithTime!)).toBe(
+      expectedDueDay,
+    );
     expect(task1State.timeEstimate).toBe(THIRTY_MINUTES);
 
     const task2State = await expectTaskTitleWithoutShortSyntax(
@@ -286,7 +314,14 @@ test.describe('Scheduled Task Operations', () => {
       '@today',
     );
     expect(task2State.title).not.toContain('1h');
-    expect(task2State.dueDay).toBe(expectedDueDay);
+    expect(task2State.dueDay).toBeNull();
+    expect(task2State.dueWithTime).not.toBeNull();
+    expect(await getDbDateStrForTimestamp(page, task2State.dueWithTime!)).toBe(
+      expectedDueDay,
+    );
     expect(task2State.timeEstimate).toBe(ONE_HOUR);
+    expect(task2State.dueWithTime!).toBeGreaterThanOrEqual(
+      task1State.dueWithTime! + THIRTY_MINUTES,
+    );
   });
 });

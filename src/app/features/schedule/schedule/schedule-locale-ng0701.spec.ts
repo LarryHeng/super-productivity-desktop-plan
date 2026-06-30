@@ -17,6 +17,7 @@ import { GlobalConfigService } from '../../config/global-config.service';
 import { DateTimeLocales } from '../../../core/locale.constants';
 import { safeFormatDate } from '../../../util/safe-format-date';
 import { SnackService } from '../../../core/snack/snack.service';
+import { TaskRepeatCfgService } from '../../task-repeat-cfg/task-repeat-cfg.service';
 
 /**
  * Regression guard for issue #7383 (NG0701 on /schedule).
@@ -133,6 +134,13 @@ describe('issue #7383 — NG0701 race on /schedule', () => {
               'createAsTask',
               'hideForever',
               'deleteEvent',
+            ]),
+          },
+          {
+            provide: TaskRepeatCfgService,
+            useValue: jasmine.createSpyObj('TaskRepeatCfgService', [
+              'getTaskRepeatCfgById$',
+              'moveTaskRepeatCfgInstance',
             ]),
           },
           {

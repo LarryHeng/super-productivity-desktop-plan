@@ -206,10 +206,25 @@ export class ScheduleWeekComponent implements OnInit, AfterViewInit, OnDestroy {
     if (isScheduleCalendarEvent(ev)) {
       return this._calendarEventActions.canMoveEvent(ev.data);
     }
+    if (this._isTimedRepeatProjection(ev)) {
+      return true;
+    }
     if (isDraggableSE(ev)) {
       return true;
     }
     return false;
+  }
+
+  private _isTimedRepeatProjection(ev: ScheduleEvent): boolean {
+    const isTimedRepeatProjectionType =
+      ev.type === SVEType.ScheduledRepeatProjection ||
+      ev.type === SVEType.RepeatProjectionSplit ||
+      ev.type === SVEType.RepeatProjectionSplitContinued ||
+      ev.type === SVEType.RepeatProjectionSplitContinuedLast;
+    const startTime = (ev.data as { startTime?: unknown } | undefined)?.startTime;
+    return (
+      isTimedRepeatProjectionType && typeof startTime === 'string' && startTime.length > 0
+    );
   }
 
   newTaskPlaceholder = signal<{

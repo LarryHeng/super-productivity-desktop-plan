@@ -2,6 +2,7 @@ import { DEFAULT_BOARDS } from '../../boards/boards.const';
 import { filterTasksForPanel } from '../../boards/boards.util';
 import { Task } from '../task.model';
 import { IMPORTANT_TAG, URGENT_TAG } from '../../tag/tag.const';
+import { T } from '../../../t.const';
 
 export type TaskWidgetListTask = Readonly<{
   id: string;
@@ -21,7 +22,35 @@ export type TaskWidgetTaskPanel = Readonly<{
   tasks: TaskWidgetListTask[];
 }>;
 
+export type TaskWidgetLabels = Readonly<{
+  activeTask: string;
+  noActiveTask: string;
+  noTasks: string;
+}>;
+
 const EISENHOWER_MATRIX_BOARD_ID = 'EISENHOWER_MATRIX';
+const eisenhowerBoard = DEFAULT_BOARDS.find(
+  (cfg) => cfg.id === EISENHOWER_MATRIX_BOARD_ID,
+);
+
+const TASK_WIDGET_LABEL_KEYS: Readonly<Record<keyof TaskWidgetLabels, string>> = {
+  activeTask: T.GCF.TASK_WIDGET.ACTIVE_TASK,
+  noActiveTask: T.GCF.TASK_WIDGET.NO_ACTIVE_TASK,
+  noTasks: T.GCF.TASK_WIDGET.NO_TASKS,
+};
+
+export const TASK_WIDGET_TRANSLATION_KEYS: string[] = [
+  ...(eisenhowerBoard?.panels.map((panel) => panel.title) ?? []),
+  ...Object.values(TASK_WIDGET_LABEL_KEYS),
+];
+
+export const buildTaskWidgetLabels = (
+  translateTitle: (title: string) => string,
+): TaskWidgetLabels => ({
+  activeTask: translateTitle(TASK_WIDGET_LABEL_KEYS.activeTask),
+  noActiveTask: translateTitle(TASK_WIDGET_LABEL_KEYS.noActiveTask),
+  noTasks: translateTitle(TASK_WIDGET_LABEL_KEYS.noTasks),
+});
 
 export const mapTaskForTaskWidget = (t: Task): TaskWidgetListTask => ({
   id: t.id,
@@ -39,8 +68,7 @@ export const buildEisenhowerTaskWidgetPanels = (
   tasks: readonly Task[],
   translateTitle: (title: string) => string = (title) => title,
 ): TaskWidgetTaskPanel[] => {
-  const board = DEFAULT_BOARDS.find((cfg) => cfg.id === EISENHOWER_MATRIX_BOARD_ID);
-  if (!board) {
+  if (!eisenhowerBoard) {
     return [];
   }
 
@@ -51,7 +79,7 @@ export const buildEisenhowerTaskWidgetPanels = (
       task.tagIds?.includes(IMPORTANT_TAG.id),
   );
 
-  return board.panels.map((panel) => ({
+  return eisenhowerBoard.panels.map((panel) => ({
     id: panel.id,
     title: translateTitle(panel.title),
     tasks: filterTasksForPanel(visibleTasks, panel).map(mapTaskForTaskWidget),

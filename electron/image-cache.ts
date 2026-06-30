@@ -20,9 +20,9 @@ import { SimpleStoreKey } from './shared-with-frontend/simple-store.const';
  * (proven user intent), main copies the file into a private cache directory
  * and hands back an opaque `id`. The renderer stores that id in user config
  * and asks main for the data URL by id. No path ever leaves main. Subsequent
- * app launches can resolve the id without re-asking the user. The cache
- * follows an externally linked `backups` folder when one is configured;
- * otherwise it remains under userData.
+ * app launches can resolve the id without re-asking the user. The default
+ * cache remains under userData. When the user explicitly selects another
+ * drive, the userData path is retained as a link to that location.
  *
  * Source-path validation is layered defense-in-depth:
  *   - source must live outside userData (no laundering the grant file)
@@ -72,6 +72,8 @@ const isSamePhysicalPath = async (a: string, b: string): Promise<boolean> => {
   return isSamePath(left, right);
 };
 
+const getDefaultCacheDir = (): string => path.join(app.getPath('userData'), 'bg-images');
+
 const getCacheDir = async (): Promise<string> => {
   if (process.env.SP_IMAGE_CACHE_DIR) {
     return process.env.SP_IMAGE_CACHE_DIR;
@@ -82,44 +84,15 @@ const getCacheDir = async (): Promise<string> => {
   if (typeof configuredDir === 'string' && path.isAbsolute(configuredDir)) {
     return configuredDir;
   }
-  const backupTarget = simpleStore[SimpleStoreKey.BACKUP_LINK_TARGET];
-  if (
-    typeof backupTarget === 'string' &&
-    path.isAbsolute(backupTarget) &&
-    path.basename(backupTarget).toLowerCase() === 'backups'
-  ) {
-    return path.join(path.dirname(backupTarget), 'bg-images');
-  }
-
-  const userDataDir = app.getPath('userData');
-  const backupLink = path.join(userDataDir, 'backups');
-  try {
-    const resolvedBackupDir = await fs.realpath(backupLink);
-    if (
-      !isSamePath(resolvedBackupDir, backupLink) &&
-      path.basename(resolvedBackupDir).toLowerCase() === 'backups'
-    ) {
-      return path.join(path.dirname(resolvedBackupDir), 'bg-images');
-    }
-  } catch {
-    // No linked backups directory.
-  }
-
-  if (app.isPackaged) {
-    try {
-      return path.join(path.dirname(app.getPath('exe')), 'bg-images');
-    } catch {
-      // Fall back to userData when the executable path is unavailable.
-    }
-  }
-
-  return path.join(userDataDir, 'bg-images');
+  return getDefaultCacheDir();
 };
 
 const ensureCacheDir = async (): Promise<string> => {
   const dir = await getCacheDir();
   await fs.mkdir(dir, { recursive: true });
-  await migrateLegacyCache(dir);
+  if (!process.env.SP_IMAGE_CACHE_DIR) {
+    await ensureDefaultCacheLink(dir);
+  }
   return dir;
 };
 
@@ -162,10 +135,21 @@ const copyManagedImages = async (
     const source = path.join(sourceDir, name);
     const target = path.join(targetDir, name);
     try {
+      const sourceBytes = await fs.readFile(source);
       try {
-        await fs.access(target);
-      } catch {
+        const targetBytes = await fs.readFile(target);
+        if (!sourceBytes.equals(targetBytes)) {
+          throw new Error('Managed image target conflicts with the source');
+        }
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw e;
+        }
         await fs.copyFile(source, target);
+        const copiedBytes = await fs.readFile(target);
+        if (!sourceBytes.equals(copiedBytes)) {
+          throw new Error('Managed image copy verification failed');
+        }
         copied.push(name);
       }
     } catch {
@@ -182,6 +166,39 @@ const copyManagedImages = async (
   return names.filter(isManagedImageFileName);
 };
 
+const ensureDefaultCacheLink = async (targetDir: string): Promise<void> => {
+  const defaultDir = getDefaultCacheDir();
+  if (await isSamePhysicalPath(defaultDir, targetDir)) {
+    return;
+  }
+
+  await fs.mkdir(path.dirname(defaultDir), { recursive: true });
+  try {
+    await copyManagedImages(defaultDir, targetDir);
+    try {
+      const defaultStat = await fs.lstat(defaultDir);
+      if (defaultStat.isSymbolicLink()) {
+        await fs.unlink(defaultDir);
+      } else {
+        await fs.rm(defaultDir, { recursive: true, force: true });
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw e;
+      }
+    }
+    await fs.symlink(
+      targetDir,
+      defaultDir,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+  } catch (e) {
+    throw new Error('Background image cache link could not be created', {
+      cause: e,
+    });
+  }
+};
+
 /**
  * Move the managed background library to a user-selected folder.
  *
@@ -195,61 +212,21 @@ export const setImageCacheDirectory = async (
   if (typeof selectedPath !== 'string' || !path.isAbsolute(selectedPath)) {
     throw new Error('Background image cache path must be absolute');
   }
+  assertPathOutside(app.getPath('userData'), selectedPath);
+  assertPathOutside(selectedPath, app.getPath('userData'));
 
   await fs.mkdir(selectedPath, { recursive: true });
   const targetDir = await fs.realpath(selectedPath);
   const sourceDir = await ensureCacheDir();
-  const isSameSourceAndTarget = await isSamePhysicalPath(sourceDir, targetDir);
-  const migratedNames = await copyManagedImages(sourceDir, targetDir);
+  await copyManagedImages(sourceDir, targetDir);
 
+  await ensureDefaultCacheLink(targetDir);
   await saveSimpleStore(SimpleStoreKey.IMAGE_CACHE_DIR, targetDir);
-
-  if (!isSameSourceAndTarget) {
-    for (const name of migratedNames) {
-      try {
-        await fs.unlink(path.join(sourceDir, name));
-      } catch {
-        // The new copy is already durable; a stale old copy is harmless.
-      }
-    }
-  }
 
   return {
     effectiveDir: targetDir,
     configuredDir: targetDir,
   };
-};
-
-const migrateLegacyCache = async (targetDir: string): Promise<void> => {
-  const legacyDir = path.join(app.getPath('userData'), 'bg-images');
-  if (await isSamePhysicalPath(legacyDir, targetDir)) {
-    return;
-  }
-
-  let names: string[];
-  try {
-    names = await fs.readdir(legacyDir);
-  } catch {
-    return;
-  }
-
-  for (const name of names) {
-    if (!isManagedImageFileName(name)) {
-      continue;
-    }
-    const source = path.join(legacyDir, name);
-    const target = path.join(targetDir, name);
-    try {
-      try {
-        await fs.access(target);
-      } catch {
-        await fs.copyFile(source, target);
-      }
-      await fs.unlink(source);
-    } catch {
-      // Keep the legacy copy when migration is interrupted or the target is read-only.
-    }
-  }
 };
 
 const getExt = (p: string): string => {

@@ -482,6 +482,54 @@ test('updateTaskWidgetTaskLists sends Eisenhower matrix panels to the renderer',
   assert.equal(update.args[0].panels[0].tasks[0].id, 'task-1');
 });
 
+test('task widget refreshes keep translated titles instead of replacing them with i18n keys', async () => {
+  const mod = loadModule();
+  mod.updateTaskWidgetEnabled(true);
+  await flush();
+
+  const win = createdWindows[0];
+  mod.updateTaskWidgetTaskLists({
+    panels: [
+      {
+        id: 'URGENT_AND_IMPORTANT',
+        title: '紧急且重要',
+        tasks: [],
+      },
+    ],
+    labels: {
+      activeTask: '当前任务',
+      noActiveTask: '没有正在进行的任务',
+      noTasks: '没有任务',
+    },
+  });
+  mod.updateTaskWidgetTaskLists({
+    panels: [
+      {
+        id: 'URGENT_AND_IMPORTANT',
+        title: 'F.BOARDS.DEFAULT.URGENT_IMPORTANT',
+        tasks: [],
+      },
+    ],
+    labels: {
+      activeTask: 'GCF.TASK_WIDGET.ACTIVE_TASK',
+      noActiveTask: 'GCF.TASK_WIDGET.NO_ACTIVE_TASK',
+      noTasks: 'GCF.TASK_WIDGET.NO_TASKS',
+    },
+  });
+  mod.updateTaskWidgetTask(null, false, 0, false, 0);
+
+  const update = win.webContents.sent
+    .filter((msg) => msg.channel === 'update-content')
+    .at(-1);
+  assert.equal(update.args[0].panels[0].title, '紧急且重要');
+  assert.deepEqual(update.args[0].labels, {
+    activeTask: '当前任务',
+    noActiveTask: '没有正在进行的任务',
+    noTasks: '没有任务',
+  });
+  assert.equal(JSON.stringify(update.args[0]).includes('F.BOARDS.DEFAULT.'), false);
+});
+
 test('task widget completion state changes are forwarded to the main renderer', async () => {
   const mainWin = new FakeBrowserWindow();
   const mod = loadModule();

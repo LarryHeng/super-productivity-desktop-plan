@@ -17,6 +17,7 @@ import { GlobalConfigService } from '../../config/global-config.service';
 import { ScheduleDay } from '../schedule.model';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
 import { SnackService } from '../../../core/snack/snack.service';
+import { TaskRepeatCfgService } from '../../task-repeat-cfg/task-repeat-cfg.service';
 
 describe('ScheduleComponent', () => {
   let component: ScheduleComponent;
@@ -126,6 +127,13 @@ describe('ScheduleComponent', () => {
         },
         { provide: GlobalConfigService, useValue: mockGlobalConfigService },
         { provide: SnackService, useValue: mockSnackService },
+        {
+          provide: TaskRepeatCfgService,
+          useValue: jasmine.createSpyObj('TaskRepeatCfgService', [
+            'getTaskRepeatCfgById$',
+            'moveTaskRepeatCfgInstance',
+          ]),
+        },
         { provide: DateAdapter, useValue: { getFirstDayOfWeek: () => 1 } },
       ],
     }).compileComponents();

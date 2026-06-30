@@ -154,7 +154,6 @@ test.describe('Context Switching', () => {
     page,
     workViewPage,
     projectPage,
-    taskPage,
     testPrefix,
   }) => {
     await workViewPage.waitForTaskList();
@@ -171,13 +170,22 @@ test.describe('Context Switching', () => {
 
     // Verify all tasks exist
     await expect(
-      page.locator('task').filter({ hasText: `${testPrefix}-Task A` }),
+      page
+        .locator('task')
+        .filter({ hasText: `${testPrefix}-Task A` })
+        .first(),
     ).toBeVisible();
     await expect(
-      page.locator('task').filter({ hasText: `${testPrefix}-Task B` }),
+      page
+        .locator('task')
+        .filter({ hasText: `${testPrefix}-Task B` })
+        .first(),
     ).toBeVisible();
     await expect(
-      page.locator('task').filter({ hasText: `${testPrefix}-Task C` }),
+      page
+        .locator('task')
+        .filter({ hasText: `${testPrefix}-Task C` })
+        .first(),
     ).toBeVisible();
 
     // Navigate to TODAY tag
@@ -193,18 +201,39 @@ test.describe('Context Switching', () => {
 
     // Verify all tasks are still there
     await expect(
-      page.locator('task').filter({ hasText: `${testPrefix}-Task A` }),
+      page
+        .locator('task')
+        .filter({ hasText: `${testPrefix}-Task A` })
+        .first(),
     ).toBeVisible();
     await expect(
-      page.locator('task').filter({ hasText: `${testPrefix}-Task B` }),
+      page
+        .locator('task')
+        .filter({ hasText: `${testPrefix}-Task B` })
+        .first(),
     ).toBeVisible();
     await expect(
-      page.locator('task').filter({ hasText: `${testPrefix}-Task C` }),
+      page
+        .locator('task')
+        .filter({ hasText: `${testPrefix}-Task C` })
+        .first(),
     ).toBeVisible();
 
-    // Verify task count
-    const taskCount = await taskPage.getTaskCount();
-    expect(taskCount).toBe(3);
+    // The same task can briefly be rendered in both outgoing and incoming
+    // route trees. Count persisted task identities instead of transient DOM
+    // copies so this still catches real duplication.
+    const taskIds = await page
+      .locator('task')
+      .evaluateAll((tasks) =>
+        Array.from(
+          new Set(
+            tasks
+              .map((task) => task.getAttribute('data-task-id'))
+              .filter((taskId): taskId is string => taskId !== null),
+          ),
+        ),
+      );
+    expect(taskIds).toHaveLength(3);
   });
 
   test('should update URL when switching contexts', async ({

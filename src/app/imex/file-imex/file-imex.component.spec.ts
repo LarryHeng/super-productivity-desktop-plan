@@ -36,6 +36,10 @@ describe('FileImexComponent', () => {
     if ((window.alert as jasmine.Spy).calls) {
       (window.alert as jasmine.Spy).calls.reset();
     }
+    // Export tests must not trigger a real browser download into the developer's
+    // Downloads folder. The assertions below cover the backup data request; the
+    // browser's save behavior belongs to download.util tests.
+    spyOn(HTMLAnchorElement.prototype, 'click');
 
     const snackServiceSpy = jasmine.createSpyObj('SnackService', ['open']);
     const routerSpy = jasmine.createSpyObj('Router', ['navigate']);

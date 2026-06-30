@@ -21,6 +21,7 @@ import { PluginUserData } from './plugin-persistence.model';
 import { updateGlobalConfigSection } from '../features/config/store/global-config.actions';
 import { selectLocalizationConfig } from '../features/config/store/global-config.reducer';
 import { LanguageCode } from '../core/locale.constants';
+import { WorkContextType } from '../features/work-context/work-context.model';
 
 describe('PluginHooksEffects', () => {
   let effects: PluginHooksEffects;
@@ -131,6 +132,93 @@ describe('PluginHooksEffects', () => {
 
   afterEach(() => {
     store.resetSelectors();
+  });
+
+  describe('materializeTaskRepeatCfgInstance', () => {
+    const createMaterializeAction = (
+      task: TaskWithSubTasks,
+    ): ReturnType<typeof TaskSharedActions.materializeTaskRepeatCfgInstance> =>
+      TaskSharedActions.materializeTaskRepeatCfgInstance({
+        task,
+        subTasks: [],
+        repeatCfgId: 'repeat-cfg',
+        occurrenceDay: '2026-07-01',
+        dueWithTime: Date.now() + 60_000,
+        workContextId: 'project-1',
+        workContextType: WorkContextType.PROJECT,
+        isAddToBacklog: false,
+        isAddToBottom: false,
+        isExistingTask: false,
+      });
+
+    it('dispatches TASK_CREATED for the materialized task', (done) => {
+      actions$ = of(createMaterializeAction(mockTask));
+
+      effects.taskAdd$.subscribe(() => {
+        expect(pluginServiceMock.dispatchHook).toHaveBeenCalledWith(
+          PluginHooks.TASK_CREATED,
+          {
+            taskId: mockTask.id,
+            task: mockTask,
+          },
+        );
+        done();
+      });
+    });
+
+    it('dispatches ANY_TASK_UPDATE with the materialized task', (done) => {
+      const action = createMaterializeAction(mockTask);
+      actions$ = of(action);
+
+      effects.anyTaskUpdate$.subscribe(() => {
+        expect(pluginServiceMock.dispatchHook).toHaveBeenCalledWith(
+          PluginHooks.ANY_TASK_UPDATE,
+          jasmine.objectContaining({
+            action: action.type,
+            task: mockTask,
+            taskId: mockTask.id,
+          }),
+        );
+        done();
+      });
+    });
+
+    it('dispatches PROJECT_LIST_UPDATE for the materialized task', (done) => {
+      const action = createMaterializeAction(mockTask);
+      actions$ = of(action);
+
+      effects.projectListUpdate$.subscribe(() => {
+        expect(pluginServiceMock.dispatchHook).toHaveBeenCalledWith(
+          PluginHooks.PROJECT_LIST_UPDATE,
+          jasmine.objectContaining({
+            action: action.type,
+          }),
+        );
+        done();
+      });
+    });
+  });
+
+  describe('tasksDelete$', () => {
+    it('dispatches the bulk delete hook for stop-from-date compound deletions', (done) => {
+      const action = {
+        type: TaskSharedActions.stopTaskRepeatCfgFromDate.type,
+        taskRepeatCfgId: 'repeat-cfg',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: ['cutoff-task'],
+        archivedTaskIds: [],
+      };
+      actions$ = of(action);
+
+      effects.tasksDelete$.subscribe(() => {
+        expect(pluginServiceMock.dispatchHook).toHaveBeenCalledWith(
+          PluginHooks.TASK_DELETE,
+          { taskIds: ['cutoff-task'] },
+        );
+        done();
+      });
+    });
   });
 
   describe('taskUpdate$', () => {

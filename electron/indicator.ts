@@ -397,6 +397,18 @@ function initListeners(): void {
 
   ipcMain.on(IPC.TASK_WIDGET_TASKS_UPDATED, (_ev: IpcMainEvent, taskLists: any) => {
     updateTaskWidgetTaskLists({
+      labels: {
+        activeTask:
+          typeof taskLists?.labels?.activeTask === 'string'
+            ? taskLists.labels.activeTask
+            : '',
+        noActiveTask:
+          typeof taskLists?.labels?.noActiveTask === 'string'
+            ? taskLists.labels.noActiveTask
+            : '',
+        noTasks:
+          typeof taskLists?.labels?.noTasks === 'string' ? taskLists.labels.noTasks : '',
+      },
       panels: Array.isArray(taskLists?.panels) ? taskLists.panels : [],
     });
   });

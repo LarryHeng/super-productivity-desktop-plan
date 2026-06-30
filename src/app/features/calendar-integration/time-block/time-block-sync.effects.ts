@@ -104,6 +104,7 @@ export class TimeBlockSyncEffects {
           TaskSharedActions.reScheduleTaskWithTime,
           TaskSharedActions.applyShortSyntax,
           TaskSharedActions.updateTask,
+          TaskSharedActions.materializeTaskRepeatCfgInstance,
         ),
         map((action): TimeBlockQueueRequest | null => {
           if (action.type === TaskSharedActions.applyShortSyntax.type) {
@@ -190,7 +191,10 @@ export class TimeBlockSyncEffects {
   deleteOnBulkTaskDelete$: Observable<unknown> = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(TaskSharedActions.deleteTasks),
+        ofType(
+          TaskSharedActions.deleteTasks,
+          TaskSharedActions.stopTaskRepeatCfgFromDate,
+        ),
         concatMap(() => {
           const taskIds = this._deletesSidecar.consume();
           if (!taskIds.length) return EMPTY;

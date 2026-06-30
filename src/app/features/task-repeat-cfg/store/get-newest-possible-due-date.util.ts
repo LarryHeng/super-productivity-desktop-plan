@@ -11,6 +11,7 @@ import {
   hasNthWeekdayAnchor,
 } from './get-nth-weekday-of-month.util';
 import { Log } from '../../../core/log';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 
 export const getNewestPossibleDueDate = (
   taskRepeatCfg: TaskRepeatCfg,
@@ -26,7 +27,13 @@ export const getNewestPossibleDueDate = (
     return null;
   }
 
-  const checkDate = new Date(today);
+  // An app may be closed across the final recurrence. Evaluate an ended
+  // config at its inclusive end date until that occurrence has been drained.
+  const evaluationDate =
+    taskRepeatCfg.endDate && getDbDateStr(today) > taskRepeatCfg.endDate
+      ? dateStrToUtcDate(taskRepeatCfg.endDate)
+      : new Date(today);
+  const checkDate = new Date(evaluationDate);
   // Get the effective last task creation day with fallback logic
   const startDateStr = getEffectiveRepeatStartDate(taskRepeatCfg);
   const startDateDate = dateStrToUtcDate(startDateStr);
@@ -135,7 +142,7 @@ export const getNewestPossibleDueDate = (
         lastDayOfCurrentMonth,
       );
 
-      if (today.getDate() < adjustedDayForCurrentMonth) {
+      if (evaluationDate.getDate() < adjustedDayForCurrentMonth) {
         // The repeat day hasn't occurred yet this month, so check previous month
         checkDate.setMonth(checkDate.getMonth() - 1);
       }
@@ -164,10 +171,13 @@ export const getNewestPossibleDueDate = (
       checkDate.setMonth(monthOfMonthRepeat);
       checkDate.setDate(dayOfMonthRepeat);
 
-      if (today.getMonth() < monthOfMonthRepeat) {
+      if (evaluationDate.getMonth() < monthOfMonthRepeat) {
         checkDate.setFullYear(checkDate.getFullYear() - 1);
       }
-      if (today.getMonth() === monthOfMonthRepeat && today.getDate() < dayOfMonthRepeat) {
+      if (
+        evaluationDate.getMonth() === monthOfMonthRepeat &&
+        evaluationDate.getDate() < dayOfMonthRepeat
+      ) {
         checkDate.setFullYear(checkDate.getFullYear() - 1);
       }
 

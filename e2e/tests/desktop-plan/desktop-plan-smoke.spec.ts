@@ -34,7 +34,7 @@ test.describe('Desktop plan smoke', () => {
       page.getByRole('textbox', { name: 'Actual time', exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole('textbox', { name: 'Completed planned time', exact: true }),
+      page.getByRole('textbox', { name: 'Backfilled time', exact: true }),
     ).toBeVisible();
   });
 });

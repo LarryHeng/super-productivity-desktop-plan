@@ -77,7 +77,11 @@ test.describe('Planner Time Estimates', () => {
 
     // Tasks should still be there
     await expect(page.locator('task')).toHaveCount(2);
-    await expect(page.locator('task').first()).toContainText('Feature development');
-    await expect(page.locator('task').last()).toContainText('Quick fix');
+    await expect(
+      page.locator('task').filter({ hasText: 'Feature development' }).first(),
+    ).toBeVisible();
+    await expect(
+      page.locator('task').filter({ hasText: 'Quick fix' }).first(),
+    ).toBeVisible();
   });
 });

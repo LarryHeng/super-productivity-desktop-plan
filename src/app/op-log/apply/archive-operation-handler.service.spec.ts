@@ -16,6 +16,9 @@ import { TimeTrackingService } from '../../features/time-tracking/time-tracking.
 import { loadAllData } from '../../root-store/meta/load-all-data.action';
 import { ArchiveDbAdapter } from '../../core/persistence/archive-db-adapter.service';
 import { OpType } from '../core/operation.types';
+import { MockStore, provideMockStore } from '@ngrx/store/testing';
+import { TASK_REPEAT_CFG_FEATURE_NAME } from '../../features/task-repeat-cfg/store/task-repeat-cfg.reducer';
+import { DEFAULT_TASK_REPEAT_CFG } from '../../features/task-repeat-cfg/task-repeat-cfg.model';
 
 describe('isArchiveAffectingAction', () => {
   it('should return true for moveToArchive action', () => {
@@ -50,6 +53,11 @@ describe('isArchiveAffectingAction', () => {
 
   it('should return true for deleteTaskRepeatCfg action', () => {
     const action = { type: TaskSharedActions.deleteTaskRepeatCfg.type };
+    expect(isArchiveAffectingAction(action)).toBe(true);
+  });
+
+  it('should return true for stopTaskRepeatCfgFromDate action', () => {
+    const action = { type: TaskSharedActions.stopTaskRepeatCfgFromDate.type };
     expect(isArchiveAffectingAction(action)).toBe(true);
   });
 
@@ -95,6 +103,7 @@ describe('ArchiveOperationHandler', () => {
   let mockTaskArchiveService: jasmine.SpyObj<TaskArchiveService>;
   let mockArchiveDbAdapter: jasmine.SpyObj<ArchiveDbAdapter>;
   let mockTimeTrackingService: jasmine.SpyObj<TimeTrackingService>;
+  let mockStore: MockStore;
 
   const createMockTaskWithSubTasks = (
     id: string,
@@ -125,6 +134,7 @@ describe('ArchiveOperationHandler', () => {
       'writeTasksToArchiveForRemoteSync',
     ]);
     mockTaskArchiveService = jasmine.createSpyObj('TaskArchiveService', [
+      'load',
       'deleteTasks',
       'updateTask',
       'updateTasks',
@@ -163,6 +173,7 @@ describe('ArchiveOperationHandler', () => {
       Promise.resolve(),
     );
     mockTaskArchiveService.deleteTasks.and.returnValue(Promise.resolve());
+    mockTaskArchiveService.load.and.resolveTo({ ids: [], entities: {} });
     mockTaskArchiveService.updateTask.and.returnValue(Promise.resolve());
     // By default, assume task is in archive (for updateTask tests)
     mockTaskArchiveService.hasTask.and.returnValue(Promise.resolve(true));
@@ -188,14 +199,69 @@ describe('ArchiveOperationHandler', () => {
         { provide: TaskArchiveService, useValue: mockTaskArchiveService },
         { provide: ArchiveDbAdapter, useValue: mockArchiveDbAdapter },
         { provide: TimeTrackingService, useValue: mockTimeTrackingService },
+        provideMockStore({ initialState: {} }),
       ],
     });
 
     // Get the service through TestBed to use proper DI
     service = TestBed.inject(ArchiveOperationHandler);
+    mockStore = TestBed.inject(MockStore);
   });
 
   describe('handleOperation', () => {
+    it('deletes archived cutoff instances for stopTaskRepeatCfgFromDate', async () => {
+      const action = {
+        type: TaskSharedActions.stopTaskRepeatCfgFromDate.type,
+        taskRepeatCfgId: 'repeat-cfg',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: [],
+        archivedTaskIds: ['archived-parent', 'archived-child'],
+        meta: { isPersistent: true, isRemote: true },
+      } as unknown as PersistentAction;
+
+      await service.handleOperation(action);
+
+      expect(mockTaskArchiveService.deleteTasks).toHaveBeenCalledWith(
+        ['archived-parent', 'archived-child'],
+        { isIgnoreDBLock: true },
+      );
+    });
+
+    it('discovers archived cutoff instances that were absent from the payload', async () => {
+      const archivedParent = {
+        ...createMockTask('concurrent-parent', ['concurrent-child']),
+        repeatCfgId: 'repeat-cfg',
+        created: new Date(2026, 6, 4, 12).getTime(),
+      };
+      const archivedChild = {
+        ...createMockTask('concurrent-child'),
+        parentId: 'concurrent-parent',
+      };
+      mockTaskArchiveService.load.and.resolveTo({
+        ids: ['concurrent-parent', 'concurrent-child'],
+        entities: {
+          ['concurrent-parent']: archivedParent,
+          ['concurrent-child']: archivedChild,
+        },
+      });
+      const action = TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: 'repeat-cfg',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: [],
+        archivedTaskIds: [],
+      }) as PersistentAction;
+      action.meta.isRemote = true;
+
+      await service.handleOperation(action);
+
+      expect(mockTaskArchiveService.deleteTasks).toHaveBeenCalledWith(
+        ['concurrent-parent', 'concurrent-child'],
+        { isIgnoreDBLock: true },
+      );
+    });
+
     it('should expose archive side effects through ArchiveSideEffectPort without mutating action meta', async () => {
       const port: ArchiveSideEffectPort<PersistentAction> = service;
       const tasks = [createMockTaskWithSubTasks('task-1')];
@@ -220,6 +286,66 @@ describe('ArchiveOperationHandler', () => {
     });
 
     describe('moveToArchive action', () => {
+      it('does not resurrect a repeat occurrence archived after its stop cutoff', async () => {
+        mockStore.setState({
+          [TASK_REPEAT_CFG_FEATURE_NAME]: {
+            ids: ['repeat-cfg'],
+            entities: {
+              ['repeat-cfg']: {
+                ...DEFAULT_TASK_REPEAT_CFG,
+                id: 'repeat-cfg',
+                title: 'Stopped repeat',
+                endDate: '2026-07-03',
+              },
+            },
+          },
+        });
+        let stoppedTask = createMockTaskWithSubTasks('late-repeat') as TaskWithSubTasks;
+        stoppedTask = {
+          ...stoppedTask,
+          repeatCfgId: 'repeat-cfg',
+          repeatOccurrenceDay: '2026-07-04',
+          created: new Date(2026, 6, 4, 12).getTime(),
+        };
+        const action = {
+          type: TaskSharedActions.moveToArchive.type,
+          tasks: [stoppedTask],
+          meta: { isPersistent: true, isRemote: true },
+        } as unknown as PersistentAction;
+
+        await service.handleOperation(action);
+
+        expect(
+          mockArchiveService.writeTasksToArchiveForRemoteSync,
+        ).not.toHaveBeenCalled();
+      });
+
+      it('does not archive a delayed repeat task after its config was deleted', async () => {
+        mockStore.setState({
+          [TASK_REPEAT_CFG_FEATURE_NAME]: {
+            ids: [],
+            entities: {},
+          },
+        });
+        const deletedCfgTask = {
+          ...createMockTaskWithSubTasks('late-deleted-repeat'),
+          repeatCfgId: 'deleted-cfg',
+          repeatOccurrenceDay: '2026-07-04',
+          created: new Date(2026, 6, 4, 12).getTime(),
+        };
+        const action = {
+          type: TaskSharedActions.moveToArchive.type,
+          tasks: [deletedCfgTask],
+          meta: { isPersistent: true, isRemote: true },
+        } as unknown as PersistentAction;
+
+        await service.handleOperation(action);
+
+        expect(
+          mockArchiveService.writeTasksToArchiveForRemoteSync,
+        ).not.toHaveBeenCalled();
+      });
+
       it('should write tasks to archive for remote sync', async () => {
         const tasks = [
           createMockTaskWithSubTasks('task-1'),

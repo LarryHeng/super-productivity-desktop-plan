@@ -83,6 +83,7 @@ describe('DialogEditTaskRepeatCfgComponent', () => {
       'updateTaskRepeatCfg',
       'addTaskRepeatCfgToTask',
       'deleteTaskRepeatCfgWithDialog',
+      'stopTaskRepeatCfgFromDateWithDialog',
     ]);
     mockDateService = jasmine.createSpyObj('DateService', [
       'todayStr',
@@ -246,6 +247,21 @@ describe('DialogEditTaskRepeatCfgComponent', () => {
 
       expect(component.isEdit()).toBe(false);
     });
+  });
+
+  it('stops the selected and future occurrences when removing from a dated projection', async () => {
+    const fixture = await setupTestBed({
+      repeatCfg: mockRepeatCfg,
+      targetDate: '2026-07-04',
+    });
+    fixture.detectChanges();
+
+    fixture.componentInstance.remove();
+
+    expect(
+      mockTaskRepeatCfgService.stopTaskRepeatCfgFromDateWithDialog,
+    ).toHaveBeenCalledOnceWith(mockRepeatCfg.id, '2026-07-04');
+    expect(mockTaskRepeatCfgService.deleteTaskRepeatCfgWithDialog).not.toHaveBeenCalled();
   });
 
   describe('quick setting labels use due date (issue #6766)', () => {

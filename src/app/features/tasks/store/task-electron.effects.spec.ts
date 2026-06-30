@@ -12,7 +12,8 @@ import { IPC } from '../../../../../electron/shared-with-frontend/ipc-events.con
 import { TaskSharedActions } from '../../../root-store/meta/task-shared.actions';
 import { TranslateService } from '@ngx-translate/core';
 import { TaskWidgetSettingsService } from '../../config/task-widget-settings.service';
-import { selectTaskEntities } from './task.selectors';
+import { selectAllTasksInActiveProjects, selectTaskEntities } from './task.selectors';
+import { selectTodayTaskIds } from '../../work-context/store/work-context.selectors';
 
 describe('TaskElectronEffects', () => {
   let effects: TaskElectronEffects;
@@ -20,9 +21,11 @@ describe('TaskElectronEffects', () => {
   let taskService: jasmine.SpyObj<TaskService>;
   let taskWidgetSettingsService: jasmine.SpyObj<TaskWidgetSettingsService>;
   let mockIpcAddTaskFromAppUri$: Subject<{ title: string }>;
+  let taskWidgetTranslations$: Subject<Record<string, string>>;
   let originalEaDescriptor: PropertyDescriptor | undefined;
 
   beforeEach(() => {
+    taskWidgetTranslations$ = new Subject<Record<string, string>>();
     originalEaDescriptor = Object.getOwnPropertyDescriptor(window, 'ea');
     const taskServiceSpy = jasmine.createSpyObj('TaskService', [
       'add',
@@ -40,8 +43,12 @@ describe('TaskElectronEffects', () => {
       currentSessionTime$: of(0),
     });
     focusModeServiceSpy.mode.and.returnValue('Countdown');
-    const translateServiceSpy = jasmine.createSpyObj('TranslateService', ['instant']);
+    const translateServiceSpy = jasmine.createSpyObj('TranslateService', [
+      'instant',
+      'stream',
+    ]);
     translateServiceSpy.instant.and.callFake((key: string) => key);
+    translateServiceSpy.stream.and.returnValue(taskWidgetTranslations$);
     const taskWidgetSettingsServiceSpy = jasmine.createSpyObj(
       'TaskWidgetSettingsService',
       ['update'],
@@ -100,6 +107,14 @@ describe('TaskElectronEffects', () => {
                 },
               },
             },
+            {
+              selector: selectTodayTaskIds,
+              value: [],
+            },
+            {
+              selector: selectAllTasksInActiveProjects,
+              value: [],
+            },
           ],
         }),
         { provide: TaskService, useValue: taskServiceSpy },
@@ -120,6 +135,8 @@ describe('TaskElectronEffects', () => {
   afterEach(() => {
     selectTaskEntities.clearResult();
     selectTaskEntities.release();
+    selectAllTasksInActiveProjects.clearResult();
+    selectAllTasksInActiveProjects.release();
     if (originalEaDescriptor) {
       Object.defineProperty(window, 'ea', originalEaDescriptor);
     } else {
@@ -226,6 +243,41 @@ describe('TaskElectronEffects', () => {
     expect(taskService.update).toHaveBeenCalledWith('task-1', {
       timeEstimate: 46 * 60 * 1000,
     });
+  });
+
+  it('waits for translated widget titles before syncing content to Electron', () => {
+    const subscription = effects.syncTaskListsToElectron$.subscribe();
+    const updateTaskWidgetTasks = (window as any).ea.updateTaskWidgetTasks as jasmine.Spy;
+
+    expect(updateTaskWidgetTasks).not.toHaveBeenCalled();
+
+    taskWidgetTranslations$.next(
+      Object.fromEntries([
+        ['F.BOARDS.DEFAULT.URGENT_IMPORTANT', '紧急且重要'],
+        ['F.BOARDS.DEFAULT.NOT_URGENT_IMPORTANT', '重要但不紧急'],
+        ['F.BOARDS.DEFAULT.URGENT_NOT_IMPORTANT', '紧急但不重要'],
+        ['F.BOARDS.DEFAULT.NOT_URGENT_NOT_IMPORTANT', '不紧急且不重要'],
+        ['GCF.TASK_WIDGET.ACTIVE_TASK', '当前任务'],
+        ['GCF.TASK_WIDGET.NO_ACTIVE_TASK', '没有正在进行的任务'],
+        ['GCF.TASK_WIDGET.NO_TASKS', '没有任务'],
+      ]),
+    );
+
+    const payload = updateTaskWidgetTasks.calls.mostRecent().args[0];
+    expect(payload.panels.map((panel: { title: string }) => panel.title)).toEqual([
+      '紧急且重要',
+      '重要但不紧急',
+      '紧急但不重要',
+      '不紧急且不重要',
+    ]);
+    expect(payload.labels).toEqual({
+      activeTask: '当前任务',
+      noActiveTask: '没有正在进行的任务',
+      noTasks: '没有任务',
+    });
+    expect(JSON.stringify(payload)).not.toContain('F.BOARDS.DEFAULT.');
+
+    subscription.unsubscribe();
   });
 
   describe('handleAddTaskFromProtocol$', () => {

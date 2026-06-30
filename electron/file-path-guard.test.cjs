@@ -17,6 +17,7 @@ const { isPathInsideDir, assertPathOutside } = require(
 );
 
 const DIR = path.resolve('/home/user/.config/superProductivity/backups');
+const DIRECTORY_LINK_TYPE = process.platform === 'win32' ? 'junction' : 'dir';
 
 test('accepts a file directly inside the directory', () => {
   assert.equal(isPathInsideDir(DIR, path.join(DIR, '2026-01-01.json')), true);
@@ -78,7 +79,7 @@ test('canonicalizes: a symlink resolving INTO the protected dir is rejected', ()
   const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-out-'));
   try {
     const link = path.join(outsideDir, 'sneaky');
-    fs.symlinkSync(protectedDir, link);
+    fs.symlinkSync(protectedDir, link, DIRECTORY_LINK_TYPE);
     assert.throws(
       () => assertPathOutside(protectedDir, path.join(link, 'simpleSettings')),
       /protected directory/,
@@ -87,7 +88,7 @@ test('canonicalizes: a symlink resolving INTO the protected dir is rejected', ()
     assert.equal(isPathInsideDir(protectedDir, path.join(link, 'simpleSettings')), true);
     // A symlink resolving OUTSIDE is still allowed.
     const linkOut = path.join(protectedDir, 'out');
-    fs.symlinkSync(outsideDir, linkOut);
+    fs.symlinkSync(outsideDir, linkOut, DIRECTORY_LINK_TYPE);
     assert.doesNotThrow(() =>
       assertPathOutside(protectedDir, path.join(linkOut, 'main.json')),
     );

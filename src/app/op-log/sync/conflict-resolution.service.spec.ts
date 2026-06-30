@@ -2582,6 +2582,258 @@ describe('ConflictResolutionService', () => {
     });
   });
 
+  describe('stop-from-date conflict resolution', () => {
+    const createCfgUpdateOp = (
+      id: string,
+      clientId: string,
+      timestamp: number,
+    ): Operation => ({
+      id,
+      clientId,
+      actionType: ActionType.REPEAT_CFG_UPDATE,
+      opType: OpType.Update,
+      entityType: 'TASK_REPEAT_CFG',
+      entityId: 'repeat-cfg-1',
+      payload: {
+        actionPayload: {
+          taskRepeatCfg: {
+            id: 'repeat-cfg-1',
+            changes: { title: `Updated by ${clientId}` },
+          },
+        },
+        entityChanges: [],
+      },
+      vectorClock: { [clientId]: 1 },
+      timestamp,
+      schemaVersion: 1,
+    });
+
+    const createStopFromDateOp = (
+      id: string,
+      clientId: string,
+      timestamp: number,
+    ): Operation => ({
+      id,
+      clientId,
+      actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+      opType: OpType.Update,
+      entityType: 'TASK_REPEAT_CFG',
+      entityId: 'repeat-cfg-1',
+      payload: {
+        actionPayload: {
+          taskRepeatCfgId: 'repeat-cfg-1',
+          stopDate: '2026-07-04',
+          endDate: '2026-07-03',
+          taskIds: ['repeat-task-1'],
+          archivedTaskIds: ['archived-repeat-task-1'],
+          taskRepeatCfgSnapshot: {
+            id: 'repeat-cfg-1',
+            title: `Stopped by ${clientId}`,
+          },
+        },
+        entityChanges: [],
+      },
+      vectorClock: { [clientId]: 1 },
+      timestamp,
+      schemaVersion: 1,
+    });
+
+    const createRepeatCfgConflict = (
+      localOps: Operation[],
+      remoteOps: Operation[],
+    ): EntityConflict => ({
+      entityType: 'TASK_REPEAT_CFG',
+      entityId: 'repeat-cfg-1',
+      localOps,
+      remoteOps,
+      suggestedResolution: 'manual',
+    });
+
+    beforeEach(() => {
+      mockOpLogStore.hasOp.and.resolveTo(false);
+      mockOpLogStore.appendWithVectorClockUpdate.and.resolveTo(1);
+      mockOpLogStore.markApplied.and.resolveTo(undefined);
+      mockOpLogStore.markRejected.and.resolveTo(undefined);
+    });
+
+    it('preserves the complete stop action when a newer local stop wins', async () => {
+      const localStop = createStopFromDateOp('local-stop', 'client-a', 2_000);
+      const remoteUpdate = createCfgUpdateOp('remote-update', 'client-b', 1_000);
+      mockStore.select.and.returnValue(
+        of({
+          id: 'repeat-cfg-1',
+          title: 'Complete local cfg',
+          endDate: '2026-07-03',
+        }),
+      );
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localStop], [remoteUpdate]),
+      ]);
+
+      expect(result.localWinOpsCreated).toBe(1);
+      expect(mockOpLogStore.appendWithVectorClockUpdate).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+          entityType: 'TASK_REPEAT_CFG',
+          entityId: 'repeat-cfg-1',
+          payload: jasmine.objectContaining({
+            actionPayload: jasmine.objectContaining({
+              taskRepeatCfgId: 'repeat-cfg-1',
+              stopDate: '2026-07-04',
+              taskRepeatCfgSnapshot: jasmine.objectContaining({
+                title: 'Complete local cfg',
+              }),
+            }),
+          }),
+          timestamp: localStop.timestamp,
+          vectorClock: jasmine.objectContaining({
+            ['client-a']: jasmine.any(Number),
+            ['client-b']: jasmine.any(Number),
+            [TEST_CLIENT_ID]: jasmine.any(Number),
+          }),
+        }),
+        'local',
+      );
+      expect(mockOpLogStore.markRejected).toHaveBeenCalledWith(['local-stop']);
+      expect(mockOpLogStore.markRejected).toHaveBeenCalledWith(['remote-update']);
+    });
+
+    it('keeps an older local stop terminal and carries newer local cfg state', async () => {
+      const olderLocalStop = createStopFromDateOp('older-local-stop', 'client-a', 1_000);
+      const newerLocalUpdate = createCfgUpdateOp('newer-local-update', 'client-a', 3_000);
+      const remoteUpdate = createCfgUpdateOp('remote-update', 'client-b', 2_000);
+      mockStore.select.and.returnValue(
+        of({ id: 'repeat-cfg-1', title: 'Newest local title' }),
+      );
+
+      await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([olderLocalStop, newerLocalUpdate], [remoteUpdate]),
+      ]);
+
+      expect(mockOpLogStore.appendWithVectorClockUpdate).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+          timestamp: newerLocalUpdate.timestamp,
+          payload: jasmine.objectContaining({
+            actionPayload: jasmine.objectContaining({
+              taskRepeatCfgSnapshot: jasmine.objectContaining({
+                title: 'Newest local title',
+              }),
+            }),
+          }),
+        }),
+        'local',
+      );
+    });
+
+    it('applies the complete remote stop action when its timestamp wins', async () => {
+      const localUpdate = createCfgUpdateOp('local-update', 'client-a', 1_000);
+      const remoteStop = createStopFromDateOp('remote-stop', 'client-b', 2_000);
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [remoteStop],
+      });
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localUpdate], [remoteStop]),
+      ]);
+
+      expect(result.localWinOpsCreated).toBe(0);
+      expect(mockOpLogStore.appendBatchSkipDuplicates).toHaveBeenCalledWith(
+        [remoteStop],
+        'remote',
+        jasmine.any(Object),
+      );
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [jasmine.objectContaining({ payload: remoteStop.payload })],
+        jasmine.any(Object),
+      );
+      expect(mockOpLogStore.markRejected).toHaveBeenCalledWith(['local-update']);
+      expect(mockOpLogStore.appendWithVectorClockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('applies a remote stop even when a local cfg update has a newer timestamp', async () => {
+      const localUpdate = createCfgUpdateOp('local-update', 'client-a', 3_000);
+      const remoteStop = createStopFromDateOp('remote-stop', 'client-b', 1_000);
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [remoteStop],
+      });
+
+      await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localUpdate], [remoteStop]),
+      ]);
+
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [jasmine.objectContaining({ id: remoteStop.id })],
+        jasmine.any(Object),
+      );
+      expect(mockOpLogStore.appendWithVectorClockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('keeps a remote stop action intact when it wins against a local cfg delete', async () => {
+      const localDelete = {
+        ...createCfgUpdateOp('local-delete', 'client-a', 1_000),
+        opType: OpType.Delete,
+      };
+      const remoteStop = createStopFromDateOp('remote-stop', 'client-b', 2_000);
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [remoteStop],
+      });
+
+      await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localDelete], [remoteStop]),
+      ]);
+
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [
+          jasmine.objectContaining({
+            actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+            payload: remoteStop.payload,
+          }),
+        ],
+        jasmine.any(Object),
+      );
+    });
+
+    it('makes sibling conflicts follow a local terminal stop with one merged op', async () => {
+      const localStop = createStopFromDateOp('local-stop', 'client-a', 1_000);
+      const localUpdate = createCfgUpdateOp('local-update', 'client-a', 2_000);
+      const remoteUpdateA = createCfgUpdateOp('remote-update-a', 'client-b', 3_000);
+      const remoteUpdateB = createCfgUpdateOp('remote-update-b', 'client-c', 4_000);
+      mockStore.select.and.returnValue(
+        of({ id: 'repeat-cfg-1', title: 'Complete stopped cfg' }),
+      );
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localStop], [remoteUpdateA]),
+        createRepeatCfgConflict([localUpdate], [remoteUpdateB]),
+      ]);
+
+      expect(result.localWinOpsCreated).toBe(1);
+      expect(mockOpLogStore.appendWithVectorClockUpdate).toHaveBeenCalledTimes(1);
+      expect(mockOpLogStore.appendWithVectorClockUpdate).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+          timestamp: 4_000,
+          vectorClock: jasmine.objectContaining({
+            ['client-a']: jasmine.any(Number),
+            ['client-b']: jasmine.any(Number),
+            ['client-c']: jasmine.any(Number),
+          }),
+        }),
+        'local',
+      );
+      expect(mockOpLogStore.markRejected).toHaveBeenCalledWith([
+        'local-stop',
+        'local-update',
+      ]);
+      expect(mockOpLogStore.markRejected).toHaveBeenCalledWith([
+        'remote-update-a',
+        'remote-update-b',
+      ]);
+    });
+  });
+
   describe('archive-wins rule', () => {
     it('should resolve local moveToArchive winning over remote UPDATE with later timestamp', async () => {
       const localArchiveOp: Operation = {

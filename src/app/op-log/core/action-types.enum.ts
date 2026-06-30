@@ -70,6 +70,9 @@ export enum ActionType {
   TASK_SHARED_DELETE_ISSUE_PROVIDER = '[Task Shared] deleteIssueProvider',
   TASK_SHARED_DELETE_ISSUE_PROVIDERS = '[Task Shared] deleteIssueProviders',
   TASK_SHARED_DELETE_REPEAT_CFG = '[Task Shared] deleteTaskRepeatCfg',
+  TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE = '[Task Shared] stopTaskRepeatCfgFromDate',
+  // Legacy decode compatibility for early desktop-plan .7 operation logs.
+  TASK_SHARED_MATERIALIZE_REPEAT_CFG_INSTANCE = '[Task Shared] materializeTaskRepeatCfgInstance',
   TASK_SHARED_APPLY_SHORT_SYNTAX = '[Task Shared] applyShortSyntax',
   TASK_SHARED_SET_DEADLINE = '[Task Shared] setDeadline',
   TASK_SHARED_PLAN_DEADLINE_FOR_TODAY = '[Task Shared] planDeadlineTasksForToday',
@@ -82,6 +85,7 @@ export enum ActionType {
   ISSUE_PROVIDER_SORT_FIRST = '[IssueProvider/API] Sort IssueProviders First',
 
   // TimeTracking actions (K)
+  TIME_TRACKING_ADD_ACTUAL_TIME_SEGMENT = '[TimeTracking] Add actual time segment',
   TIME_TRACKING_SYNC_SESSIONS = '[TimeTracking] Sync sessions',
   TIME_TRACKING_SYNC_TIME_SPENT = '[TimeTracking] Sync time spent',
   TIME_TRACKING_UPDATE_CONTEXT_DATA = '[TimeTracking] Update Work Context Data',

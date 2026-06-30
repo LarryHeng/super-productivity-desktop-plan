@@ -199,10 +199,12 @@ export class MainHeaderComponent implements OnDestroy {
     return this.globalConfigService.appFeatures().isSyncIconEnabled;
   });
 
-  // Check if there are any undone tasks that can be tracked
-  private readonly _hasTrackableTasks$ = this.workContextService.undoneTasks$.pipe(
-    map((tasks) => tasks.length > 0),
-  );
+  // Future scheduled tasks are intentionally hidden from the Today list, but users
+  // must still be able to start one manually before its planned time.
+  private readonly _hasTrackableTasks$ =
+    this.workContextService.startableTasksForActiveContext$.pipe(
+      map((tasks) => tasks.length > 0),
+    );
   hasTrackableTasks = toSignal(this._hasTrackableTasks$, { initialValue: true });
 
   private readonly _userProfileService = inject(UserProfileService);

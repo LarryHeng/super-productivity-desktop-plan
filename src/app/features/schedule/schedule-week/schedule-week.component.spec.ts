@@ -11,6 +11,7 @@ import { DEFAULT_GLOBAL_CONFIG } from '../../config/default-global-config.const'
 import { ScheduleEvent } from '../schedule.model';
 import { SVEType } from '../schedule.const';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
+import { TaskRepeatCfgService } from '../../task-repeat-cfg/task-repeat-cfg.service';
 
 describe('ScheduleWeekComponent', () => {
   let fixture: ComponentFixture<ScheduleWeekComponent>;
@@ -39,6 +40,12 @@ describe('ScheduleWeekComponent', () => {
             'CalendarEventActionsService',
             ['canMoveEvent'],
           ),
+        },
+        {
+          provide: TaskRepeatCfgService,
+          useValue: jasmine.createSpyObj<TaskRepeatCfgService>('TaskRepeatCfgService', [
+            'moveTaskRepeatCfgInstance',
+          ]),
         },
       ],
     })
@@ -93,6 +100,69 @@ describe('ScheduleWeekComponent', () => {
 
     expect(fixture.componentInstance.canDragEvent(plannedEvent)).toBe(true);
     expect(fixture.componentInstance.canDragEvent(actualEvent)).toBe(false);
+  });
+
+  it('allows a scheduled repeat projection to move within its day column', () => {
+    const repeatProjection: ScheduleEvent = {
+      id: 'repeat-cfg_2026-05-11',
+      type: SVEType.ScheduledRepeatProjection,
+      style: '',
+      startHours: 10,
+      timeLeftInHours: 0.5,
+      plannedForDay: '2026-05-11',
+      data: {
+        id: 'repeat-cfg',
+        title: 'Repeated task',
+        startTime: '10:00',
+        defaultEstimate: 30 * 60 * 1000,
+      } as ScheduleEvent['data'],
+    };
+
+    expect(fixture.componentInstance.canDragEvent(repeatProjection)).toBe(true);
+  });
+
+  [
+    SVEType.RepeatProjectionSplit,
+    SVEType.RepeatProjectionSplitContinued,
+    SVEType.RepeatProjectionSplitContinuedLast,
+  ].forEach((type) => {
+    it(`allows a split timed repeat projection of type ${type} to move`, () => {
+      const repeatProjection: ScheduleEvent = {
+        id: `repeat-cfg_2026-05-11_${type}`,
+        type,
+        style: '',
+        startHours: 10,
+        timeLeftInHours: 0.5,
+        plannedForDay: '2026-05-11',
+        data: {
+          id: 'repeat-cfg',
+          title: 'Repeated task',
+          startTime: '10:00',
+          defaultEstimate: 30 * 60 * 1000,
+        } as ScheduleEvent['data'],
+      };
+
+      expect(fixture.componentInstance.canDragEvent(repeatProjection)).toBe(true);
+    });
+  });
+
+  it('keeps an untimed repeat flow projection non-draggable', () => {
+    const repeatProjection: ScheduleEvent = {
+      id: 'repeat-cfg_2026-05-11_0',
+      type: SVEType.RepeatProjectionSplitContinuedLast,
+      style: '',
+      startHours: 10,
+      timeLeftInHours: 0.5,
+      plannedForDay: '2026-05-11',
+      data: {
+        id: 'repeat-cfg',
+        title: 'Untimed repeated task',
+        startTime: undefined,
+        defaultEstimate: 30 * 60 * 1000,
+      } as ScheduleEvent['data'],
+    };
+
+    expect(fixture.componentInstance.canDragEvent(repeatProjection)).toBe(false);
   });
 
   it('positions the current-time line in the actual today column', () => {

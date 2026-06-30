@@ -13,6 +13,14 @@ import { Action, ActionReducer } from '@ngrx/store';
 import { getDbDateStr } from '../../../util/get-db-date-str';
 import { IN_PROGRESS_TAG } from '../../../features/tag/tag.const';
 import {
+  TASK_REPEAT_CFG_FEATURE_NAME,
+  taskRepeatCfgReducer,
+} from '../../../features/task-repeat-cfg/store/task-repeat-cfg.reducer';
+import {
+  DEFAULT_TASK_REPEAT_CFG,
+  TaskRepeatCfgState,
+} from '../../../features/task-repeat-cfg/task-repeat-cfg.model';
+import {
   createBaseState,
   createMockTag,
   createMockTask,
@@ -27,14 +35,245 @@ import {
 } from './test-utils';
 
 describe('taskSharedCrudMetaReducer', () => {
+  type TestRootState = RootState & {
+    [TASK_REPEAT_CFG_FEATURE_NAME]?: TaskRepeatCfgState;
+  };
   let mockReducer: jasmine.Spy;
   let metaReducer: ActionReducer<any, Action>;
-  let baseState: RootState;
+  let baseState: TestRootState;
 
   beforeEach(() => {
     mockReducer = jasmine.createSpy('reducer').and.callFake((state, action) => state);
     metaReducer = taskSharedCrudMetaReducer(mockReducer);
-    baseState = createBaseState();
+    baseState = createBaseState() as TestRootState;
+  });
+
+  describe('materializeTaskRepeatCfgInstance action', () => {
+    it('uses only real entity ids in each operation namespace', () => {
+      const repeatCfgId = 'repeat-cfg';
+      const task = createMockTask({ id: 'repeat-parent', repeatCfgId });
+      const subTask = createMockTask({
+        id: 'repeat-child',
+        parentId: task.id,
+      });
+      const materialize = TaskSharedActions.materializeTaskRepeatCfgInstance({
+        task,
+        subTasks: [subTask],
+        repeatCfgId,
+        occurrenceDay: '2026-07-04',
+        dueWithTime: new Date(2026, 6, 4, 14).getTime(),
+        workContextId: 'project1',
+        workContextType: WorkContextType.PROJECT,
+        isAddToBacklog: false,
+        isAddToBottom: false,
+        isExistingTask: false,
+      });
+      const stop = TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: repeatCfgId,
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: [],
+        archivedTaskIds: [],
+      });
+
+      expect('meta' in materialize).toBeFalse();
+      expect(stop.meta.entityType).toBe('TASK_REPEAT_CFG');
+      expect((stop.meta as { entityId?: string }).entityId).toBe(repeatCfgId);
+      expect('entityIds' in stop.meta).toBeFalse();
+    });
+
+    it('adds the parent and inherited subtasks atomically', () => {
+      baseState = {
+        ...baseState,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: {
+          ids: ['repeat-cfg'],
+          entities: {
+            ['repeat-cfg']: {
+              ...DEFAULT_TASK_REPEAT_CFG,
+              id: 'repeat-cfg',
+              title: 'Repeated task',
+            },
+          },
+        },
+      };
+      const parent = createMockTask({
+        id: 'repeat-parent',
+        repeatCfgId: 'repeat-cfg',
+        subTaskIds: [],
+        dueDay: '2026-07-04',
+      });
+      const subTask = createMockTask({
+        id: 'repeat-child',
+        parentId: 'repeat-parent',
+        projectId: '',
+        tagIds: [],
+        timeEstimate: 30 * 60 * 1000,
+      });
+      const action = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        task: parent,
+        subTasks: [subTask],
+        repeatCfgId: 'repeat-cfg',
+        occurrenceDay: '2026-07-04',
+        isExistingTask: false,
+        isAddToBottom: false,
+        isAddToBacklog: false,
+      };
+
+      metaReducer(baseState, action);
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState[TASK_FEATURE_NAME].entities['repeat-parent']).toEqual(
+        jasmine.objectContaining({
+          id: 'repeat-parent',
+          subTaskIds: ['repeat-child'],
+          timeEstimate: 30 * 60 * 1000,
+        }),
+      );
+      expect(updatedState[TASK_FEATURE_NAME].entities['repeat-child']).toEqual(
+        jasmine.objectContaining({
+          id: 'repeat-child',
+          parentId: 'repeat-parent',
+          projectId: 'project1',
+          tagIds: [],
+        }),
+      );
+    });
+
+    it('rejects replay when the repeat config is missing', () => {
+      const action = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        task: createMockTask({
+          id: 'repeat-parent',
+          repeatCfgId: 'missing-cfg',
+          dueDay: '2026-07-04',
+        }),
+        subTasks: [],
+        repeatCfgId: 'missing-cfg',
+        occurrenceDay: '2026-07-04',
+        isExistingTask: false,
+        isAddToBottom: false,
+        isAddToBacklog: false,
+      };
+
+      metaReducer(baseState, action);
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState[TASK_FEATURE_NAME].entities['repeat-parent']).toBeUndefined();
+    });
+
+    it('rejects replay for an occurrence after the config end date', () => {
+      baseState = {
+        ...baseState,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: {
+          ids: ['repeat-cfg'],
+          entities: {
+            ['repeat-cfg']: {
+              ...DEFAULT_TASK_REPEAT_CFG,
+              id: 'repeat-cfg',
+              title: 'Repeated task',
+              endDate: '2026-07-03',
+            },
+          },
+        },
+      };
+      const action = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        task: createMockTask({
+          id: 'repeat-parent',
+          repeatCfgId: 'repeat-cfg',
+          dueDay: '2026-07-04',
+        }),
+        subTasks: [],
+        repeatCfgId: 'repeat-cfg',
+        occurrenceDay: '2026-07-04',
+        isExistingTask: false,
+        isAddToBottom: false,
+        isAddToBacklog: false,
+      };
+
+      metaReducer(baseState, action);
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState[TASK_FEATURE_NAME].entities['repeat-parent']).toBeUndefined();
+    });
+
+    it('commutes with stop replay and never leaves a cutoff occurrence behind', () => {
+      const repeatCfgId = 'repeat-cfg';
+      const occurrenceDay = '2026-07-04';
+      const initialState = {
+        ...baseState,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: {
+          ids: [repeatCfgId],
+          entities: {
+            [repeatCfgId]: {
+              ...DEFAULT_TASK_REPEAT_CFG,
+              id: repeatCfgId,
+              title: 'Repeated task',
+            },
+          },
+        },
+      } as TestRootState;
+      const materializeAction = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        task: createMockTask({
+          id: 'repeat-parent',
+          repeatCfgId,
+          repeatOccurrenceDay: occurrenceDay,
+          created: new Date(2026, 6, 4, 12).getTime(),
+          dueDay: occurrenceDay,
+        }),
+        subTasks: [],
+        repeatCfgId,
+        occurrenceDay,
+        dueWithTime: new Date(2026, 6, 4, 14).getTime(),
+        isExistingTask: false,
+        isAddToBottom: false,
+        isAddToBacklog: false,
+      };
+      const stopAction = {
+        type: '[Task Shared] stopTaskRepeatCfgFromDate',
+        taskRepeatCfgId: repeatCfgId,
+        stopDate: occurrenceDay,
+        endDate: '2026-07-03',
+        taskIds: [],
+        archivedTaskIds: [],
+      };
+      const baseReducer = (state: TestRootState, action: Action): TestRootState => ({
+        ...state,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: taskRepeatCfgReducer(
+          state[TASK_REPEAT_CFG_FEATURE_NAME],
+          action,
+        ),
+      });
+      const reducer = taskSharedCrudMetaReducer(baseReducer);
+
+      const stopThenMaterialize = reducer(
+        reducer(initialState, stopAction),
+        materializeAction,
+      ) as TestRootState;
+      const materializeThenStop = reducer(
+        reducer(initialState, materializeAction),
+        stopAction,
+      ) as TestRootState;
+
+      expect(
+        stopThenMaterialize[TASK_FEATURE_NAME].entities['repeat-parent'],
+      ).toBeUndefined();
+      expect(
+        materializeThenStop[TASK_FEATURE_NAME].entities['repeat-parent'],
+      ).toBeUndefined();
+      expect(stopThenMaterialize[TASK_REPEAT_CFG_FEATURE_NAME]).toEqual(
+        materializeThenStop[TASK_REPEAT_CFG_FEATURE_NAME],
+      );
+      expect(stopThenMaterialize.planner.days[occurrenceDay] ?? []).not.toContain(
+        'repeat-parent',
+      );
+      expect(materializeThenStop.planner.days[occurrenceDay] ?? []).not.toContain(
+        'repeat-parent',
+      );
+      expect(stopThenMaterialize).toEqual(materializeThenStop);
+    });
   });
 
   describe('addTask action', () => {
@@ -50,6 +289,56 @@ describe('taskSharedCrudMetaReducer', () => {
         isAddToBacklog: false,
         ...actionOverrides,
       });
+
+    it('rejects a delayed repeat occurrence after its config was stopped', () => {
+      const repeatCfgId = 'repeat-cfg';
+      baseState = {
+        ...baseState,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: {
+          ids: [repeatCfgId],
+          entities: {
+            [repeatCfgId]: {
+              ...DEFAULT_TASK_REPEAT_CFG,
+              id: repeatCfgId,
+              title: 'Stopped repeat',
+              endDate: '2026-07-03',
+            },
+          },
+        },
+      };
+      const action = createAddTaskAction({
+        id: 'rpt_repeat-cfg_2026-07-04',
+        repeatCfgId,
+        repeatOccurrenceDay: '2026-07-04',
+        dueDay: '2026-07-04',
+      });
+
+      metaReducer(baseState, action);
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState[TASK_FEATURE_NAME].entities[action.task.id]).toBeUndefined();
+      expect(updatedState.planner.days['2026-07-04'] ?? []).not.toContain(action.task.id);
+    });
+
+    it('rejects a delayed repeat task after its config was deleted', () => {
+      baseState = {
+        ...baseState,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: {
+          ids: [],
+          entities: {},
+        },
+      };
+      const action = createAddTaskAction({
+        id: 'rpt_deleted-cfg_2026-07-04',
+        repeatCfgId: 'deleted-cfg',
+        repeatOccurrenceDay: '2026-07-04',
+      });
+
+      metaReducer(baseState, action);
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState[TASK_FEATURE_NAME].entities[action.task.id]).toBeUndefined();
+    });
 
     it('should add task to project taskIds when not adding to backlog', () => {
       const action = createAddTaskAction();
@@ -1048,6 +1337,38 @@ describe('taskSharedCrudMetaReducer', () => {
   });
 
   describe('deleteTasks action', () => {
+    it('removes parents and subtasks from every planner day', () => {
+      const testState = createStateWithExistingTasks(
+        ['task1', 'subtask1', 'other-task'],
+        [],
+        [],
+        [],
+      );
+      testState[TASK_FEATURE_NAME].entities.task1 = {
+        ...(testState[TASK_FEATURE_NAME].entities.task1 as Task),
+        subTaskIds: ['subtask1'],
+      };
+      testState[TASK_FEATURE_NAME].entities.subtask1 = {
+        ...(testState[TASK_FEATURE_NAME].entities.subtask1 as Task),
+        parentId: 'task1',
+      };
+      testState.planner = {
+        ...testState.planner,
+        days: {
+          '2026-07-04': ['task1', 'other-task'],
+          '2026-07-05': ['subtask1'],
+        },
+      };
+
+      metaReducer(testState, TaskSharedActions.deleteTasks({ taskIds: ['task1'] }));
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState.planner.days).toEqual({
+        '2026-07-04': ['other-task'],
+        '2026-07-05': [],
+      });
+    });
+
     it('should remove multiple task IDs from all tags', () => {
       const testState = createStateWithExistingTasks(
         [],
@@ -1128,6 +1449,36 @@ describe('taskSharedCrudMetaReducer', () => {
         mockReducer,
         testState,
       );
+    });
+
+    it('should clear currentTaskId when deleting its parent task', () => {
+      const testState = createStateWithExistingTasks(
+        ['task1', 'subtask1', 'other-task'],
+        [],
+        ['task1', 'other-task'],
+        [],
+      );
+      const task1 = testState[TASK_FEATURE_NAME].entities.task1 as Task;
+      const subtask1 = testState[TASK_FEATURE_NAME].entities.subtask1 as Task;
+      testState[TASK_FEATURE_NAME].entities.task1 = {
+        ...task1,
+        subTaskIds: ['subtask1'],
+      };
+      testState[TASK_FEATURE_NAME].entities.subtask1 = {
+        ...subtask1,
+        parentId: 'task1',
+      };
+      testState[TASK_FEATURE_NAME].currentTaskId = 'subtask1';
+
+      metaReducer(
+        testState,
+        TaskSharedActions.deleteTasks({
+          taskIds: ['task1'],
+        }),
+      );
+
+      const updatedState = mockReducer.calls.mostRecent().args[0] as RootState;
+      expect(updatedState[TASK_FEATURE_NAME].currentTaskId).toBeNull();
     });
 
     it('should handle tasks with subtasks', () => {

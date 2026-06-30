@@ -277,6 +277,7 @@ export interface ElectronAPI {
   backupAppData(args: {
     data: AppDataCompleteLegacy | AppDataComplete;
     maxBackupFiles?: number | null;
+    isThrowOnError?: boolean;
   }): Promise<void>;
 
   updateCurrentTask(
@@ -293,6 +294,11 @@ export interface ElectronAPI {
   ): void;
 
   updateTaskWidgetTasks(tasks: {
+    labels: {
+      activeTask: string;
+      noActiveTask: string;
+      noTasks: string;
+    };
     panels: {
       id: string;
       title: string;
@@ -305,6 +311,7 @@ export interface ElectronAPI {
         dueWithTime?: number;
         deadlineDay?: string;
         deadlineWithTime?: number;
+        isDone?: boolean;
       }[];
     }[];
   }): void;

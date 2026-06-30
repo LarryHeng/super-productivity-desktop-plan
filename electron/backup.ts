@@ -7,12 +7,15 @@ import {
   readdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'fs';
+import { createHash } from 'crypto';
 import { IPC } from './shared-with-frontend/ipc-events.const';
 import { LocalBackupMeta } from '../src/app/imex/local-backup/local-backup.model';
 import * as path from 'path';
@@ -53,38 +56,10 @@ const safeRealpath = (p: string): string => {
   }
 };
 
-const getInstallDataDir = (folderName: 'backups' | 'bg-images'): string | null => {
-  if (!app.isPackaged) {
-    return null;
-  }
-  try {
-    return path.join(path.dirname(app.getPath('exe')), folderName);
-  } catch {
-    return null;
-  }
-};
-
 const ensureDefaultBackupDirectory = (): void => {
   if (existsSync(BACKUP_DIR)) {
     return;
   }
-
-  const installBackupDir = getInstallDataDir('backups');
-  if (installBackupDir) {
-    try {
-      mkdirSync(path.dirname(BACKUP_DIR), { recursive: true });
-      mkdirSync(installBackupDir, { recursive: true });
-      symlinkSync(
-        installBackupDir,
-        BACKUP_DIR,
-        process.platform === 'win32' ? 'junction' : 'dir',
-      );
-      return;
-    } catch (e) {
-      error('Failed to initialize install-local backup directory:', e);
-    }
-  }
-
   mkdirSync(BACKUP_DIR, { recursive: true });
 };
 
@@ -120,19 +95,207 @@ export const getBackupPathInfo = (): BackupPathInfo => {
   };
 };
 
-const copyEntriesToTarget = (sourceDir: string, targetDir: string): void => {
-  mkdirSync(targetDir, { recursive: true });
-  for (const entryName of readdirSync(sourceDir)) {
-    const sourcePath = path.join(sourceDir, entryName);
-    let targetPath = path.join(targetDir, entryName);
-    if (existsSync(targetPath)) {
-      const parsed = path.parse(entryName);
-      targetPath = path.join(
-        targetDir,
-        `${parsed.name}.migrated-${Date.now()}${parsed.ext}`,
+const getFileSha256 = (filePath: string): string =>
+  createHash('sha256').update(readFileSync(filePath)).digest('hex');
+
+const verifyCopiedEntry = (sourcePath: string, targetPath: string): void => {
+  const sourceStat = lstatSync(sourcePath);
+  const targetStat = lstatSync(targetPath);
+
+  if (sourceStat.isSymbolicLink() || targetStat.isSymbolicLink()) {
+    throw new Error('Backup migration does not accept nested symbolic links');
+  }
+
+  if (sourceStat.isDirectory()) {
+    if (!targetStat.isDirectory()) {
+      throw new Error('Backup migration target type differs from source');
+    }
+    for (const entryName of readdirSync(sourcePath)) {
+      verifyCopiedEntry(
+        path.join(sourcePath, entryName),
+        path.join(targetPath, entryName),
       );
     }
-    cpSync(sourcePath, targetPath, { recursive: true, force: false });
+    return;
+  }
+
+  if (!sourceStat.isFile() || !targetStat.isFile()) {
+    throw new Error('Backup migration only accepts files and directories');
+  }
+  if (sourceStat.size !== targetStat.size) {
+    throw new Error('Backup migration copied file length differs');
+  }
+  if (getFileSha256(sourcePath) !== getFileSha256(targetPath)) {
+    throw new Error('Backup migration copied file hash differs');
+  }
+};
+
+const preserveCopiedEntryTimestamps = (sourcePath: string, targetPath: string): void => {
+  const sourceStat = lstatSync(sourcePath);
+  if (sourceStat.isDirectory()) {
+    for (const entryName of readdirSync(sourcePath)) {
+      preserveCopiedEntryTimestamps(
+        path.join(sourcePath, entryName),
+        path.join(targetPath, entryName),
+      );
+    }
+  }
+  utimesSync(targetPath, sourceStat.atime, sourceStat.mtime);
+};
+
+const getAvailableCopyTarget = (targetDir: string, entryName: string): string => {
+  const preferredTarget = path.join(targetDir, entryName);
+  if (!existsSync(preferredTarget)) {
+    return preferredTarget;
+  }
+
+  const parsed = path.parse(entryName);
+  const migratedName = `${parsed.name}.migrated-${Date.now()}`;
+  let attempt = 0;
+  let candidate: string;
+  do {
+    const suffix = attempt === 0 ? '' : `-${attempt}`;
+    candidate = path.join(targetDir, `${migratedName}${suffix}${parsed.ext}`);
+    attempt++;
+  } while (existsSync(candidate));
+  return candidate;
+};
+
+interface EntryTimestamps {
+  path: string;
+  atime: Date;
+  mtime: Date;
+}
+
+const copyNewEntry = (
+  sourcePath: string,
+  targetPath: string,
+  copiedTargets: string[],
+): void => {
+  copiedTargets.push(targetPath);
+  cpSync(sourcePath, targetPath, {
+    recursive: true,
+    force: false,
+    preserveTimestamps: true,
+  });
+  verifyCopiedEntry(sourcePath, targetPath);
+  preserveCopiedEntryTimestamps(sourcePath, targetPath);
+};
+
+const mergeDirectoryContents = (
+  sourceDir: string,
+  targetDir: string,
+  copiedTargets: string[],
+  targetDirectoryTimestamps: EntryTimestamps[],
+): void => {
+  const sourceStat = lstatSync(sourceDir);
+  const targetStat = lstatSync(targetDir);
+  if (
+    sourceStat.isSymbolicLink() ||
+    targetStat.isSymbolicLink() ||
+    !sourceStat.isDirectory() ||
+    !targetStat.isDirectory()
+  ) {
+    throw new Error('Backup migration can only merge regular directories');
+  }
+
+  targetDirectoryTimestamps.push({
+    path: targetDir,
+    atime: targetStat.atime,
+    mtime: targetStat.mtime,
+  });
+  for (const entryName of readdirSync(sourceDir)) {
+    const sourcePath = path.join(sourceDir, entryName);
+    const targetPath = path.join(targetDir, entryName);
+    if (!existsSync(targetPath)) {
+      copyNewEntry(sourcePath, targetPath, copiedTargets);
+      continue;
+    }
+
+    const sourceEntryStat = lstatSync(sourcePath);
+    const targetEntryStat = lstatSync(targetPath);
+    if (sourceEntryStat.isDirectory() && targetEntryStat.isDirectory()) {
+      mergeDirectoryContents(
+        sourcePath,
+        targetPath,
+        copiedTargets,
+        targetDirectoryTimestamps,
+      );
+      continue;
+    }
+    verifyCopiedEntry(sourcePath, targetPath);
+  }
+};
+
+const restoreDirectoryTimestamps = (timestamps: EntryTimestamps[]): void => {
+  for (const entry of [...timestamps].reverse()) {
+    utimesSync(entry.path, entry.atime, entry.mtime);
+  }
+};
+
+const copyEntriesToTarget = (sourceDir: string, targetDir: string): void => {
+  mkdirSync(targetDir, { recursive: true });
+  const copiedTargets: string[] = [];
+  const targetDirectoryTimestamps: EntryTimestamps[] = [];
+  try {
+    for (const entryName of readdirSync(sourceDir)) {
+      const sourcePath = path.join(sourceDir, entryName);
+      if (entryName === '.assets' && existsSync(path.join(targetDir, entryName))) {
+        mergeDirectoryContents(
+          sourcePath,
+          path.join(targetDir, entryName),
+          copiedTargets,
+          targetDirectoryTimestamps,
+        );
+        continue;
+      }
+      const targetPath = getAvailableCopyTarget(targetDir, entryName);
+      copyNewEntry(sourcePath, targetPath, copiedTargets);
+    }
+    restoreDirectoryTimestamps(targetDirectoryTimestamps);
+  } catch (e) {
+    for (const copiedTarget of copiedTargets.reverse()) {
+      rmSync(copiedTarget, { recursive: true, force: true });
+    }
+    restoreDirectoryTimestamps(targetDirectoryTimestamps);
+    throw e;
+  }
+};
+
+const replaceExistingBackupDirWithLink = (
+  backupDir: string,
+  sourceDir: string,
+  targetDir: string,
+): void => {
+  const isExistingLink = lstatSync(backupDir).isSymbolicLink();
+  const rollbackDir = `${backupDir}.before-link-${process.pid}-${Date.now()}`;
+
+  if (isExistingLink) {
+    rmSync(backupDir, { recursive: true, force: true });
+  } else {
+    renameSync(backupDir, rollbackDir);
+  }
+
+  try {
+    symlinkSync(targetDir, backupDir, process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (e) {
+    if (existsSync(backupDir)) {
+      rmSync(backupDir, { recursive: true, force: true });
+    }
+    if (isExistingLink) {
+      symlinkSync(
+        sourceDir,
+        backupDir,
+        process.platform === 'win32' ? 'junction' : 'dir',
+      );
+    } else {
+      renameSync(rollbackDir, backupDir);
+    }
+    throw e;
+  }
+
+  if (!isExistingLink) {
+    rmSync(rollbackDir, { recursive: true, force: true });
   }
 };
 
@@ -149,7 +312,8 @@ const replaceBackupDirWithLink = (targetDir: string): void => {
     ) {
       copyEntriesToTarget(sourceDir, targetDir);
     }
-    rmSync(backupDir, { recursive: true, force: true });
+    replaceExistingBackupDirWithLink(backupDir, sourceDir, targetDir);
+    return;
   }
 
   symlinkSync(targetDir, backupDir, process.platform === 'win32' ? 'junction' : 'dir');
@@ -178,6 +342,7 @@ export const pickBackupLinkTarget = async (): Promise<
     const targetDir = realpathSync.native(selectedPath);
 
     assertPathOutside(app.getPath('userData'), targetDir);
+    assertPathOutside(targetDir, app.getPath('userData'));
     replaceBackupDirWithLink(targetDir);
     await saveSimpleStore(SimpleStoreKey.BACKUP_LINK_TARGET, targetDir);
 
@@ -269,6 +434,7 @@ export function initBackupAdapter(): void {
 interface BackupDataArgs {
   data: AppDataCompleteLegacy | AppDataComplete;
   maxBackupFiles?: number | null;
+  isThrowOnError?: boolean;
 }
 
 const isBackupDataArgs = (arg: unknown): arg is BackupDataArgs =>
@@ -299,6 +465,9 @@ async function backupData(
   } catch (e) {
     log('Error while backing up');
     error(e);
+    if (isBackupDataArgs(dataOrArgs) && dataOrArgs.isThrowOnError) {
+      throw e;
+    }
   }
 }
 

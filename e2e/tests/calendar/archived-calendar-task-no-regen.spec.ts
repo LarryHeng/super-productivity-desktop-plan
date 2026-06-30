@@ -61,7 +61,7 @@ const buildIcal = (): string => {
   ].join('\r\n');
 };
 
-test.describe('Calendar #7971', () => {
+test.describe('@legacy-archive Calendar #7971', () => {
   test('archived calendar task does not regenerate in the schedule', async ({
     page,
     workViewPage,

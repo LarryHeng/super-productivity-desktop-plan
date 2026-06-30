@@ -49,7 +49,7 @@ test.describe('Boards #7498 — Kanban', () => {
     const taskName = `${testPrefix}repro7498-kanban`;
     const inlineInput = inProgressPanel.locator('add-task-bar input').first();
     await inlineInput.waitFor({ state: 'visible', timeout: 5000 });
-    await inlineInput.fill(taskName);
+    await inlineInput.fill(`${taskName} 25m`);
     await page.keyboard.press('Enter');
 
     const inProgressTask = inProgressPanel

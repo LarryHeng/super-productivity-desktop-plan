@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, firstValueFrom, of } from 'rxjs';
-import { provideMockStore } from '@ngrx/store/testing';
+import { MockStore, provideMockStore } from '@ngrx/store/testing';
 import { PlannerService } from './planner.service';
 import { DateService } from '../../core/date/date.service';
 import { CalendarIntegrationService } from '../calendar-integration/calendar-integration.service';
@@ -22,6 +22,7 @@ describe('PlannerService weekly pages', () => {
   let todayDateStr$: BehaviorSubject<string>;
   let dateService: DateService;
   let archivedTask: Task;
+  let store: MockStore;
 
   beforeEach(() => {
     todayDateStr$ = new BehaviorSubject('2026-01-14');
@@ -84,8 +85,13 @@ describe('PlannerService weekly pages', () => {
     });
 
     service = TestBed.inject(PlannerService);
+    store = TestBed.inject(MockStore);
     dateService = TestBed.inject(DateService);
     spyOn(dateService, 'todayStr').and.returnValue('2026-01-14');
+  });
+
+  afterEach(() => {
+    store.resetSelectors();
   });
 
   it('shows exactly Monday through Sunday for the current logical week', async () => {

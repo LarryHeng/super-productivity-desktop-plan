@@ -492,9 +492,15 @@ export class DialogEditTaskRepeatCfgComponent {
 
   remove(): void {
     const currentRepeatCfg = this.repeatCfg();
-    this._taskRepeatCfgService.deleteTaskRepeatCfgWithDialog(
-      exists((currentRepeatCfg as TaskRepeatCfg).id),
-    );
+    const repeatCfgId = exists((currentRepeatCfg as TaskRepeatCfg).id);
+    if (this._data.targetDate) {
+      this._taskRepeatCfgService.stopTaskRepeatCfgFromDateWithDialog(
+        repeatCfgId,
+        this._data.targetDate,
+      );
+    } else {
+      this._taskRepeatCfgService.deleteTaskRepeatCfgWithDialog(repeatCfgId);
+    }
     this.close();
   }
 

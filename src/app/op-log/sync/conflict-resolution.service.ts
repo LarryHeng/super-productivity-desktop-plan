@@ -290,7 +290,17 @@ export class ConflictResolutionService {
       {
         // Convert remote UPDATE operations to LWW Update format when entity was deleted locally.
         // This ensures lwwUpdateMetaReducer can recreate deleted entities (fixes DELETE vs UPDATE race).
-        processRemoteWinnerOps: (conflict) => this._convertToLWWUpdatesIfNeeded(conflict),
+        processRemoteWinnerOps: (conflict) => {
+          const converted = this._convertToLWWUpdatesIfNeeded(conflict);
+          return [
+            ...converted.filter(
+              (op) => op.actionType !== ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+            ),
+            ...converted.filter(
+              (op) => op.actionType === ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+            ),
+          ];
+        },
         toEntityKey: (entityType, entityId) =>
           toEntityKey(entityType as EntityType, entityId),
       },
@@ -307,6 +317,14 @@ export class ConflictResolutionService {
     } = lwwPartitions;
     const localOpsToReject = [...lwwPartitions.localOpsToReject];
     const localOpsToRejectSet = new Set(localOpsToReject);
+    const orderedRemoteWinsOps = [
+      ...remoteWinsOps.filter(
+        (op) => op.actionType !== ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+      ),
+      ...remoteWinsOps.filter(
+        (op) => op.actionType === ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+      ),
+    ];
 
     for (const resolution of resolutions) {
       // Note: localWinOp is undefined for archive-wins sibling conflicts
@@ -326,11 +344,15 @@ export class ConflictResolutionService {
     // Batch process remote-wins ops: filter duplicates and append in batch
     // Uses retry to handle race condition (issue #6213)
     // ─────────────────────────────────────────────────────────────────────────
-    if (remoteWinsOps.length > 0) {
-      const result = await this._filterAndAppendOpsWithRetry(remoteWinsOps, 'remote', {
-        pendingApply: true,
-      });
-      const skippedCount = remoteWinsOps.length - result.ops.length;
+    if (orderedRemoteWinsOps.length > 0) {
+      const result = await this._filterAndAppendOpsWithRetry(
+        orderedRemoteWinsOps,
+        'remote',
+        {
+          pendingApply: true,
+        },
+      );
+      const skippedCount = orderedRemoteWinsOps.length - result.ops.length;
       if (skippedCount > 0) {
         OpLog.verbose(
           `ConflictResolutionService: Skipping ${skippedCount} duplicate ops (LWW remote)`,
@@ -530,9 +552,61 @@ export class ConflictResolutionService {
       toEntityKey: (entityType, entityId) =>
         toEntityKey(entityType as EntityType, entityId),
     });
+    const plansByEntity = new Map<string, typeof plans>();
+    for (const plan of plans) {
+      const entityKey = toEntityKey(
+        plan.conflict.entityType as EntityType,
+        plan.conflict.entityId,
+      );
+      plansByEntity.set(entityKey, [...(plansByEntity.get(entityKey) ?? []), plan]);
+    }
+    const emittedLocalStopKeys = new Set<string>();
 
     for (const plan of plans) {
       let localWinOp: Operation | undefined;
+      const entityKey = toEntityKey(
+        plan.conflict.entityType as EntityType,
+        plan.conflict.entityId,
+      );
+      const siblingPlans = plansByEntity.get(entityKey) ?? [plan];
+      const entityLocalOps = siblingPlans.flatMap(
+        (siblingPlan) => siblingPlan.conflict.localOps,
+      );
+      const entityRemoteOps = siblingPlans.flatMap(
+        (siblingPlan) => siblingPlan.conflict.remoteOps,
+      );
+      const localStopOps = entityLocalOps.filter(
+        (op) => op.actionType === ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+      );
+      const remoteStopOps = entityRemoteOps.filter(
+        (op) => op.actionType === ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+      );
+
+      if (localStopOps.length) {
+        if (!emittedLocalStopKeys.has(entityKey)) {
+          const uniqueById = (ops: Operation[]): Operation[] =>
+            Array.from(new Map(ops.map((op) => [op.id, op])).values());
+          localWinOp = await this._createStopFromDateWinOp({
+            ...plan.conflict,
+            localOps: uniqueById(entityLocalOps),
+            remoteOps: uniqueById(entityRemoteOps),
+          });
+          emittedLocalStopKeys.add(entityKey);
+        }
+        resolutions.push({
+          conflict: plan.conflict,
+          winner: 'local',
+          localWinOp,
+        });
+        continue;
+      }
+      if (remoteStopOps.length) {
+        resolutions.push({
+          conflict: plan.conflict,
+          winner: 'remote',
+        });
+        continue;
+      }
 
       if (plan.localWinOperationKind === 'archive-win') {
         localWinOp = await this._createArchiveWinOp(plan.conflict);
@@ -687,6 +761,110 @@ export class ConflictResolutionService {
   }
 
   /**
+   * Creates a replacement stop-from-date operation with a merged vector clock.
+   *
+   * A stop-from-date action updates the repeat config and deletes matching live
+   * and archived task instances. Replacing it with a generic repeat-config LWW
+   * update would preserve only `endDate` and silently lose those deletions.
+   */
+  private async _createStopFromDateWinOp(
+    conflict: EntityConflict,
+  ): Promise<Operation | undefined> {
+    const clientId = await this.clientIdProvider.loadClientId();
+    if (!clientId) {
+      OpLog.err(
+        'ConflictResolutionService: Cannot create stop-from-date win op - no client ID',
+      );
+      return undefined;
+    }
+
+    const stopOps = [...conflict.localOps, ...conflict.remoteOps].filter(
+      (op) => op.actionType === ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+    );
+    const validStops = stopOps
+      .map((op) => ({
+        op,
+        actionPayload: extractActionPayload(op.payload),
+      }))
+      .filter(
+        ({ actionPayload }) =>
+          typeof actionPayload['stopDate'] === 'string' &&
+          typeof actionPayload['endDate'] === 'string',
+      )
+      .sort((a, b) =>
+        String(a.actionPayload['stopDate']).localeCompare(
+          String(b.actionPayload['stopDate']),
+        ),
+      );
+    const earliestStop = validStops[0];
+    if (!earliestStop) {
+      return undefined;
+    }
+    const stopOp = earliestStop.op;
+
+    const allClocks = [
+      ...conflict.localOps.map((op) => op.vectorClock),
+      ...conflict.remoteOps.map((op) => op.vectorClock),
+    ];
+    const newClock = this.mergeAndIncrementClocks(allClocks, clientId);
+    const entityState = await this.getCurrentEntityState(
+      conflict.entityType,
+      conflict.entityId,
+    );
+    const payloadRecord =
+      stopOp.payload && typeof stopOp.payload === 'object'
+        ? (stopOp.payload as Record<string, unknown>)
+        : {};
+    const mergedActionPayload = {
+      ...earliestStop.actionPayload,
+      stopDate: earliestStop.actionPayload['stopDate'],
+      endDate: earliestStop.actionPayload['endDate'],
+      taskIds: Array.from(
+        new Set(
+          validStops.flatMap(({ actionPayload }) =>
+            Array.isArray(actionPayload['taskIds'])
+              ? (actionPayload['taskIds'] as string[])
+              : [],
+          ),
+        ),
+      ),
+      archivedTaskIds: Array.from(
+        new Set(
+          validStops.flatMap(({ actionPayload }) =>
+            Array.isArray(actionPayload['archivedTaskIds'])
+              ? (actionPayload['archivedTaskIds'] as string[])
+              : [],
+          ),
+        ),
+      ),
+      ...(entityState && typeof entityState === 'object'
+        ? { taskRepeatCfgSnapshot: entityState }
+        : {}),
+    };
+    const payload =
+      'actionPayload' in payloadRecord
+        ? { ...payloadRecord, actionPayload: mergedActionPayload }
+        : mergedActionPayload;
+
+    return {
+      id: uuidv7(),
+      actionType: stopOp.actionType,
+      opType: stopOp.opType,
+      entityType: stopOp.entityType,
+      entityId: stopOp.entityId,
+      entityIds: stopOp.entityIds,
+      payload,
+      clientId,
+      vectorClock: newClock,
+      timestamp: Math.max(
+        ...conflict.localOps.map((op) => op.timestamp),
+        ...conflict.remoteOps.map((op) => op.timestamp),
+      ),
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+    };
+  }
+
+  /**
    * Extracts entity state from a remote DELETE operation payload.
    *
    * When a remote DELETE wins the conflict but we need the entity state for LWW resolution,
@@ -735,7 +913,17 @@ export class ConflictResolutionService {
       return conflict.remoteOps;
     }
 
-    for (const remoteOp of conflict.remoteOps) {
+    const remoteStopOps = conflict.remoteOps.filter(
+      (op) => op.actionType === ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+    );
+    const remoteNonStopOps = conflict.remoteOps.filter(
+      (op) => op.actionType !== ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+    );
+    if (!remoteNonStopOps.length) {
+      return remoteStopOps;
+    }
+
+    for (const remoteOp of remoteNonStopOps) {
       if (remoteOp.opType === OpType.Update) {
         OpLog.log(
           `ConflictResolutionService: Converting remote UPDATE to LWW Update for ` +
@@ -744,27 +932,34 @@ export class ConflictResolutionService {
       }
     }
 
-    return convertLocalDeleteRemoteUpdatesToLww<Operation>(conflict, {
-      payloadKey: (entityType) => this._resolvePayloadKey(entityType as EntityType),
-      toLwwUpdateActionType: (entityType) =>
-        toLwwUpdateActionType(entityType as EntityType),
-      isSingletonEntityId,
-      onMissingBaseEntity: ({ localDeletePayloadKeys, remoteOp }) => {
-        // Fallback: no full base entity available. Returning the op unchanged
-        // is equivalent to rewriting actionType to LWW Update — both no-op at
-        // the consumer because the payload lacks a top-level id (the LWW path
-        // would bail at lwwUpdateMetaReducer's missing-id guard). The locally
-        // deleted entity stays deleted; remote UPDATE changes are dropped.
-        // Logged so the consumer's RECREATE_FALLBACK warn (which fires only
-        // from the happy-path partial-baseEntity case above) is not the only
-        // signal a partial-payload producer ran.
-        OpLog.warn(
-          `ConflictResolutionService: Cannot extract base entity from local DELETE for ` +
-            `${remoteOp.entityType}:${remoteOp.entityId}. Falling back: entity stays deleted. ` +
-            `Local DELETE payload keys: ${localDeletePayloadKeys ? JSON.stringify(localDeletePayloadKeys) : 'N/A'}`,
-        );
+    const convertedNonStopOps = convertLocalDeleteRemoteUpdatesToLww<Operation>(
+      {
+        ...conflict,
+        remoteOps: remoteNonStopOps,
       },
-    });
+      {
+        payloadKey: (entityType) => this._resolvePayloadKey(entityType as EntityType),
+        toLwwUpdateActionType: (entityType) =>
+          toLwwUpdateActionType(entityType as EntityType),
+        isSingletonEntityId,
+        onMissingBaseEntity: ({ localDeletePayloadKeys, remoteOp }) => {
+          // Fallback: no full base entity available. Returning the op unchanged
+          // is equivalent to rewriting actionType to LWW Update — both no-op at
+          // the consumer because the payload lacks a top-level id (the LWW path
+          // would bail at lwwUpdateMetaReducer's missing-id guard). The locally
+          // deleted entity stays deleted; remote UPDATE changes are dropped.
+          // Logged so the consumer's RECREATE_FALLBACK warn (which fires only
+          // from the happy-path partial-baseEntity case above) is not the only
+          // signal a partial-payload producer ran.
+          OpLog.warn(
+            `ConflictResolutionService: Cannot extract base entity from local DELETE for ` +
+              `${remoteOp.entityType}:${remoteOp.entityId}. Falling back: entity stays deleted. ` +
+              `Local DELETE payload keys: ${localDeletePayloadKeys ? JSON.stringify(localDeletePayloadKeys) : 'N/A'}`,
+          );
+        },
+      },
+    );
+    return [...convertedNonStopOps, ...remoteStopOps];
   }
 
   private _resolvePayloadKey(entityType: EntityType): string {

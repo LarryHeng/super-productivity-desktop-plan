@@ -178,6 +178,50 @@ describe('sectionSharedMetaReducer', () => {
     expect(updated.entities['s2']?.taskIds).toEqual(['t4']);
   });
 
+  it('removes stopped repeat instances from sections in the same action', () => {
+    const state = stateWith(
+      {
+        before: {
+          repeatCfgId: 'cfg1',
+          created: new Date(2026, 6, 3, 12).getTime(),
+        },
+        cutoff: {
+          repeatCfgId: 'cfg1',
+          created: new Date(2026, 6, 4, 12).getTime(),
+        },
+        after: {
+          repeatCfgId: 'cfg1',
+          created: new Date(2026, 6, 5, 12).getTime(),
+        },
+      },
+      [
+        {
+          id: 's1',
+          contextId: 'p1',
+          contextType: WorkContextType.PROJECT,
+          title: 'A',
+          taskIds: ['before', 'cutoff', 'after'],
+        },
+      ],
+    );
+
+    metaReducer(
+      state,
+      TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: 'cfg1',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: [],
+        archivedTaskIds: [],
+      }),
+    );
+
+    const updated = (mockReducer.calls.mostRecent().args[0] as any)[
+      SECTION_FEATURE_NAME
+    ] as SectionState;
+    expect(updated.entities['s1']?.taskIds).toEqual(['before']);
+  });
+
   it('removes a task from sections when it is converted to a subtask', () => {
     const state = stateWith({ parent: {}, t1: {}, t2: {} }, [
       {

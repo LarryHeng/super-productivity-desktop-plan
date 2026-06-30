@@ -129,7 +129,7 @@ test.describe('Default task reminder option', () => {
 
     // Wait for the global add-task input to be available
     await addTaskInput.waitFor({ state: 'visible', timeout: 15000 });
-    await addTaskInput.fill('due task @at 1pm');
+    await addTaskInput.fill('due task 25m @at 1pm');
     await addTaskInput.press('Enter');
 
     // Close the add-task bar by clicking the backdrop
@@ -159,13 +159,13 @@ test.describe('Default task reminder option', () => {
     await waitForNav();
     await changeDefaultTaskReminderOption(page);
 
-    await page.getByRole('menuitem', { name: 'Schedule' }).click();
+    await page.getByRole('menuitem', { name: 'Timeline' }).click();
     await page.locator('schedule-week').waitFor({ state: 'visible', timeout: 10000 });
     // Click somewhere during the final day column to create a placeholder task
     await page.locator('schedule-week [data-day]').last().click();
     const taskInput = page.getByPlaceholder('Schedule task...');
     await taskInput.waitFor({ state: 'visible', timeout: 10000 });
-    await taskInput.fill('task');
+    await taskInput.fill('task 25m');
     await taskInput.press('Enter');
     // Click the scheduled task to reveal the details panel
     const scheduleEvent = page.locator('schedule-event').first();

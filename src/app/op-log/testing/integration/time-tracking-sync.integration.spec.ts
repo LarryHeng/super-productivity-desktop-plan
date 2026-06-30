@@ -6,6 +6,14 @@ import { resetTestUuidCounter, TestClient } from './helpers/test-client.helper';
 import { MockSyncServer } from './helpers/mock-sync-server.helper';
 import { uuidv7 } from '../../../util/uuid-v7';
 import { TimeTrackingState } from '../../../features/time-tracking/time-tracking.model';
+import { OperationCaptureService } from '../../capture/operation-capture.service';
+import { TimeTrackingActions } from '../../../features/time-tracking/store/time-tracking.actions';
+import { convertOpToAction } from '../../apply/operation-converter.util';
+import {
+  initialTimeTrackingState,
+  timeTrackingReducer,
+} from '../../../features/time-tracking/store/time-tracking.reducer';
+import { MultiEntityPayload } from '../../core/operation.types';
 
 /**
  * Integration tests for Time Tracking Sync scenarios.
@@ -34,6 +42,54 @@ describe('Time Tracking Sync Integration', () => {
   });
 
   describe('TimeTracking Operation Creation', () => {
+    it('should preserve a manual segment source through capture, serialization, and replay', () => {
+      const captureService = new OperationCaptureService();
+      const action = TimeTrackingActions.addActualTimeSegment({
+        taskId: 'task-1',
+        date: '2026-06-27',
+        start: 1_000,
+        end: 2_000,
+        source: 'manual',
+      });
+      const { type, meta, ...actionPayload } = action;
+      const op: Operation = {
+        id: 'manual-segment-op',
+        actionType: type as ActionType,
+        opType: meta.opType,
+        entityType: meta.entityType,
+        entityId: meta.entityId,
+        payload: {
+          actionPayload,
+          entityChanges: captureService.extractEntityChanges(action),
+        },
+        clientId: 'tt-client-1',
+        vectorClock: { 'tt-client-1': 1 },
+        timestamp: 2_000,
+        schemaVersion: 1,
+      };
+
+      const serializedOp = JSON.parse(JSON.stringify(op)) as Operation;
+      const serializedPayload = serializedOp.payload as MultiEntityPayload;
+      const replayedAction = convertOpToAction(serializedOp);
+      const replayedState = timeTrackingReducer(initialTimeTrackingState, replayedAction);
+
+      expect(serializedPayload.actionPayload['source']).toBe('manual');
+      expect(serializedPayload.entityChanges[0]).toEqual(
+        jasmine.objectContaining({
+          entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000:manual',
+          changes: jasmine.objectContaining({ source: 'manual' }),
+        }),
+      );
+      expect(replayedState.taskSegments['2026-06-27']).toEqual([
+        {
+          taskId: 'task-1',
+          start: 1_000,
+          end: 2_000,
+          source: 'manual',
+        },
+      ]);
+    });
+
     it('should create syncTimeTracking operation with correct structure', async () => {
       const testClient = new TestClient('tt-client-1');
 

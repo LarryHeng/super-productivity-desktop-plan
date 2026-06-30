@@ -208,20 +208,21 @@ export class OperationCaptureService {
       ];
     }
 
-    // addActualTimeSegment action: { taskId, date, start, end }
+    // addActualTimeSegment action: { taskId, date, start, end, source? }
     if ('taskId' in action && 'date' in action && 'start' in action && 'end' in action) {
-      const { taskId, date, start, end } = action as unknown as {
+      const { taskId, date, start, end, source } = action as unknown as {
         taskId: string;
         date: string;
         start: number;
         end: number;
+        source?: 'manual';
       };
       return [
         {
           entityType: 'TIME_TRACKING',
-          entityId: `TASK_SEGMENT:${date}:${taskId}:${start}:${end}`,
+          entityId: `TASK_SEGMENT:${date}:${taskId}:${start}:${end}${source ? `:${source}` : ''}`,
           opType: OpType.Update,
-          changes: { taskId, date, start, end },
+          changes: { taskId, date, start, end, ...(source ? { source } : {}) },
         },
       ];
     }

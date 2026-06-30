@@ -25,6 +25,8 @@ import { selectTodayTaskIds } from '../../work-context/store/work-context.select
 import { first } from 'rxjs/operators';
 import { getTimeLeftForTask } from '../../../util/get-time-left-for-task';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
+import { TaskRepeatCfgService } from '../../task-repeat-cfg/task-repeat-cfg.service';
+import { TaskRepeatCfg } from '../../task-repeat-cfg/task-repeat-cfg.model';
 
 interface PointerPosition {
   x: number;
@@ -49,6 +51,7 @@ export class ScheduleWeekDragService {
   private readonly _store = inject(Store);
   private readonly _globalConfigService = inject(GlobalConfigService);
   private readonly _calendarEventActions = inject(CalendarEventActionsService);
+  private readonly _taskRepeatCfgService = inject(TaskRepeatCfgService);
 
   private readonly _isShiftMode = signal(false);
   readonly isShiftMode: Signal<boolean> = this._isShiftMode.asReadonly();
@@ -229,6 +232,7 @@ export class ScheduleWeekDragService {
     const sourceEvent = ev.source.data;
     const task = this._pluckTaskFromEvent(sourceEvent);
     const calEv = this._pluckMovableCalendarEvent(sourceEvent);
+    const repeatCfg = this._pluckTimedRepeatProjection(sourceEvent);
     const sourceTaskId = nativeEl.id.replace(T_ID_PREFIX, '');
     const targetTaskId = scheduleEventTarget
       ? scheduleEventTarget.id.replace(T_ID_PREFIX, '')
@@ -247,6 +251,15 @@ export class ScheduleWeekDragService {
         dropPoint,
         nativeEl,
         ev: ev as CdkDragRelease<ScheduleEvent>,
+      });
+    }
+
+    if (!task && repeatCfg) {
+      this._handleRepeatProjectionDrop({
+        repeatCfg,
+        sourceEvent,
+        columnTarget,
+        dropPoint,
       });
     }
 
@@ -330,6 +343,41 @@ export class ScheduleWeekDragService {
     }
 
     void this._calendarEventActions.moveToStartTime(calEv, scheduleTime).then(resetDrag);
+  }
+
+  private _handleRepeatProjectionDrop({
+    repeatCfg,
+    sourceEvent,
+    columnTarget,
+    dropPoint,
+  }: {
+    repeatCfg: TaskRepeatCfg;
+    sourceEvent: ScheduleEvent;
+    columnTarget: HTMLElement | null;
+    dropPoint: PointerPosition | null;
+  }): void {
+    const occurrenceDay = sourceEvent.plannedForDay;
+    if (this.isShiftMode() || !columnTarget || !occurrenceDay) {
+      return;
+    }
+
+    const targetDay =
+      columnTarget.getAttribute('data-day') ||
+      (dropPoint ? this._getDayUnderPointer(dropPoint.x, dropPoint.y) : null);
+    if (targetDay !== occurrenceDay) {
+      return;
+    }
+
+    const scheduleTime =
+      this._lastCalculatedTimestamp ??
+      (dropPoint ? this._calculateTimeFromDrop(dropPoint, targetDay) : null);
+    if (scheduleTime != null) {
+      void this._taskRepeatCfgService.moveTaskRepeatCfgInstance(
+        repeatCfg,
+        occurrenceDay,
+        scheduleTime,
+      );
+    }
   }
 
   refreshPreviewForCurrentPointer(): void {
@@ -815,6 +863,21 @@ export class ScheduleWeekDragService {
       return null;
     }
     return event.data;
+  }
+
+  private _pluckTimedRepeatProjection(event: ScheduleEvent | null): TaskRepeatCfg | null {
+    const isTimedRepeatProjectionType =
+      event?.type === SVEType.ScheduledRepeatProjection ||
+      event?.type === SVEType.RepeatProjectionSplit ||
+      event?.type === SVEType.RepeatProjectionSplitContinued ||
+      event?.type === SVEType.RepeatProjectionSplitContinuedLast;
+    if (!isTimedRepeatProjectionType || !event?.data) {
+      return null;
+    }
+    const repeatCfg = event.data as TaskRepeatCfg;
+    return typeof repeatCfg.startTime === 'string' && repeatCfg.startTime.length > 0
+      ? repeatCfg
+      : null;
   }
 
   private _handleColumnDrop({

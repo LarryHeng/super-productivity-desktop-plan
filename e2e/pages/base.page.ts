@@ -166,10 +166,13 @@ export abstract class BasePage {
     // Clear and fill input - Playwright handles waiting for interactability
     await input.click();
     await input.clear();
-    // Task creation requires an estimate in this desktop-plan build. Supplying
-    // it through short syntax keeps the helper representative of the real UI
-    // while the persisted task title remains unchanged.
-    await input.fill(`${prefixedTaskName} 25m`);
+    // Task creation requires an estimate in this desktop-plan build. Preserve
+    // an estimate supplied by the test instead of silently adding another one
+    // (for example `1h 25m`, which the parser correctly sums to 85 minutes).
+    const hasEstimate = /(?:^|\s)\d+(?:[.,]\d+)?\s*(?:m|min|h|d)(?=\s|$)/i.test(
+      prefixedTaskName,
+    );
+    await input.fill(hasEstimate ? prefixedTaskName : `${prefixedTaskName} 25m`);
 
     // Store the initial count before submission
     const initialCount = await this.page.locator('task').count();
@@ -197,15 +200,49 @@ export abstract class BasePage {
         // Fallback: verify task count increased (captures edge cases)
         const finalCount = await this.page.locator('task').count();
         if (finalCount < expectedCount) {
-          // Get fresh snapshot for error message after DOM settles
-          await this.page.waitForTimeout(500);
-          const tasks = await this.page.locator('task').allTextContents();
-          const currentCount = await this.page.locator('task').count();
-          throw new Error(
-            `Task creation failed. Expected ${expectedCount} tasks, but got ${currentCount}.\n` +
-              `Task name: "${prefixedTaskName}"\n` +
-              `Existing tasks: ${JSON.stringify(tasks, null, 2)}`,
-          );
+          // A task deliberately scheduled a few minutes into the future can
+          // be persisted without being rendered in the current Today list.
+          // Verify creation against the E2E store before treating the missing
+          // row as a submission failure.
+          const wasPersisted = await this.page.evaluate((title) => {
+            type TaskLike = { title?: string };
+            type StateLike = {
+              tasks?: { entities?: Record<string, TaskLike | undefined> };
+            };
+            type StoreLike = {
+              subscribe: (next: (state: StateLike) => void) => {
+                unsubscribe: () => void;
+              };
+            };
+            const store = (
+              window as unknown as {
+                __e2eTestHelpers?: { store?: StoreLike };
+              }
+            ).__e2eTestHelpers?.store;
+            if (!store) return false;
+
+            let state: StateLike | undefined;
+            const subscription = store.subscribe((nextState) => {
+              state = nextState;
+            });
+            subscription.unsubscribe();
+            return Object.values(state?.tasks?.entities ?? {}).some(
+              (task) =>
+                !!task?.title &&
+                (task.title === title || title.startsWith(`${task.title} `)),
+            );
+          }, prefixedTaskName);
+          if (!wasPersisted) {
+            // Get fresh snapshot for error message after DOM settles
+            await this.page.waitForTimeout(500);
+            const tasks = await this.page.locator('task').allTextContents();
+            const currentCount = await this.page.locator('task').count();
+            throw new Error(
+              `Task creation failed. Expected ${expectedCount} tasks, but got ${currentCount}.\n` +
+                `Task name: "${prefixedTaskName}"\n` +
+                `Existing tasks: ${JSON.stringify(tasks, null, 2)}`,
+            );
+          }
         }
       }
     }

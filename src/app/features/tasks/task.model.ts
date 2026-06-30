@@ -139,6 +139,11 @@ export interface TaskCopy
   parentId?: string;
   remindAt?: number;
   repeatCfgId?: string;
+  /**
+   * Immutable logical day for a generated repeat occurrence.
+   * Unlike `dueDay` and `created`, this survives scheduling and timezone changes.
+   */
+  repeatOccurrenceDay?: string;
   _hideSubTasksMode?: HideSubTasksMode;
 }
 

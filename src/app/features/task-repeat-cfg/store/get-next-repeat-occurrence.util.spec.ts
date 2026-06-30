@@ -61,6 +61,18 @@ const testCase = (
 };
 
 describe('getNextRepeatOccurrence()', () => {
+  it('does not return an occurrence beyond the inclusive end date', () => {
+    const cfg = dummyRepeatable('ended-daily', {
+      repeatCycle: 'DAILY',
+      repeatEvery: 1,
+      startDate: '2026-07-01',
+      lastTaskCreationDay: '2026-07-04',
+      endDate: '2026-07-04',
+    });
+
+    expect(getNextRepeatOccurrence(cfg, new Date(2026, 6, 4))).toBeNull();
+  });
+
   describe('Input validation', () => {
     it('should use fallback date (1970-01-01) when startDate is not defined', () => {
       const cfg = dummyRepeatable('ID1', {

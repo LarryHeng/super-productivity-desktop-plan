@@ -218,7 +218,7 @@ const validateUpdatePayload = (
     if ('ctx' in p && 'date' in p && 'updates' in p) {
       return { success: true };
     }
-    // addActualTimeSegment shape: { taskId, date, start, end }
+    // addActualTimeSegment shape: { taskId, date, start, end, source? }
     if ('taskId' in p && 'date' in p && 'start' in p && 'end' in p) {
       return { success: true };
     }

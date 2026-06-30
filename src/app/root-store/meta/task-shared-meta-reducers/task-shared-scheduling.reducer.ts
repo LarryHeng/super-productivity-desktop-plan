@@ -319,6 +319,12 @@ const createActionHandlers = (state: RootState, action: Action): ActionHandlerMa
       isMoveToBacklog,
     );
   },
+  [TaskSharedActions.materializeTaskRepeatCfgInstance.type]: () => {
+    const { task, dueWithTime, remindAt, isAddToBacklog } = action as ReturnType<
+      typeof TaskSharedActions.materializeTaskRepeatCfgInstance
+    >;
+    return handleScheduleTaskWithTime(state, task, dueWithTime, remindAt, isAddToBacklog);
+  },
   [TaskSharedActions.reScheduleTaskWithTime.type]: () => {
     const { task, dueWithTime, remindAt, isMoveToBacklog } = action as ReturnType<
       typeof TaskSharedActions.reScheduleTaskWithTime

@@ -43,8 +43,22 @@ import { DateTimeFormatService } from '../../../core/date-time-format/date-time-
 import { FH } from '../schedule.const';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
 import { DialogManualTimeRecordComponent } from '../manual-time-record/dialog-manual-time-record.component';
+import { getDbDateStr, isDBDateStr } from '../../../util/get-db-date-str';
+import { parseDbDateStr } from '../../../util/parse-db-date-str';
 
 const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
+const DB_DATE_SUFFIX = /_(\d{4}-\d{2}-\d{2})$/;
+
+const getStrictDbDate = (candidate: string | undefined): string | undefined => {
+  if (!candidate || !isDBDateStr(candidate)) {
+    return undefined;
+  }
+  return getDbDateStr(parseDbDateStr(candidate)) === candidate ? candidate : undefined;
+};
+
+const getRepeatProjectionTargetDate = (event: ScheduleEvent): string | undefined =>
+  getStrictDbDate(event.plannedForDay) ??
+  getStrictDbDate(DB_DATE_SUFFIX.exec(event.id)?.[1]);
 
 @Component({
   selector: 'schedule-event',
@@ -408,7 +422,7 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
       this._matDialog.open(DialogEditTaskRepeatCfgComponent, {
         data: {
           repeatCfg,
-          targetDate: (evt.id.includes('_') && evt.id.split('_')[1]) || undefined,
+          targetDate: getRepeatProjectionTargetDate(evt),
         },
       });
     } else if (evt.type === SVEType.CalendarEvent) {

@@ -64,6 +64,49 @@ const testCase = (
 };
 
 describe('getNewestPossibleDueDate()', () => {
+  it('keeps the inclusive end-date occurrence available until processed', () => {
+    const cfg = dummyRepeatable('ended-daily', {
+      repeatCycle: 'DAILY',
+      repeatEvery: 1,
+      startDate: '2026-07-01',
+      lastTaskCreationDay: '2026-07-03',
+      endDate: '2026-07-04',
+    });
+
+    expect(getDbDateStr(getNewestPossibleDueDate(cfg, new Date(2026, 6, 4))!)).toBe(
+      '2026-07-04',
+    );
+    expect(getDbDateStr(getNewestPossibleDueDate(cfg, new Date(2026, 6, 5))!)).toBe(
+      '2026-07-04',
+    );
+  });
+
+  it('returns an unprocessed final occurrence when checked after the end date', () => {
+    const cfg = dummyRepeatable('ended-daily-catch-up', {
+      repeatCycle: 'DAILY',
+      repeatEvery: 1,
+      startDate: '2026-07-01',
+      lastTaskCreationDay: '2026-07-03',
+      endDate: '2026-07-04',
+    });
+
+    expect(getDbDateStr(getNewestPossibleDueDate(cfg, new Date(2026, 6, 6, 12))!)).toBe(
+      '2026-07-04',
+    );
+  });
+
+  it('returns no occurrence after the inclusive end date was processed', () => {
+    const cfg = dummyRepeatable('ended-daily-processed', {
+      repeatCycle: 'DAILY',
+      repeatEvery: 1,
+      startDate: '2026-07-01',
+      lastTaskCreationDay: '2026-07-04',
+      endDate: '2026-07-04',
+    });
+
+    expect(getNewestPossibleDueDate(cfg, new Date(2026, 6, 6, 12))).toBeNull();
+  });
+
   describe('Input validation', () => {
     it('should use fallback date (1970-01-01) when startDate is not defined', () => {
       const cfg = dummyRepeatable('ID1', {

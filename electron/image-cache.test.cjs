@@ -74,8 +74,13 @@ test('importImage copies a valid image and returns an opaque id', async () => {
     assert.ok(result);
     assert.match(result.id, /^[a-f0-9]{32}$/);
     assert.equal(result.mimeType, 'image/png');
-    const cached = path.join(installDir, 'bg-images', `${result.id}.png`);
+    const cached = path.join(userDataDir, 'bg-images', `${result.id}.png`);
     assert.equal(fsModule.existsSync(cached), true);
+    assert.equal(
+      fsModule.existsSync(path.join(installDir, 'bg-images')),
+      false,
+      'the installation directory is not used as a data directory',
+    );
   } finally {
     await fs.rm(sourceDir, { recursive: true, force: true });
   }
@@ -115,7 +120,7 @@ test('backs up and restores referenced managed background images', async () => {
   }
 });
 
-test('uses a bg-images sibling next to an externally linked backups folder', async () => {
+test('keeps the default image cache on C when backups are linked elsewhere', async () => {
   const externalRoot = fsModule.realpathSync.native(
     await fs.mkdtemp(path.join(os.tmpdir(), 'sp-external-data-')),
   );
@@ -135,11 +140,11 @@ test('uses a bg-images sibling next to an externally linked backups folder', asy
 
     assert.ok(result);
     assert.equal(
-      fsModule.existsSync(path.join(externalRoot, 'bg-images', `${result.id}.png`)),
+      fsModule.existsSync(path.join(userDataDir, 'bg-images', `${result.id}.png`)),
       true,
     );
     assert.equal(
-      fsModule.existsSync(path.join(userDataDir, 'bg-images', `${result.id}.png`)),
+      fsModule.existsSync(path.join(externalRoot, 'bg-images', `${result.id}.png`)),
       false,
     );
   } finally {
@@ -148,7 +153,7 @@ test('uses a bg-images sibling next to an externally linked backups folder', asy
   }
 });
 
-test('detects a backups junction and migrates legacy cached images beside its target', async () => {
+test('does not move the image cache when only the backups directory is linked', async () => {
   const externalRoot = fsModule.realpathSync.native(
     await fs.mkdtemp(path.join(os.tmpdir(), 'sp-external-junction-')),
   );
@@ -168,37 +173,45 @@ test('detects a backups junction and migrates legacy cached images beside its ta
 
     const cache = load();
     const url = await cache.getImageDataUrl(id);
-    const migrated = path.join(externalRoot, 'bg-images', `${id}.png`);
+    const retained = path.join(legacyCacheDir, `${id}.png`);
 
     assert.match(url, /^data:image\/png;base64,/);
-    assert.equal(fsModule.existsSync(migrated), true);
-    assert.equal(await fs.readFile(migrated, 'utf8'), 'legacy-image');
-    assert.equal(fsModule.existsSync(path.join(legacyCacheDir, `${id}.png`)), false);
+    assert.equal(fsModule.existsSync(retained), true);
+    assert.equal(await fs.readFile(retained, 'utf8'), 'legacy-image');
+    assert.equal(
+      fsModule.existsSync(path.join(externalRoot, 'bg-images', `${id}.png`)),
+      false,
+    );
   } finally {
     await fs.rm(externalRoot, { recursive: true, force: true });
   }
 });
 
-test('does not delete images when the legacy path links to the active cache', async () => {
-  const activeCacheDir = path.join(installDir, 'bg-images');
+test('does not delete images when the default path links to the active cache', async () => {
+  const activeCacheDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-active-bg-')),
+  );
   const legacyCacheLink = path.join(userDataDir, 'bg-images');
   const id = 'b'.repeat(32);
-  await fs.mkdir(activeCacheDir);
-  await fs.writeFile(path.join(activeCacheDir, `${id}.png`), 'keep-this-image');
-  await fs.symlink(
-    activeCacheDir,
-    legacyCacheLink,
-    process.platform === 'win32' ? 'junction' : 'dir',
-  );
+  try {
+    await fs.writeFile(path.join(activeCacheDir, `${id}.png`), 'keep-this-image');
+    await fs.symlink(
+      activeCacheDir,
+      legacyCacheLink,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
 
-  const cache = load();
-  const url = await cache.getImageDataUrl(id);
+    const cache = load();
+    const url = await cache.getImageDataUrl(id);
 
-  assert.match(url, /^data:image\/png;base64,/);
-  assert.equal(
-    await fs.readFile(path.join(activeCacheDir, `${id}.png`), 'utf8'),
-    'keep-this-image',
-  );
+    assert.match(url, /^data:image\/png;base64,/);
+    assert.equal(
+      await fs.readFile(path.join(activeCacheDir, `${id}.png`), 'utf8'),
+      'keep-this-image',
+    );
+  } finally {
+    await fs.rm(activeCacheDir, { recursive: true, force: true });
+  }
 });
 
 test('importImage accepts avif and bmp (restored legacy formats)', async () => {
@@ -314,7 +327,7 @@ test('getImageDataUrl returns the data url for a known id', async () => {
     assert.match(url, /^data:image\/png;base64,/);
     assert.equal(
       await cache.getImageDisplayPath(imported.id),
-      path.join(installDir, 'bg-images', `${imported.id}.png`),
+      path.join(userDataDir, 'bg-images', `${imported.id}.png`),
     );
     const base64 = url.split(',')[1];
     assert.equal(Buffer.from(base64, 'base64').toString('utf8'), 'imgbytes');
@@ -360,19 +373,24 @@ test('moves managed copies to a selected cache directory without touching source
     const src = await mkPng(sourceDir, 'original.png', Buffer.from('keep-source'));
     const imported = await cache.importImage(src);
     assert.ok(imported);
-    const oldCopy = path.join(installDir, 'bg-images', `${imported.id}.png`);
+    const oldCopy = path.join(userDataDir, 'bg-images', `${imported.id}.png`);
     const result = await cache.setImageCacheDirectory(selectedDir);
     const newCopy = path.join(selectedDir, `${imported.id}.png`);
 
     assert.equal(result.effectiveDir, selectedDir);
     assert.equal(await fs.readFile(src, 'utf8'), 'keep-source');
     assert.equal(await fs.readFile(newCopy, 'utf8'), 'keep-source');
-    assert.equal(fsModule.existsSync(oldCopy), false);
+    assert.equal(await fs.readFile(oldCopy, 'utf8'), 'keep-source');
     const simpleSettings = JSON.parse(
       await fs.readFile(path.join(userDataDir, 'simpleSettings'), 'utf8'),
     );
     assert.deepEqual(simpleSettings, { imageCacheDir: selectedDir });
     assert.equal(await cache.getImageDisplayPath(imported.id), newCopy);
+    assert.equal(
+      fsModule.realpathSync.native(path.join(userDataDir, 'bg-images')),
+      selectedDir,
+      'the original C path remains as a junction to the selected location',
+    );
 
     const reloaded = load();
     assert.equal((await reloaded.getImageCachePathInfo()).effectiveDir, selectedDir);
@@ -381,6 +399,86 @@ test('moves managed copies to a selected cache directory without touching source
     await fs.rm(sourceDir, { recursive: true, force: true });
     await fs.rm(selectedDir, { recursive: true, force: true });
   }
+});
+
+test('keeps the previous external cache as a safety copy when changing locations', async () => {
+  const firstDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-first-bg-')),
+  );
+  const secondDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-second-bg-')),
+  );
+  const sourceDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-src-')),
+  );
+  try {
+    const cache = load();
+    const source = await mkPng(sourceDir, 'original.png', Buffer.from('safe-copy'));
+    const imported = await cache.importImage(source);
+    assert.ok(imported);
+    await cache.setImageCacheDirectory(firstDir);
+    await cache.setImageCacheDirectory(secondDir);
+
+    assert.equal(
+      await fs.readFile(path.join(firstDir, `${imported.id}.png`), 'utf8'),
+      'safe-copy',
+    );
+    assert.equal(
+      await fs.readFile(path.join(secondDir, `${imported.id}.png`), 'utf8'),
+      'safe-copy',
+    );
+    assert.equal(
+      fsModule.realpathSync.native(path.join(userDataDir, 'bg-images')),
+      secondDir,
+    );
+  } finally {
+    await fs.rm(firstDir, { recursive: true, force: true });
+    await fs.rm(secondDir, { recursive: true, force: true });
+    await fs.rm(sourceDir, { recursive: true, force: true });
+  }
+});
+
+test('does not replace the C cache link when an existing target entry conflicts', async () => {
+  const targetDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-conflict-bg-')),
+  );
+  const sourceDir = fsModule.realpathSync.native(
+    await fs.mkdtemp(path.join(os.tmpdir(), 'sp-src-')),
+  );
+  try {
+    const cache = load();
+    const source = await mkPng(sourceDir, 'original.png', Buffer.from('valid-image'));
+    const imported = await cache.importImage(source);
+    assert.ok(imported);
+    const defaultFile = path.join(userDataDir, 'bg-images', `${imported.id}.png`);
+    await fs.mkdir(path.join(targetDir, `${imported.id}.png`));
+
+    await assert.rejects(
+      cache.setImageCacheDirectory(targetDir),
+      /Background image cache migration failed/,
+    );
+
+    assert.equal(await fs.readFile(defaultFile, 'utf8'), 'valid-image');
+    assert.equal(
+      (await fs.lstat(path.join(userDataDir, 'bg-images'))).isSymbolicLink(),
+      false,
+    );
+  } finally {
+    await fs.rm(targetDir, { recursive: true, force: true });
+    await fs.rm(sourceDir, { recursive: true, force: true });
+  }
+});
+
+test('rejects an image-cache target that is an ancestor of userData', async () => {
+  const cache = load();
+  const ancestorDir = path.dirname(userDataDir);
+
+  await assert.rejects(cache.setImageCacheDirectory(ancestorDir), /protected directory/i);
+  assert.equal(
+    fsModule.existsSync(path.join(userDataDir, 'bg-images')),
+    false,
+    'an invalid selection must not create or replace the default cache directory',
+  );
 });
 
 test('removeCachedImage deletes the file; subsequent getDataUrl is null', async () => {

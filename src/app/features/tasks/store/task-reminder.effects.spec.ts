@@ -448,6 +448,31 @@ describe('TaskReminderEffects - cancelNativeReminderOnUnschedule$ filter', () =>
         error: done.fail,
       });
     });
+
+    it('passes through stop-from-date compound deletions for reminder cleanup', (done) => {
+      const action = TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: 'repeat-cfg',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: ['cutoff-task'],
+        archivedTaskIds: [],
+      });
+      actions$ = of(action);
+      const effect = effects.cancelNativeRemindersOnBulkDelete$;
+
+      expect(effect).toBeTruthy();
+      if (!effect) {
+        done();
+        return;
+      }
+      effect.subscribe({
+        next: (emittedAction) => {
+          expect(emittedAction).toBe(action);
+          done();
+        },
+        error: done.fail,
+      });
+    });
   });
 
   describe('when IS_ANDROID_WEB_VIEW_TOKEN is false', () => {

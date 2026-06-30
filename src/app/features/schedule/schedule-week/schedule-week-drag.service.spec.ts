@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { CdkDragRelease } from '@angular/cdk/drag-drop';
+import { CdkDragRelease, CdkDragStart } from '@angular/cdk/drag-drop';
 import { provideMockStore, MockStore } from '@ngrx/store/testing';
 import { ScheduleWeekDragService } from './schedule-week-drag.service';
 import { GlobalConfigService } from '../../config/global-config.service';
@@ -12,6 +12,11 @@ import { ScheduleEvent } from '../schedule.model';
 import { FH, SVEType, T_ID_PREFIX } from '../schedule.const';
 import { PlannerActions } from '../../planner/store/planner.actions';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
+import { TaskRepeatCfgService } from '../../task-repeat-cfg/task-repeat-cfg.service';
+import {
+  DEFAULT_TASK_REPEAT_CFG,
+  TaskRepeatCfg,
+} from '../../task-repeat-cfg/task-repeat-cfg.model';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
@@ -23,6 +28,7 @@ describe('ScheduleWeekDragService', () => {
   let store: MockStore;
   let dispatchSpy: jasmine.Spy;
   let calendarEventActionsSpy: jasmine.SpyObj<CalendarEventActionsService>;
+  let taskRepeatCfgServiceSpy: jasmine.SpyObj<TaskRepeatCfgService>;
 
   const createMockGlobalConfigService = (
     defaultTaskRemindOption: TaskReminderOptionId = TaskReminderOptionId.AtStart,
@@ -58,6 +64,12 @@ describe('ScheduleWeekDragService', () => {
           provide: GlobalConfigService,
           useValue: createMockGlobalConfigService(defaultTaskRemindOption),
         },
+        {
+          provide: TaskRepeatCfgService,
+          useValue: jasmine.createSpyObj('TaskRepeatCfgService', [
+            'moveTaskRepeatCfgInstance',
+          ]),
+        },
       ],
     });
 
@@ -68,6 +80,9 @@ describe('ScheduleWeekDragService', () => {
     ) as jasmine.SpyObj<CalendarEventActionsService>;
     calendarEventActionsSpy.canMoveEvent.and.returnValue(true);
     calendarEventActionsSpy.moveToStartTime.and.resolveTo(true);
+    taskRepeatCfgServiceSpy = TestBed.inject(
+      TaskRepeatCfgService,
+    ) as jasmine.SpyObj<TaskRepeatCfgService>;
     dispatchSpy = spyOn(store, 'dispatch').and.callThrough();
   };
 
@@ -343,6 +358,153 @@ describe('ScheduleWeekDragService', () => {
       service.handleDragReleased(createReleaseEvent(event, sourceEl));
 
       expect(calendarEventActionsSpy.moveToStartTime).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('repeat projection drag release', () => {
+    const repeatCfg: TaskRepeatCfg = {
+      ...DEFAULT_TASK_REPEAT_CFG,
+      id: 'repeat-cfg',
+      title: 'Repeated task',
+      startDate: '2026-07-01',
+      startTime: '13:25',
+      defaultEstimate: THIRTY_MINUTES_MS,
+      repeatCycle: 'DAILY',
+    };
+
+    const createRepeatProjection = (
+      type: SVEType = SVEType.ScheduledRepeatProjection,
+    ): ScheduleEvent => ({
+      id: `repeat-cfg_2026-07-04_${type}`,
+      type,
+      style: '',
+      startHours: 13.25,
+      timeLeftInHours: 0.5,
+      plannedForDay: '2026-07-04',
+      data: repeatCfg,
+    });
+
+    const createReleaseEvent = (
+      sourceEvent: ScheduleEvent,
+      sourceEl: HTMLElement,
+    ): CdkDragRelease<ScheduleEvent> =>
+      ({
+        source: {
+          data: sourceEvent,
+          element: { nativeElement: sourceEl },
+          reset: jasmine.createSpy('reset'),
+        },
+        event: new MouseEvent('mouseup', { clientX: 125, clientY: 120 }),
+      }) as unknown as CdkDragRelease<ScheduleEvent>;
+
+    const setupGrid = (targetDay: string): void => {
+      const columnEl = document.createElement('div');
+      columnEl.classList.add('col');
+      columnEl.setAttribute('data-day', targetDay);
+      spyOn(document, 'elementsFromPoint').and.returnValue([columnEl]);
+
+      const gridEl = document.createElement('div');
+      spyOn(gridEl, 'getBoundingClientRect').and.returnValue({
+        top: 0,
+        bottom: 24 * FH,
+        left: 0,
+        right: 300,
+        width: 300,
+        height: 24 * FH,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect);
+      service.setGridContainer(() => gridEl);
+      service.setDaysToShowAccessor(() => ['2026-07-04', '2026-07-05']);
+    };
+
+    beforeEach(() => {
+      setupTestBed();
+    });
+
+    it('moves a repeat projection only when it stays in the same day column', () => {
+      const sourceEvent = createRepeatProjection();
+      const sourceEl = document.createElement('schedule-event');
+      setupGrid('2026-07-04');
+
+      service.handleDragStarted({
+        source: {
+          data: sourceEvent,
+          element: { nativeElement: sourceEl },
+        },
+      } as unknown as CdkDragStart<ScheduleEvent>);
+      service.handleDragReleased(createReleaseEvent(sourceEvent, sourceEl));
+
+      expect(taskRepeatCfgServiceSpy.moveTaskRepeatCfgInstance).toHaveBeenCalledWith(
+        repeatCfg,
+        '2026-07-04',
+        jasmine.any(Number),
+      );
+    });
+
+    it('rejects moving a repeat projection into another day column', () => {
+      const sourceEvent = createRepeatProjection();
+      const sourceEl = document.createElement('schedule-event');
+      setupGrid('2026-07-05');
+
+      service.handleDragStarted({
+        source: {
+          data: sourceEvent,
+          element: { nativeElement: sourceEl },
+        },
+      } as unknown as CdkDragStart<ScheduleEvent>);
+      service.handleDragReleased(createReleaseEvent(sourceEvent, sourceEl));
+
+      expect(taskRepeatCfgServiceSpy.moveTaskRepeatCfgInstance).not.toHaveBeenCalled();
+    });
+
+    [
+      SVEType.RepeatProjectionSplit,
+      SVEType.RepeatProjectionSplitContinued,
+      SVEType.RepeatProjectionSplitContinuedLast,
+    ].forEach((type) => {
+      it(`moves a split timed repeat projection of type ${type}`, () => {
+        const sourceEvent = createRepeatProjection(type);
+        const sourceEl = document.createElement('schedule-event');
+        setupGrid('2026-07-04');
+
+        service.handleDragStarted({
+          source: {
+            data: sourceEvent,
+            element: { nativeElement: sourceEl },
+          },
+        } as unknown as CdkDragStart<ScheduleEvent>);
+        service.handleDragReleased(createReleaseEvent(sourceEvent, sourceEl));
+
+        expect(taskRepeatCfgServiceSpy.moveTaskRepeatCfgInstance).toHaveBeenCalledWith(
+          repeatCfg,
+          '2026-07-04',
+          jasmine.any(Number),
+        );
+      });
+    });
+
+    it('does not move an untimed repeat flow projection', () => {
+      const sourceEvent = {
+        ...createRepeatProjection(SVEType.RepeatProjectionSplitContinuedLast),
+        data: {
+          ...repeatCfg,
+          startTime: undefined,
+        },
+      } as ScheduleEvent;
+      const sourceEl = document.createElement('schedule-event');
+      setupGrid('2026-07-04');
+
+      service.handleDragStarted({
+        source: {
+          data: sourceEvent,
+          element: { nativeElement: sourceEl },
+        },
+      } as unknown as CdkDragStart<ScheduleEvent>);
+      service.handleDragReleased(createReleaseEvent(sourceEvent, sourceEl));
+
+      expect(taskRepeatCfgServiceSpy.moveTaskRepeatCfgInstance).not.toHaveBeenCalled();
     });
   });
 

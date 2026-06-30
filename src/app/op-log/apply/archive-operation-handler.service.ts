@@ -1,5 +1,7 @@
 import { inject, Injectable, Injector } from '@angular/core';
-import { Action } from '@ngrx/store';
+import { Action, Store } from '@ngrx/store';
+import { firstValueFrom } from 'rxjs';
+import { take } from 'rxjs/operators';
 import type { ArchiveSideEffectPort } from '@sp/sync-core';
 import { PersistentAction } from '../core/persistent-action.interface';
 import { TaskSharedActions } from '../../root-store/meta/task-shared.actions';
@@ -23,6 +25,12 @@ import { ArchiveModel } from '../../features/archive/archive.model';
 import { ArchiveDbAdapter } from '../../core/persistence/archive-db-adapter.service';
 import { OpType } from '../core/operation.types';
 import { confirmDialog } from '../../util/native-dialogs';
+import { RootState } from '../../root-store/root-state';
+import { TASK_REPEAT_CFG_FEATURE_NAME } from '../../features/task-repeat-cfg/store/task-repeat-cfg.reducer';
+import {
+  getTaskRepeatOccurrenceDay,
+  isValidTaskRepeatOccurrenceDay,
+} from '../../features/task-repeat-cfg/get-task-repeat-occurrence-day.util';
 
 /**
  * Creates an empty ArchiveModel with default values.
@@ -48,6 +56,7 @@ const ARCHIVE_AFFECTING_ACTION_TYPES: string[] = [
   deleteTag.type,
   deleteTags.type,
   TaskSharedActions.deleteTaskRepeatCfg.type,
+  TaskSharedActions.stopTaskRepeatCfgFromDate.type,
   TaskSharedActions.deleteIssueProvider.type,
   TaskSharedActions.deleteIssueProviders.type,
   loadAllData.type, // For SYNC_IMPORT/BACKUP_IMPORT handling
@@ -119,6 +128,7 @@ export class ArchiveOperationHandler implements ArchiveSideEffectPort<Persistent
   // ═══════════════════════════════════════════════════════════════════════════
   private _injector = inject(Injector);
   private _archiveDbAdapter = inject(ArchiveDbAdapter);
+  private _store = inject<Store<RootState>>(Store, { optional: true });
   private _getArchiveService = lazyInject(this._injector, ArchiveService);
   private _getTaskArchiveService = lazyInject(this._injector, TaskArchiveService);
   private _getTimeTrackingService = lazyInject(this._injector, TimeTrackingService);
@@ -176,6 +186,10 @@ export class ArchiveOperationHandler implements ArchiveSideEffectPort<Persistent
         await this._handleDeleteTaskRepeatCfg(action);
         break;
 
+      case TaskSharedActions.stopTaskRepeatCfgFromDate.type:
+        await this._handleStopTaskRepeatCfgFromDate(action);
+        break;
+
       case TaskSharedActions.deleteIssueProvider.type:
         await this._handleDeleteIssueProvider(action);
         break;
@@ -201,7 +215,32 @@ export class ArchiveOperationHandler implements ArchiveSideEffectPort<Persistent
       return; // Local: already written by ArchiveService before dispatch
     }
     const tasks = (action as ReturnType<typeof TaskSharedActions.moveToArchive>).tasks;
-    await this._getArchiveService().writeTasksToArchiveForRemoteSync(tasks);
+    if (!tasks.length || !this._store) {
+      await this._getArchiveService().writeTasksToArchiveForRemoteSync(tasks);
+      return;
+    }
+
+    const state = await firstValueFrom(this._store.pipe(take(1)));
+    const repeatCfgState = state[TASK_REPEAT_CFG_FEATURE_NAME];
+    const tasksBeforeStopCutoff = tasks.filter((task) => {
+      if (!task.repeatCfgId) {
+        return true;
+      }
+      const repeatCfg = repeatCfgState?.entities[task.repeatCfgId];
+      if (repeatCfgState && !repeatCfg) {
+        return false;
+      }
+      if (!repeatCfg?.endDate) {
+        return true;
+      }
+      return getTaskRepeatOccurrenceDay(task) <= repeatCfg.endDate;
+    });
+    if (!tasksBeforeStopCutoff.length) {
+      return;
+    }
+    await this._getArchiveService().writeTasksToArchiveForRemoteSync(
+      tasksBeforeStopCutoff,
+    );
   }
 
   /**
@@ -404,6 +443,44 @@ export class ArchiveOperationHandler implements ArchiveSideEffectPort<Persistent
     await this._getTaskArchiveService().removeRepeatCfgFromArchiveTasks(
       repeatCfgId,
       isRemote ? { isIgnoreDBLock: true } : undefined,
+    );
+  }
+
+  /**
+   * Removes cutoff-day and later archived instances. The current archive is
+   * scanned in addition to the payload so replay remains correct when another
+   * client archived or materialized an occurrence concurrently.
+   */
+  private async _handleStopTaskRepeatCfgFromDate(
+    action: PersistentAction,
+  ): Promise<void> {
+    const { taskRepeatCfgId, stopDate, archivedTaskIds } = action as ReturnType<
+      typeof TaskSharedActions.stopTaskRepeatCfgFromDate
+    >;
+    if (!isValidTaskRepeatOccurrenceDay(stopDate)) {
+      return;
+    }
+    const archiveService = this._getTaskArchiveService();
+    const archive = await archiveService.load();
+    const replayDiscoveredIds = (archive.ids as string[]).flatMap((taskId) => {
+      const task = archive.entities[taskId];
+      if (
+        !task ||
+        task.parentId ||
+        task.repeatCfgId !== taskRepeatCfgId ||
+        getTaskRepeatOccurrenceDay(task) < stopDate
+      ) {
+        return [];
+      }
+      return [task.id, ...task.subTaskIds];
+    });
+    const idsToDelete = Array.from(new Set([...archivedTaskIds, ...replayDiscoveredIds]));
+    if (!idsToDelete.length) {
+      return;
+    }
+    await archiveService.deleteTasks(
+      idsToDelete,
+      action.meta.isRemote ? { isIgnoreDBLock: true } : {},
     );
   }
 

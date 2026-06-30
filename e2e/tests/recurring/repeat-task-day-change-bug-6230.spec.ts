@@ -1,4 +1,59 @@
 import { expect, test } from '../../fixtures/test.fixture';
+import { type Page } from '@playwright/test';
+
+type PersistedTask = {
+  title: string;
+  dueWithTime: number | null;
+  isDone: boolean;
+  created: number | null;
+};
+
+const getPersistedTasksByTitle = async (
+  page: Page,
+  taskTitle: string,
+): Promise<PersistedTask[]> =>
+  page.evaluate((title) => {
+    type TaskLike = {
+      title?: string;
+      dueWithTime?: number | null;
+      isDone?: boolean;
+      created?: number;
+    };
+    type StoreState = {
+      tasks?: {
+        entities?: Record<string, TaskLike | undefined>;
+      };
+    };
+    type StoreLike = {
+      subscribe: (next: (state: StoreState) => void) => {
+        unsubscribe: () => void;
+      };
+    };
+
+    const store = (
+      window as unknown as {
+        __e2eTestHelpers?: { store?: StoreLike };
+      }
+    ).__e2eTestHelpers?.store;
+    if (!store) {
+      throw new Error('__e2eTestHelpers.store missing');
+    }
+
+    let state: StoreState | undefined;
+    const subscription = store.subscribe((nextState) => {
+      state = nextState;
+    });
+    subscription.unsubscribe();
+
+    return Object.values(state?.tasks?.entities ?? {})
+      .filter((task): task is TaskLike => !!task?.title?.includes(title))
+      .map((task) => ({
+        title: task.title ?? '',
+        dueWithTime: task.dueWithTime ?? null,
+        isDone: task.isDone ?? false,
+        created: task.created ?? null,
+      }));
+  }, taskTitle);
 
 /**
  * Bug: https://github.com/super-productivity/super-productivity/issues/6230
@@ -15,8 +70,8 @@ import { expect, test } from '../../fixtures/test.fixture';
  * `now` never reaches `lastTime + dueTime` — and `addAllDueToday()` never runs.
  * With `setSystemTime` the clock advances, the day-change is detected, and the
  * effect fires exactly as it does in production. (Same trap and fix as #4559.)
- * Set time to 23:55, create a daily repeat task, mark it done, then advance
- * the clock past midnight and wait for the new instance to appear.
+ * Start well clear of midnight, create a daily repeat task, mark it done, then
+ * advance the clock to the next day and wait for the new instance to appear.
  *
  * - Pass: the day-change trigger works and a new undone task appears.
  * - Fail/timeout: suggests a regression in the day-change mechanism.
@@ -30,10 +85,13 @@ test.describe('Repeat Task - Day Change (#6230)', () => {
   }) => {
     const taskTitle = `${testPrefix}-DailyRepeat6230`;
 
-    // 1. Set clock to 23:55 on Day X and reload so the app boots with our clock.
+    // 1. Start well clear of midnight on Day X and reload so the app boots with
+    //    our clock. Using a daytime seed keeps desktop-plan's default +5 minute
+    //    start on Day X even when the test runner and browser use different
+    //    system time zones.
     //    setSystemTime (not setFixedTime) so Date.now() keeps advancing — the
     //    effect chain's debounceTime relies on a moving clock.
-    await page.clock.setSystemTime(new Date('2026-06-15T23:55:00'));
+    await page.clock.setSystemTime(new Date('2026-06-15T10:00:00'));
     await page.reload();
     await workViewPage.waitForTaskList();
 
@@ -75,22 +133,27 @@ test.describe('Repeat Task - Day Change (#6230)', () => {
       taskPage.getDoneTasks().filter({ hasText: taskTitle }).first(),
     ).toBeVisible({ timeout: 5000 });
 
-    // 7. Advance clock past midnight to Day X+1. With setSystemTime the clock
-    //    keeps ticking from here, so the 1s `interval` (timerBased$) samples the
-    //    new day and the effect's debounceTime(1000) settles normally.
-    await page.clock.setSystemTime(new Date('2026-06-16T00:05:00'));
+    // 7. Advance to Day X+1. With setSystemTime the clock keeps ticking from
+    //    here, so the 1s `interval` (timerBased$) samples the new day and the
+    //    effect's debounceTime(1000) settles normally.
+    await page.clock.setSystemTime(new Date('2026-06-16T10:05:00'));
 
     // Also dispatch a focus event to exercise focusBased$ (debounced 100ms) for a
     // faster, deterministic trigger alongside the 1s interval tick.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
 
-    // 8. Assert: a new undone task with the same title should appear once the
-    //    date-change mechanism detects the new day and creates a fresh instance.
-    //    60s timeout accounts for debounce + sync on saturated CI runners where
-    //    the 1s tick can lag substantially.
-    await expect(
-      taskPage.getUndoneTasks().filter({ hasText: taskTitle }).first(),
-    ).toBeVisible({ timeout: 60000 });
+    // 8. Assert against persisted state. Desktop-plan schedules a newly
+    //    materialized occurrence in the future, so it is intentionally absent
+    //    from the visible Today list until its start time.
+    await expect
+      .poll(
+        async () =>
+          (await getPersistedTasksByTitle(page, taskTitle)).some(
+            (persistedTask) => !persistedTask.isDone,
+          ),
+        { timeout: 20000 },
+      )
+      .toBe(true);
 
     console.log('[Bug #6230] New repeat task instance appeared after day change');
   });

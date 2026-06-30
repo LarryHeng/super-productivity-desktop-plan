@@ -78,6 +78,186 @@ describe('TaskRepeatCfgReducer', () => {
     });
   });
 
+  describe('atomic repeat actions', () => {
+    it('ignores invalid cutoff dates from replayed operations', () => {
+      const existingState = createStateWithCfgs([createTaskRepeatCfg('cfg1')]);
+
+      const result = taskRepeatCfgReducer(
+        existingState,
+        TaskSharedActions.stopTaskRepeatCfgFromDate({
+          taskRepeatCfgId: 'cfg1',
+          stopDate: 'cfg',
+          endDate: 'NaN-NaN-NaN',
+          taskIds: [],
+          archivedTaskIds: [],
+        }),
+      );
+
+      expect(result).toEqual(existingState);
+    });
+
+    it('stops the repeat config at the supplied inclusive end date', () => {
+      const existingState = createStateWithCfgs([
+        createTaskRepeatCfg('cfg1', {
+          endDate: '2026-07-08',
+          deletedInstanceDates: ['2026-07-02', '2026-07-04'],
+        }),
+      ]);
+      const action = {
+        type: '[Task Shared] stopTaskRepeatCfgFromDate',
+        taskRepeatCfgId: 'cfg1',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: ['future-task'],
+      };
+
+      const result = taskRepeatCfgReducer(existingState, action);
+
+      expect(result.entities['cfg1']?.endDate).toBe('2026-07-03');
+      expect(result.entities['cfg1']?.deletedInstanceDates).toEqual(['2026-07-02']);
+    });
+
+    it('keeps the earliest cutoff when concurrent stop actions replay in either order', () => {
+      const existingState = createStateWithCfgs([
+        createTaskRepeatCfg('cfg1', {
+          deletedInstanceDates: ['2026-07-02', '2026-07-04', '2026-07-07'],
+        }),
+      ]);
+      const earlyStop = TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: 'cfg1',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: [],
+        archivedTaskIds: [],
+      });
+      const laterStop = TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: 'cfg1',
+        stopDate: '2026-07-09',
+        endDate: '2026-07-08',
+        taskIds: [],
+        archivedTaskIds: [],
+      });
+
+      const earlyThenLater = taskRepeatCfgReducer(
+        taskRepeatCfgReducer(existingState, earlyStop),
+        laterStop,
+      );
+      const laterThenEarly = taskRepeatCfgReducer(
+        taskRepeatCfgReducer(existingState, laterStop),
+        earlyStop,
+      );
+
+      expect(earlyThenLater).toEqual(laterThenEarly);
+      expect(earlyThenLater.entities['cfg1']?.endDate).toBe('2026-07-03');
+      expect(earlyThenLater.entities['cfg1']?.deletedInstanceDates).toEqual([
+        '2026-07-02',
+      ]);
+    });
+
+    it('applies the stop snapshot so losing optimistic cfg edits are rolled back', () => {
+      const existingState = createStateWithCfgs([
+        createTaskRepeatCfg('cfg1', { title: 'Local optimistic title' }),
+      ]);
+      const result = taskRepeatCfgReducer(
+        existingState,
+        TaskSharedActions.stopTaskRepeatCfgFromDate({
+          taskRepeatCfgId: 'cfg1',
+          stopDate: '2026-07-04',
+          endDate: '2026-07-03',
+          taskIds: [],
+          archivedTaskIds: [],
+          taskRepeatCfgSnapshot: createTaskRepeatCfg('cfg1', {
+            title: 'Stopping client title',
+          }),
+        }),
+      );
+
+      expect(result.entities['cfg1']?.title).toBe('Stopping client title');
+      expect(result.entities['cfg1']?.endDate).toBe('2026-07-03');
+    });
+
+    it('recreates a locally deleted config when a complete remote stop wins', () => {
+      const snapshot = createTaskRepeatCfg('cfg1', {
+        title: 'Stopping client title',
+      });
+      const result = taskRepeatCfgReducer(
+        initialTaskRepeatCfgState,
+        TaskSharedActions.stopTaskRepeatCfgFromDate({
+          taskRepeatCfgId: 'cfg1',
+          stopDate: '2026-07-04',
+          endDate: '2026-07-03',
+          taskIds: [],
+          archivedTaskIds: [],
+          taskRepeatCfgSnapshot: snapshot,
+        }),
+      );
+
+      expect(result.entities['cfg1']).toEqual(
+        jasmine.objectContaining({
+          title: 'Stopping client title',
+          endDate: '2026-07-03',
+        }),
+      );
+    });
+
+    it('ignores excluded dates after a stopped config end date', () => {
+      const existingState = createStateWithCfgs([
+        createTaskRepeatCfg('cfg1', {
+          endDate: '2026-07-03',
+          deletedInstanceDates: [],
+        }),
+      ]);
+
+      const result = taskRepeatCfgReducer(
+        existingState,
+        TaskRepeatCfgActions.deleteTaskRepeatCfgInstance({
+          repeatCfgId: 'cfg1',
+          dateStr: '2026-07-04',
+        }),
+      );
+
+      expect(result).toEqual(existingState);
+    });
+
+    it('marks a materialized projection as handled without advancing the cursor', () => {
+      const existingState = createStateWithCfgs([
+        createTaskRepeatCfg('cfg1', {
+          lastTaskCreationDay: '2026-07-01',
+          deletedInstanceDates: [],
+        }),
+      ]);
+      const action = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        repeatCfgId: 'cfg1',
+        occurrenceDay: '2026-07-04',
+      };
+
+      const result = taskRepeatCfgReducer(existingState, action);
+
+      expect(result.entities['cfg1']?.deletedInstanceDates).toEqual(['2026-07-04']);
+      expect(result.entities['cfg1']?.lastTaskCreationDay).toBe('2026-07-01');
+    });
+
+    it('does not mark an occurrence after the repeat config end date', () => {
+      const existingState = createStateWithCfgs([
+        createTaskRepeatCfg('cfg1', {
+          endDate: '2026-07-03',
+          deletedInstanceDates: [],
+        }),
+      ]);
+      const action = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        repeatCfgId: 'cfg1',
+        occurrenceDay: '2026-07-04',
+      };
+
+      const result = taskRepeatCfgReducer(existingState, action);
+
+      expect(result).toBe(existingState);
+      expect(result.entities['cfg1']?.deletedInstanceDates).toEqual([]);
+    });
+  });
+
   describe('deleteProject', () => {
     it('should remove all repeat configs for the deleted project', () => {
       const projectId = 'project-1';

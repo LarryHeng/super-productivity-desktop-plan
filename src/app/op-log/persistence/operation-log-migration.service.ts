@@ -25,6 +25,7 @@ import {
   MIGRATION_BACKUP_PREFIX,
   getBackupTimestamp,
 } from '../../../../electron/shared-with-frontend/get-backup-timestamp';
+import { IS_ELECTRON_TOKEN } from '../../app.constants';
 
 /**
  * Service to check for valid operation log state during startup and migrate
@@ -44,6 +45,7 @@ export class OperationLogMigrationService {
   private store = inject(Store);
   private languageService = inject(LanguageService);
   private translateService = inject(TranslateService);
+  private isElectron = inject(IS_ELECTRON_TOKEN);
 
   /**
    * Checks if the operation log is in a valid state and migrates legacy data if found.
@@ -147,7 +149,9 @@ export class OperationLogMigrationService {
     } catch (error) {
       OpLog.err('OperationLogMigrationService: Migration failed:', error);
       dialogRef.componentInstance.error.set(
-        'Migration failed. Your backup has been downloaded. Please restart or import the backup file.',
+        this.isElectron
+          ? 'Migration failed. Your backup was saved in the automatic backup folder. Please restart or import the backup file.'
+          : 'Migration failed. Your backup has been downloaded. Please restart or import the backup file.',
       );
       // Wait for user acknowledgment before throwing
       await firstValueFrom(dialogRef.afterClosed());
@@ -191,6 +195,17 @@ export class OperationLogMigrationService {
     this._setStatus(dialogRef, 'backup');
 
     const legacyData = await this.legacyPfDb.loadAllEntityData();
+    if (this.isElectron) {
+      await window.ea.backupAppData({
+        data: legacyData as unknown as AppDataComplete,
+        isThrowOnError: true,
+      });
+      OpLog.normal(
+        'OperationLogMigrationService: Safety backup saved in the automatic backup folder',
+      );
+      return;
+    }
+
     const filename = `${MIGRATION_BACKUP_PREFIX}_${getBackupTimestamp()}.json`;
 
     await download(filename, JSON.stringify(legacyData));

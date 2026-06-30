@@ -6,7 +6,7 @@ import {
   signal,
 } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { EMPTY, of } from 'rxjs';
+import { BehaviorSubject, EMPTY, of } from 'rxjs';
 
 import { MainHeaderComponent } from './main-header.component';
 import { ProjectService } from '../../features/project/project.service';
@@ -25,6 +25,7 @@ import { MetricService } from '../../features/metric/metric.service';
 import { DateService } from '../../core/date/date.service';
 import { UserProfileService } from '../../features/user-profile/user-profile.service';
 import { DEFAULT_GLOBAL_CONFIG } from '../../features/config/default-global-config.const';
+import { Task } from '../../features/tasks/task.model';
 
 // Regression test for #7477: in a project view a long title pushed the
 // right-side header actions (simple-counter / habit buttons) off screen.
@@ -119,6 +120,7 @@ describe('MainHeaderComponent focus button visibility', () => {
   let isXs = signal(false);
   let isXxxs = signal(false);
   let appFeatures = signal(DEFAULT_GLOBAL_CONFIG.appFeatures);
+  let startableTasksForActiveContext$ = new BehaviorSubject<Task[]>([]);
 
   const createComponent = (): MainHeaderComponent => {
     const cfg = {
@@ -160,6 +162,7 @@ describe('MainHeaderComponent focus button visibility', () => {
           useValue: {
             activeWorkContextId$: of(null),
             undoneTasks$: of([]),
+            startableTasksForActiveContext$,
           },
         },
         { provide: SimpleCounterService, useValue: { enabledSimpleCounters$: of([]) } },
@@ -205,6 +208,10 @@ describe('MainHeaderComponent focus button visibility', () => {
     component?.ngOnDestroy();
   });
 
+  beforeEach(() => {
+    startableTasksForActiveContext$ = new BehaviorSubject<Task[]>([]);
+  });
+
   it('keeps the focus mode entry visible on narrow mobile screens (#8157)', () => {
     isXs = signal(true);
     isXxxs = signal(true);
@@ -228,5 +235,20 @@ describe('MainHeaderComponent focus button visibility', () => {
     component = createComponent();
 
     expect(component.isFocusButtonVisible()).toBe(false);
+  });
+
+  it('allows starting a future scheduled task hidden from the Today list', () => {
+    startableTasksForActiveContext$.next([
+      {
+        id: 'scheduled-task',
+        title: 'Scheduled task',
+        dueWithTime: Date.now() + 300_000,
+        isDone: false,
+      } as Task,
+    ]);
+
+    component = createComponent();
+
+    expect(component.hasTrackableTasks()).toBeTrue();
   });
 });

@@ -30,6 +30,7 @@ import { getDateTimeFromClockString } from '../../util/get-date-time-from-clock-
 import { remindOptionToMilliseconds } from '../tasks/util/remind-option-to-milliseconds';
 import { getNewestPossibleDueDate } from './store/get-newest-possible-due-date.util';
 import { getDbDateStr } from '../../util/get-db-date-str';
+import { dateStrToUtcDate } from '../../util/date-str-to-utc-date';
 import { DateService } from '../../core/date/date.service';
 import { TODAY_TAG } from '../tag/tag.const';
 import {
@@ -41,6 +42,12 @@ import {
 } from './store/task-repeat-cfg.selectors';
 import { getRepeatableTaskId } from './get-repeatable-task-id.util';
 import { getDeadlineAutoPlanFields } from '../tasks/util/get-deadline-auto-plan-fields';
+import { DeletedTaskIssueSidecarService } from '../issue/two-way-sync/deleted-task-issue-sidecar.service';
+import { TimeBlockDeleteSidecarService } from '../calendar-integration/time-block/time-block-delete-sidecar.service';
+import {
+  getTaskRepeatOccurrenceDay,
+  isValidTaskRepeatOccurrenceDay,
+} from './get-task-repeat-occurrence-day.util';
 
 @Injectable({
   providedIn: 'root',
@@ -51,6 +58,8 @@ export class TaskRepeatCfgService {
   private _taskService = inject(TaskService);
   private _workContextService = inject(WorkContextService);
   private _dateService = inject(DateService);
+  private _deletedTaskIssueSidecar = inject(DeletedTaskIssueSidecarService);
+  private _timeBlockDeleteSidecar = inject(TimeBlockDeleteSidecarService);
 
   taskRepeatCfgs$: Observable<TaskRepeatCfg[]> = this._store$.pipe(
     select(selectAllTaskRepeatCfgs),
@@ -132,6 +141,185 @@ export class TaskRepeatCfgService {
 
   deleteTaskRepeatCfgInstance(repeatCfgId: string, dateStr: string): void {
     this._store$.dispatch(deleteTaskRepeatCfgInstance({ repeatCfgId, dateStr }));
+  }
+
+  async stopTaskRepeatCfgFromDate(id: string, stopDate: string): Promise<void> {
+    if (!isValidTaskRepeatOccurrenceDay(stopDate)) {
+      throw new Error(`Invalid repeat stop date: ${stopDate}`);
+    }
+    const endDate = dateStrToUtcDate(stopDate);
+    endDate.setDate(endDate.getDate() - 1);
+
+    const [taskRepeatCfgSnapshot, instances, archivedInstances] = await Promise.all([
+      this.getTaskRepeatCfgByIdAllowUndefined$(id).pipe(take(1)).toPromise(),
+      this._taskService.getTasksWithSubTasksByRepeatCfgId$(id).pipe(take(1)).toPromise(),
+      this._taskService.getArchiveTasksForRepeatCfgId(id),
+    ]);
+    const cutoffAndLaterInstances = (instances ?? []).filter(
+      (task) => getTaskRepeatOccurrenceDay(task) >= stopDate,
+    );
+    const liveTasksToDelete = cutoffAndLaterInstances.flatMap((task) => [
+      task,
+      ...task.subTasks,
+    ]);
+    const taskIds = liveTasksToDelete.map((task) => task.id);
+    const archivedTaskIds = archivedInstances
+      .filter((task) => getTaskRepeatOccurrenceDay(task) >= stopDate)
+      .flatMap((task) => [task.id, ...task.subTaskIds]);
+
+    this._deletedTaskIssueSidecar.set(
+      liveTasksToDelete
+        .filter((task) => !!task.issueId && !!task.issueType && !!task.issueProviderId)
+        .map((task) => ({
+          issueId: task.issueId!,
+          issueType: task.issueType!,
+          issueProviderId: task.issueProviderId!,
+        })),
+    );
+    this._timeBlockDeleteSidecar.set(
+      liveTasksToDelete
+        .filter((task) => typeof task.dueWithTime === 'number')
+        .map((task) => task.id),
+    );
+
+    this._store$.dispatch(
+      TaskSharedActions.stopTaskRepeatCfgFromDate({
+        taskRepeatCfgId: id,
+        stopDate,
+        endDate: getDbDateStr(endDate),
+        taskIds,
+        archivedTaskIds,
+        taskRepeatCfgSnapshot,
+      }),
+    );
+  }
+
+  stopTaskRepeatCfgFromDateWithDialog(id: string, stopDate: string): void {
+    this._matDialog
+      .open(DialogConfirmComponent, {
+        restoreFocus: true,
+        data: {
+          message: T.F.TASK_REPEAT.D_CONFIRM_STOP_FROM_DATE.MSG,
+          okTxt: T.F.TASK_REPEAT.D_CONFIRM_STOP_FROM_DATE.OK,
+          translateParams: { date: stopDate },
+        },
+      })
+      .afterClosed()
+      .subscribe((isConfirm: boolean) => {
+        if (isConfirm) {
+          void this.stopTaskRepeatCfgFromDate(id, stopDate);
+        }
+      });
+  }
+
+  async moveTaskRepeatCfgInstance(
+    taskRepeatCfg: TaskRepeatCfg,
+    occurrenceDay: string,
+    scheduleTime: number,
+  ): Promise<void> {
+    if (
+      getDbDateStr(scheduleTime) !== occurrenceDay ||
+      (taskRepeatCfg.endDate && occurrenceDay > taskRepeatCfg.endDate)
+    ) {
+      return;
+    }
+
+    const existingInstances =
+      (await this._taskService
+        .getTasksWithSubTasksByRepeatCfgId$(taskRepeatCfg.id)
+        .pipe(take(1))
+        .toPromise()) ?? [];
+    const existingTask = existingInstances.find(
+      (task) => getTaskRepeatOccurrenceDay(task) === occurrenceDay,
+    );
+    const remindAt = taskRepeatCfg.remindAt
+      ? remindOptionToMilliseconds(scheduleTime, taskRepeatCfg.remindAt)
+      : undefined;
+    const workContextType = taskRepeatCfg.projectId
+      ? WorkContextType.PROJECT
+      : (this._workContextService.activeWorkContextType as WorkContextType);
+    const workContextId = taskRepeatCfg.projectId
+      ? taskRepeatCfg.projectId
+      : (this._workContextService.activeWorkContextId as string);
+
+    if (existingTask) {
+      this._store$.dispatch(
+        deleteTaskRepeatCfgInstance({
+          repeatCfgId: taskRepeatCfg.id,
+          dateStr: occurrenceDay,
+        }),
+      );
+      this._store$.dispatch(
+        TaskSharedActions.scheduleTaskWithTime({
+          task: existingTask,
+          dueWithTime: scheduleTime,
+          ...(typeof remindAt === 'number' ? { remindAt } : {}),
+          isMoveToBacklog: false,
+          isSkipAutoRemoveFromToday: this._dateService.isToday(scheduleTime),
+        }),
+      );
+      return;
+    }
+
+    const occurrenceDate = dateStrToUtcDate(occurrenceDay);
+    occurrenceDate.setHours(12, 0, 0, 0);
+    const { task, isAddToBottom } = this._getTaskRepeatTemplate(
+      taskRepeatCfg,
+      occurrenceDay,
+    );
+    const concreteTask: Task = {
+      ...task,
+      repeatOccurrenceDay: occurrenceDay,
+      created: occurrenceDate.getTime(),
+    };
+    const subTasks: Task[] =
+      taskRepeatCfg.shouldInheritSubtasks && taskRepeatCfg.subTaskTemplates
+        ? taskRepeatCfg.subTaskTemplates.map((subTask) =>
+            this._taskService.createNewTaskWithDefaults({
+              title: subTask.title,
+              additional: {
+                notes: subTask.notes ?? '',
+                timeEstimate: subTask.timeEstimate ?? 0,
+                parentId: concreteTask.id,
+                projectId: taskRepeatCfg.projectId || undefined,
+                isDone: false,
+              },
+            }),
+          )
+        : [];
+
+    this._store$.dispatch(
+      TaskSharedActions.addTask({
+        task: concreteTask,
+        workContextType,
+        workContextId,
+        isAddToBacklog: false,
+        isAddToBottom,
+        ...getDeadlineAutoPlanFields(
+          this._dateService,
+          concreteTask.deadlineDay,
+          concreteTask.deadlineWithTime,
+        ),
+      }),
+    );
+    subTasks.forEach((subTask) => {
+      this._store$.dispatch(addSubTask({ task: subTask, parentId: concreteTask.id }));
+    });
+    this._store$.dispatch(
+      deleteTaskRepeatCfgInstance({
+        repeatCfgId: taskRepeatCfg.id,
+        dateStr: occurrenceDay,
+      }),
+    );
+    this._store$.dispatch(
+      TaskSharedActions.scheduleTaskWithTime({
+        task: concreteTask,
+        dueWithTime: scheduleTime,
+        ...(typeof remindAt === 'number' ? { remindAt } : {}),
+        isMoveToBacklog: false,
+        isSkipAutoRemoveFromToday: this._dateService.isToday(scheduleTime),
+      }),
+    );
   }
 
   async createRepeatableTask(
@@ -388,6 +576,7 @@ export class TaskRepeatCfgService {
         id: taskId,
         additional: {
           repeatCfgId: taskRepeatCfg.id,
+          repeatOccurrenceDay: dueDay,
           timeEstimate: taskRepeatCfg.defaultEstimate || 0,
           projectId: taskRepeatCfg.projectId || undefined,
           notes: taskRepeatCfg.notes || '',

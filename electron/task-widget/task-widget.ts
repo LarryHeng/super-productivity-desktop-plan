@@ -71,6 +71,7 @@ export type TaskWidgetListTask = Readonly<{
 }>;
 
 export type TaskWidgetTaskLists = Readonly<{
+  labels: TaskWidgetLabels;
   panels: ReadonlyArray<
     Readonly<{
       id: string;
@@ -80,7 +81,20 @@ export type TaskWidgetTaskLists = Readonly<{
   >;
 }>;
 
+type TaskWidgetLabels = Readonly<{
+  activeTask: string;
+  noActiveTask: string;
+  noTasks: string;
+}>;
+
+const EMPTY_TASK_WIDGET_LABELS: TaskWidgetLabels = {
+  activeTask: '',
+  noActiveTask: '',
+  noTasks: '',
+};
+
 let currentTaskLists: TaskWidgetTaskLists = {
+  labels: EMPTY_TASK_WIDGET_LABELS,
   panels: [],
 };
 
@@ -723,11 +737,33 @@ export const updateTaskWidgetTask = (
 let lastCountdownExpiredKey: string | null = null;
 
 export const updateTaskWidgetTaskLists = (lists: TaskWidgetTaskLists): void => {
+  const isTranslationKey = (value: string): boolean =>
+    /^[A-Z0-9_]+(?:\.[A-Z0-9_]+)+$/.test(value);
+  const keepValidTranslation = (value: unknown, fallback: string): string =>
+    typeof value === 'string' && value && !isTranslationKey(value) ? value : fallback;
+
   currentTaskLists = {
+    labels: {
+      activeTask: keepValidTranslation(
+        lists.labels?.activeTask,
+        currentTaskLists.labels.activeTask,
+      ),
+      noActiveTask: keepValidTranslation(
+        lists.labels?.noActiveTask,
+        currentTaskLists.labels.noActiveTask,
+      ),
+      noTasks: keepValidTranslation(
+        lists.labels?.noTasks,
+        currentTaskLists.labels.noTasks,
+      ),
+    },
     panels: Array.isArray(lists.panels)
       ? lists.panels.map((panel) => ({
           id: typeof panel.id === 'string' ? panel.id : '',
-          title: typeof panel.title === 'string' ? panel.title : '',
+          title: keepValidTranslation(
+            panel.title,
+            currentTaskLists.panels.find(({ id }) => id === panel.id)?.title ?? '',
+          ),
           tasks: Array.isArray(panel.tasks) ? panel.tasks : [],
         }))
       : [],
@@ -787,6 +823,7 @@ const updateTaskWidgetContent = (): void => {
     title,
     time: timeStr,
     mode,
+    labels: currentTaskLists.labels,
     panels: currentTaskLists.panels,
   });
 };

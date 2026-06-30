@@ -990,6 +990,35 @@ describe('IssueTwoWaySyncEffects', () => {
   });
 
   describe('deleteIssueOnBulkTaskDelete$', () => {
+    it('deletes linked issues for stop-from-date compound deletions', fakeAsync(() => {
+      const deleteIssueSpy = jasmine.createSpy('deleteIssue').and.resolveTo(undefined);
+      const adapter = createMockAdapter({ deleteIssue: deleteIssueSpy });
+      adapterRegistry.register('TEST_PROVIDER', adapter);
+      const cfg = createMockIssueProvider();
+      issueProviderServiceSpy.getCfgOnce$.and.returnValue(of(cfg));
+      effects.deleteIssueOnBulkTaskDelete$.subscribe();
+      deletedTaskIssueSidecar.set([
+        {
+          issueId: 'issue-1',
+          issueType: 'TEST_PROVIDER',
+          issueProviderId: 'provider-1',
+        },
+      ]);
+
+      actions$.next({
+        type: TaskSharedActions.stopTaskRepeatCfgFromDate.type,
+        taskRepeatCfgId: 'repeat-cfg',
+        stopDate: '2026-07-04',
+        endDate: '2026-07-03',
+        taskIds: ['task-1'],
+        archivedTaskIds: [],
+      });
+      tick();
+
+      expect(deleteIssueSpy).toHaveBeenCalledWith('issue-1', cfg);
+      adapterRegistry.unregister('TEST_PROVIDER');
+    }));
+
     it('should delete remote issues for all linked tasks in bulk delete', fakeAsync(() => {
       const deleteIssueSpy = jasmine.createSpy('deleteIssue').and.resolveTo(undefined);
       const adapter = createMockAdapter({ deleteIssue: deleteIssueSpy });
@@ -1074,6 +1103,74 @@ describe('IssueTwoWaySyncEffects', () => {
   });
 
   describe('autoCreateIssueOnTaskAdd$', () => {
+    it('creates the default issue for a materialized top-level repeat task', fakeAsync(() => {
+      const createIssueSpy = jasmine.createSpy('createIssue').and.resolveTo({
+        issueId: 'repeat-issue',
+        issueNumber: 42,
+        issueData: { summary: 'Repeated Task' },
+      });
+      const adapter = createMockAdapter({
+        createIssue: createIssueSpy,
+        getFieldMappings: jasmine.createSpy('getFieldMappings').and.returnValue([]),
+        getSyncConfig: jasmine.createSpy('getSyncConfig').and.returnValue({}),
+      });
+      adapterRegistry.register('TEST_PROVIDER', adapter);
+
+      const provider = createMockIssueProvider({
+        id: 'provider-1',
+        issueProviderKey: 'TEST_PROVIDER' as any,
+        defaultProjectId: 'project-1',
+        pluginConfig: { isAutoCreateIssues: true },
+      } as any);
+      store.overrideSelector(selectEnabledIssueProviders, [provider]);
+      store.refreshState();
+
+      const cfg = createMockIssueProvider({
+        id: 'provider-1',
+        issueProviderKey: 'TEST_PROVIDER' as any,
+      });
+      issueProviderServiceSpy.getCfgOnce$.and.returnValue(of(cfg));
+
+      const task = createMockTask({
+        id: 'repeat-task',
+        title: 'Repeated Task',
+        projectId: 'project-1',
+        parentId: undefined,
+        issueId: undefined,
+        dueWithTime: Date.now() + 60_000,
+      });
+      taskServiceSpy.getByIdOnce$.and.returnValue(of(task));
+      effects.autoCreateIssueOnTaskAdd$.subscribe();
+
+      actions$.next(
+        TaskSharedActions.materializeTaskRepeatCfgInstance({
+          task,
+          subTasks: [],
+          repeatCfgId: 'repeat-cfg',
+          occurrenceDay: '2026-07-01',
+          dueWithTime: task.dueWithTime!,
+          workContextId: 'project-1',
+          workContextType: WorkContextType.PROJECT,
+          isAddToBacklog: false,
+          isAddToBottom: false,
+          isExistingTask: false,
+        }),
+      );
+      tick();
+
+      expect(createIssueSpy).toHaveBeenCalledOnceWith('Repeated Task', cfg);
+      expect(taskServiceSpy.update).toHaveBeenCalledWith(
+        'repeat-task',
+        jasmine.objectContaining({
+          issueId: 'repeat-issue',
+          issueType: 'TEST_PROVIDER',
+          issueProviderId: 'provider-1',
+        }),
+      );
+
+      adapterRegistry.unregister('TEST_PROVIDER');
+    }));
+
     it('should create issue when task added to project with auto-create enabled', fakeAsync(() => {
       const createIssueSpy = jasmine.createSpy('createIssue').and.resolveTo({
         issueId: 'new-issue-1',

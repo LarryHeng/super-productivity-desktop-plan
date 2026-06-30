@@ -8,16 +8,14 @@ const fsModule = require('node:fs');
 require('ts-node/register/transpile-only');
 
 const { resolveSyncPath } = require(path.resolve(__dirname, 'sync-path-resolver.ts'));
+const DIRECTORY_LINK_TYPE = process.platform === 'win32' ? 'junction' : 'dir';
 
-const mkSync = async () => fsModule.realpathSync.native(
-  await fs.mkdtemp(path.join(os.tmpdir(), 'sp-sync-')),
-);
-const mkOutside = async () => fsModule.realpathSync.native(
-  await fs.mkdtemp(path.join(os.tmpdir(), 'sp-out-')),
-);
-const mkUserData = async () => fsModule.realpathSync.native(
-  await fs.mkdtemp(path.join(os.tmpdir(), 'sp-userdata-')),
-);
+const mkSync = async () =>
+  fsModule.realpathSync.native(await fs.mkdtemp(path.join(os.tmpdir(), 'sp-sync-')));
+const mkOutside = async () =>
+  fsModule.realpathSync.native(await fs.mkdtemp(path.join(os.tmpdir(), 'sp-out-')));
+const mkUserData = async () =>
+  fsModule.realpathSync.native(await fs.mkdtemp(path.join(os.tmpdir(), 'sp-userdata-')));
 
 test('resolves a relative file path inside the sync root', async () => {
   const syncDir = await mkSync();
@@ -95,7 +93,10 @@ test('accepts a path that needs normalization but stays inside', async () => {
 test('rejects when syncFolderPath is missing or empty', async () => {
   const userData = await mkUserData();
   try {
-    assert.throws(() => resolveSyncPath(undefined, 'main.json', userData), /Path not allowed/);
+    assert.throws(
+      () => resolveSyncPath(undefined, 'main.json', userData),
+      /Path not allowed/,
+    );
     assert.throws(() => resolveSyncPath('', 'main.json', userData), /Path not allowed/);
   } finally {
     await fs.rm(userData, { recursive: true, force: true });
@@ -132,16 +133,24 @@ test('rejects when syncFolderPath equals or is inside userData', async () => {
   }
 });
 
-test('rejects a leaf that is a symlink (even pointing inside the root)', async () => {
+test('rejects a leaf that is a symlink (even pointing inside the root)', async (t) => {
   const syncDir = await mkSync();
   const userData = await mkUserData();
   try {
     await fs.writeFile(path.join(syncDir, 'real.json'), '{}', 'utf8');
-    await fs.symlink(
-      path.join(syncDir, 'real.json'),
-      path.join(syncDir, 'link.json'),
-      'file',
-    );
+    try {
+      await fs.symlink(
+        path.join(syncDir, 'real.json'),
+        path.join(syncDir, 'link.json'),
+        'file',
+      );
+    } catch (error) {
+      if (process.platform === 'win32' && error.code === 'EPERM') {
+        t.skip('Windows file symlinks require Developer Mode or elevated privileges');
+        return;
+      }
+      throw error;
+    }
     assert.throws(
       () => resolveSyncPath(syncDir, 'link.json', userData),
       /Path not allowed/,
@@ -157,7 +166,7 @@ test('rejects writing under a directory symlink that escapes the root', async ()
   const outsideDir = await mkOutside();
   const userData = await mkUserData();
   try {
-    await fs.symlink(outsideDir, path.join(syncDir, 'escape'), 'dir');
+    await fs.symlink(outsideDir, path.join(syncDir, 'escape'), DIRECTORY_LINK_TYPE);
     assert.throws(
       () => resolveSyncPath(syncDir, 'escape/new.json', userData),
       /Path not allowed/,
@@ -174,7 +183,11 @@ test('allows writing under a directory symlink that stays inside the root', asyn
   const userData = await mkUserData();
   try {
     await fs.mkdir(path.join(syncDir, 'real-sub'));
-    await fs.symlink(path.join(syncDir, 'real-sub'), path.join(syncDir, 'sub'), 'dir');
+    await fs.symlink(
+      path.join(syncDir, 'real-sub'),
+      path.join(syncDir, 'sub'),
+      DIRECTORY_LINK_TYPE,
+    );
     const r = resolveSyncPath(syncDir, 'sub/new.json', userData);
     assert.equal(r.absolutePath, path.join(syncDir, 'sub', 'new.json'));
   } finally {
@@ -239,10 +252,19 @@ test('rejects non-string inputs (fail-closed)', async () => {
   const syncDir = await mkSync();
   const userData = await mkUserData();
   try {
-    assert.throws(() => resolveSyncPath(syncDir, undefined, userData), /Path not allowed/);
+    assert.throws(
+      () => resolveSyncPath(syncDir, undefined, userData),
+      /Path not allowed/,
+    );
     assert.throws(() => resolveSyncPath(syncDir, 42, userData), /Path not allowed/);
-    assert.throws(() => resolveSyncPath(syncDir, ['main.json'], userData), /Path not allowed/);
-    assert.throws(() => resolveSyncPath(syncDir, 'main.json', undefined), /Path not allowed/);
+    assert.throws(
+      () => resolveSyncPath(syncDir, ['main.json'], userData),
+      /Path not allowed/,
+    );
+    assert.throws(
+      () => resolveSyncPath(syncDir, 'main.json', undefined),
+      /Path not allowed/,
+    );
   } finally {
     await fs.rm(syncDir, { recursive: true, force: true });
     await fs.rm(userData, { recursive: true, force: true });
@@ -281,7 +303,7 @@ test('canonicalizes the root each call (folder moved between launches)', async (
 
     // Swap original to be a symlink to replacement.
     await fs.rm(original, { recursive: true, force: true });
-    await fs.symlink(replacement, original, 'dir');
+    await fs.symlink(replacement, original, DIRECTORY_LINK_TYPE);
 
     const b = resolveSyncPath(original, 'a.json', userData);
     assert.equal(b.root, replacement); // canonical now points elsewhere

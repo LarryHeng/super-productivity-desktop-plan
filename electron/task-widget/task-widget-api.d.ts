@@ -14,6 +14,11 @@ interface TaskWidgetContentData {
   title: string;
   time: string;
   mode: 'pomodoro' | 'focus' | 'task' | 'idle';
+  labels: {
+    activeTask: string;
+    noActiveTask: string;
+    noTasks: string;
+  };
   panels: {
     id: string;
     title: string;

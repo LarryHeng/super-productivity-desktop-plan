@@ -6,6 +6,7 @@ import { WorkContextType } from '../../features/work-context/work-context.model'
 import { BatchOperation } from '@super-productivity/plugin-api';
 import { PersistentActionMeta } from '../../op-log/core/persistent-action.interface';
 import { OpType } from '../../op-log/core/operation.types';
+import { TaskRepeatCfg } from '../../features/task-repeat-cfg/task-repeat-cfg.model';
 
 /**
  * Shared actions that affect multiple reducers (tasks, projects, tags)
@@ -426,6 +427,42 @@ export const TaskSharedActions = createActionGroup({
         opType: OpType.Delete,
       } satisfies PersistentActionMeta,
     }),
+
+    stopTaskRepeatCfgFromDate: (props: {
+      taskRepeatCfgId: string;
+      stopDate: string;
+      endDate: string;
+      taskIds: string[];
+      archivedTaskIds: string[];
+      taskRepeatCfgSnapshot?: TaskRepeatCfg;
+    }) => ({
+      ...props,
+      meta: {
+        isPersistent: true,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: props.taskRepeatCfgId,
+        opType: OpType.Update,
+      } satisfies PersistentActionMeta,
+    }),
+
+    // Kept as a local-only compatibility action for already constructed in-memory
+    // actions. Production repeat dragging uses the established persistent add /
+    // exclude / schedule action sequence so generic LWW never truncates compound state.
+    materializeTaskRepeatCfgInstance: (actionProps: {
+      task: Task;
+      subTasks: Task[];
+      repeatCfgId: string;
+      occurrenceDay: string;
+      dueWithTime: number;
+      remindAt?: number;
+      workContextId: string;
+      workContextType: WorkContextType;
+      isAddToBacklog: boolean;
+      isAddToBottom: boolean;
+      isExistingTask: boolean;
+      autoPlanToday?: string;
+      autoPlanStartOfNextDayDiffMs?: number;
+    }) => actionProps,
 
     // Short Syntax - Atomic compound action
     // Combines task updates, project moves, and scheduling into one atomic operation

@@ -265,7 +265,10 @@ export class IssueTwoWaySyncEffects {
   deleteIssueOnBulkTaskDelete$: Observable<unknown> = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(TaskSharedActions.deleteTasks),
+        ofType(
+          TaskSharedActions.deleteTasks,
+          TaskSharedActions.stopTaskRepeatCfgFromDate,
+        ),
         concatMap(() => {
           const issueInfos = this._deletedTaskIssueSidecar.consume();
           if (!issueInfos.length) {
@@ -283,8 +286,13 @@ export class IssueTwoWaySyncEffects {
   autoCreateIssueOnTaskAdd$: Observable<unknown> = createEffect(
     () =>
       this._actions$.pipe(
-        ofType(TaskSharedActions.addTask),
-        filter(({ task, issue }) => !task.issueId && !issue),
+        ofType(
+          TaskSharedActions.addTask,
+          TaskSharedActions.materializeTaskRepeatCfgInstance,
+        ),
+        filter(
+          (action) => !action.task.issueId && (!('issue' in action) || !action.issue),
+        ),
         filter(({ task }) => !task.parentId),
         filter(({ task }) => !!task.projectId),
         concatMap(({ task }) =>

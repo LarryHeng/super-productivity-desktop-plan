@@ -1,6 +1,7 @@
 import { OperationCaptureService } from './operation-capture.service';
 import { OpType, EntityType } from '../core/operation.types';
 import { PersistentAction } from '../core/persistent-action.interface';
+import { TimeTrackingActions } from '../../features/time-tracking/store/time-tracking.actions';
 
 describe('OperationCaptureService', () => {
   let service: OperationCaptureService;
@@ -197,6 +198,33 @@ describe('OperationCaptureService', () => {
             date: '2026-06-27',
             start: 1_000,
             end: 2_000,
+          },
+        },
+      ]);
+    });
+
+    it('should preserve the manual source when extracting an actual task time segment', () => {
+      const action = TimeTrackingActions.addActualTimeSegment({
+        taskId: 'task-1',
+        date: '2026-06-27',
+        start: 1_000,
+        end: 2_000,
+        source: 'manual',
+      });
+
+      const changes = service.extractEntityChanges(action);
+
+      expect(changes).toEqual([
+        {
+          entityType: 'TIME_TRACKING',
+          entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000:manual',
+          opType: OpType.Update,
+          changes: {
+            taskId: 'task-1',
+            date: '2026-06-27',
+            start: 1_000,
+            end: 2_000,
+            source: 'manual',
           },
         },
       ]);

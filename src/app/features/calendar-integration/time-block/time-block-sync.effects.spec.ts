@@ -14,6 +14,7 @@ import { selectEnabledIssueProviders } from '../../issue/store/issue-provider.se
 import { DEFAULT_TASK, Task, TaskWithDueTime } from '../../tasks/task.model';
 import { selectAllTasksWithDueTimeSorted } from '../../tasks/store/task.selectors';
 import { IssueProviderActions } from '../../issue/store/issue-provider.actions';
+import { WorkContextType } from '../../work-context/work-context.model';
 
 interface TestProvider {
   id: string;
@@ -153,6 +154,30 @@ describe('TimeBlockSyncEffects', () => {
     const ids = upsertEventSpy.calls.allArgs().map((a) => a[0]);
     expect(ids).toContain('task-1');
     expect(ids).toContain('task-2');
+    flush();
+  }));
+
+  it('upserts a time block when a scheduled repeat instance is materialized', fakeAsync(() => {
+    const task = createTask('repeat-task');
+
+    actions$.next(
+      TaskSharedActions.materializeTaskRepeatCfgInstance({
+        task,
+        subTasks: [],
+        repeatCfgId: 'repeat-cfg',
+        occurrenceDay: '2026-05-14',
+        dueWithTime: task.dueWithTime!,
+        workContextId: 'project-1',
+        workContextType: WorkContextType.PROJECT,
+        isAddToBacklog: false,
+        isAddToBottom: false,
+        isExistingTask: false,
+      }),
+    );
+    tick(COALESCE_MS);
+
+    expect(upsertEventSpy).toHaveBeenCalledTimes(1);
+    expect(upsertEventSpy.calls.mostRecent().args[0]).toBe('repeat-task');
     flush();
   }));
 
@@ -517,6 +542,29 @@ describe('TimeBlockSyncEffects', () => {
     resolvers.slice(2).forEach((r) => r());
     flushMicrotasks();
     expect(deleteEventSpy).toHaveBeenCalledTimes(5);
+    bulkSub.unsubscribe();
+    flush();
+  }));
+
+  it('deletes time blocks for stop-from-date compound deletions', fakeAsync(() => {
+    const bulkSub = effects.deleteOnBulkTaskDelete$.subscribe();
+    bulkDeleteSidecarIds = ['cutoff-task'];
+
+    actions$.next({
+      type: TaskSharedActions.stopTaskRepeatCfgFromDate.type,
+      taskRepeatCfgId: 'repeat-cfg',
+      stopDate: '2026-07-04',
+      endDate: '2026-07-03',
+      taskIds: ['cutoff-task'],
+      archivedTaskIds: [],
+    });
+    flushMicrotasks();
+
+    expect(deleteEventSpy).toHaveBeenCalledWith(
+      'cutoff-task',
+      jasmine.anything(),
+      jasmine.anything(),
+    );
     bulkSub.unsubscribe();
     flush();
   }));

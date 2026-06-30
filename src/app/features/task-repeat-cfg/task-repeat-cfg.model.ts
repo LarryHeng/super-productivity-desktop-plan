@@ -56,6 +56,8 @@ export interface TaskRepeatCfgCopy {
   repeatCycle: RepeatCycleOption;
   // worklog string; only in effect for monthly/yearly
   startDate?: string;
+  // Inclusive final occurrence day. Instances after this date are not generated.
+  endDate?: string;
   repeatEvery: number;
   monday?: boolean;
   tuesday?: boolean;

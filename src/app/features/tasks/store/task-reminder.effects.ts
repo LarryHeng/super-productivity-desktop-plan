@@ -10,10 +10,7 @@ import { SnackService } from '../../../core/snack/snack.service';
 import { TaskService } from '../task.service';
 import { Store } from '@ngrx/store';
 import { LocaleDatePipe } from 'src/app/ui/pipes/locale-date.pipe';
-import {
-  IS_ANDROID_WEB_VIEW,
-  IS_ANDROID_WEB_VIEW_TOKEN,
-} from '../../../util/is-android-web-view';
+import { IS_ANDROID_WEB_VIEW_TOKEN } from '../../../util/is-android-web-view';
 import { androidInterface } from '../../android/android-interface';
 import { generateNotificationId } from '../../android/android-notification-id.util';
 import { PlannerActions } from '../../planner/store/planner.actions';
@@ -93,7 +90,7 @@ export class TaskReminderEffects {
             // On Android, immediately cancel native reminder to prevent notifications
             // for done tasks. This is necessary because the reactive cancellation
             // via reminders$ observable can have a delay.
-            if (IS_ANDROID_WEB_VIEW) {
+            if (this._isAndroidWebView) {
               try {
                 const notificationId = generateNotificationId(task.id);
                 androidInterface.cancelNativeReminder?.(notificationId);
@@ -111,7 +108,7 @@ export class TaskReminderEffects {
 
           // Clear deadline reminder when task is done (keep the deadline date for reference)
           if (task?.deadlineRemindAt) {
-            if (IS_ANDROID_WEB_VIEW) {
+            if (this._isAndroidWebView) {
               try {
                 const notificationId = generateNotificationId(task.id + '_deadline');
                 androidInterface.cancelNativeReminder?.(notificationId);
@@ -253,83 +250,83 @@ export class TaskReminderEffects {
   );
 
   // Cancel native Android reminders when tasks are deleted
-  cancelNativeRemindersOnDelete$ =
-    IS_ANDROID_WEB_VIEW &&
-    createEffect(
-      () =>
-        this._localActions$.pipe(
-          ofType(TaskSharedActions.deleteTask),
-          tap(({ task }) => {
-            const deletedTaskIds = [task.id, ...task.subTaskIds];
-            deletedTaskIds.forEach((id) => {
-              try {
-                androidInterface.cancelNativeReminder?.(generateNotificationId(id));
-                androidInterface.cancelNativeReminder?.(
-                  generateNotificationId(id + '_deadline'),
-                );
-              } catch (e) {
-                TaskLog.err('Failed to cancel native reminder:', e);
-              }
-            });
-          }),
-        ),
-      { dispatch: false },
-    );
+  cancelNativeRemindersOnDelete$ = createEffect(
+    () =>
+      this._localActions$.pipe(
+        ofType(TaskSharedActions.deleteTask),
+        filter(() => this._isAndroidWebView),
+        tap(({ task }) => {
+          const deletedTaskIds = [task.id, ...task.subTaskIds];
+          deletedTaskIds.forEach((id) => {
+            try {
+              androidInterface.cancelNativeReminder?.(generateNotificationId(id));
+              androidInterface.cancelNativeReminder?.(
+                generateNotificationId(id + '_deadline'),
+              );
+            } catch (e) {
+              TaskLog.err('Failed to cancel native reminder:', e);
+            }
+          });
+        }),
+      ),
+    { dispatch: false },
+  );
 
   // Cancel native Android reminders when multiple tasks are deleted
-  cancelNativeRemindersOnBulkDelete$ =
-    IS_ANDROID_WEB_VIEW &&
-    createEffect(
-      () =>
-        this._localActions$.pipe(
-          ofType(TaskSharedActions.deleteTasks),
-          tap(({ taskIds }) => {
-            taskIds.forEach((id) => {
-              try {
-                androidInterface.cancelNativeReminder?.(generateNotificationId(id));
-                androidInterface.cancelNativeReminder?.(
-                  generateNotificationId(id + '_deadline'),
-                );
-              } catch (e) {
-                TaskLog.err('Failed to cancel native reminder:', e);
-              }
-            });
-          }),
+  cancelNativeRemindersOnBulkDelete$ = createEffect(
+    () =>
+      this._localActions$.pipe(
+        ofType(
+          TaskSharedActions.deleteTasks,
+          TaskSharedActions.stopTaskRepeatCfgFromDate,
         ),
-      { dispatch: false },
-    );
+        filter(() => this._isAndroidWebView),
+        tap(({ taskIds }) => {
+          taskIds.forEach((id) => {
+            try {
+              androidInterface.cancelNativeReminder?.(generateNotificationId(id));
+              androidInterface.cancelNativeReminder?.(
+                generateNotificationId(id + '_deadline'),
+              );
+            } catch (e) {
+              TaskLog.err('Failed to cancel native reminder:', e);
+            }
+          });
+        }),
+      ),
+    { dispatch: false },
+  );
 
   // Cancel native Android reminders when tasks are archived
-  cancelNativeRemindersOnArchive$ =
-    IS_ANDROID_WEB_VIEW &&
-    createEffect(
-      () =>
-        this._localActions$.pipe(
-          ofType(TaskSharedActions.moveToArchive),
-          tap(({ tasks }) => {
-            tasks.forEach((task) => {
+  cancelNativeRemindersOnArchive$ = createEffect(
+    () =>
+      this._localActions$.pipe(
+        ofType(TaskSharedActions.moveToArchive),
+        filter(() => this._isAndroidWebView),
+        tap(({ tasks }) => {
+          tasks.forEach((task) => {
+            try {
+              androidInterface.cancelNativeReminder?.(generateNotificationId(task.id));
+              androidInterface.cancelNativeReminder?.(
+                generateNotificationId(task.id + '_deadline'),
+              );
+            } catch (e) {
+              TaskLog.err('Failed to cancel native reminder:', e);
+            }
+            // Also cancel for subtasks
+            task.subTaskIds?.forEach((subId) => {
               try {
-                androidInterface.cancelNativeReminder?.(generateNotificationId(task.id));
+                androidInterface.cancelNativeReminder?.(generateNotificationId(subId));
                 androidInterface.cancelNativeReminder?.(
-                  generateNotificationId(task.id + '_deadline'),
+                  generateNotificationId(subId + '_deadline'),
                 );
               } catch (e) {
                 TaskLog.err('Failed to cancel native reminder:', e);
               }
-              // Also cancel for subtasks
-              task.subTaskIds?.forEach((subId) => {
-                try {
-                  androidInterface.cancelNativeReminder?.(generateNotificationId(subId));
-                  androidInterface.cancelNativeReminder?.(
-                    generateNotificationId(subId + '_deadline'),
-                  );
-                } catch (e) {
-                  TaskLog.err('Failed to cancel native reminder:', e);
-                }
-              });
             });
-          }),
-        ),
-      { dispatch: false },
-    );
+          });
+        }),
+      ),
+    { dispatch: false },
+  );
 }

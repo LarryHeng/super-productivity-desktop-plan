@@ -13,6 +13,7 @@ import { ActionType, OpType } from '../core/operation.types';
 import { uuidv7 } from '../../util/uuid-v7';
 import { CURRENT_SCHEMA_VERSION } from './schema-migration.service';
 import { loadAllData } from '../../root-store/meta/load-all-data.action';
+import { IS_ELECTRON_TOKEN } from '../../app.constants';
 
 describe('OperationLogMigrationService', () => {
   let service: OperationLogMigrationService;
@@ -23,8 +24,17 @@ describe('OperationLogMigrationService', () => {
   let mockClientIdService: jasmine.SpyObj<ClientIdService>;
   let mockTranslateService: jasmine.SpyObj<TranslateService>;
   let mockLanguageService: jasmine.SpyObj<LanguageService>;
+  let originalElectronApi: typeof window.ea | undefined;
+  let mockBackupAppData: jasmine.Spy;
 
   beforeEach(() => {
+    originalElectronApi = window.ea;
+    mockBackupAppData = jasmine.createSpy('backupAppData').and.resolveTo();
+    window.ea = {
+      ...(window.ea ?? {}),
+      backupAppData: mockBackupAppData,
+    } as typeof window.ea;
+
     mockOpLogStore = jasmine.createSpyObj('OperationLogStoreService', [
       'loadStateCache',
       'getOpsAfterSeq',
@@ -74,9 +84,39 @@ describe('OperationLogMigrationService', () => {
         { provide: ClientIdService, useValue: mockClientIdService },
         { provide: TranslateService, useValue: mockTranslateService },
         { provide: LanguageService, useValue: mockLanguageService },
+        { provide: IS_ELECTRON_TOKEN, useValue: true },
       ],
     });
     service = TestBed.inject(OperationLogMigrationService);
+  });
+
+  afterEach(() => {
+    window.ea = originalElectronApi as typeof window.ea;
+  });
+
+  it('stores migration safety backups in the Electron backup directory', async () => {
+    const legacyData = { task: { ids: [], entities: {} } };
+    const dialogRef = {
+      componentInstance: {
+        status: { set: jasmine.createSpy('statusSet') },
+      },
+    };
+    mockLegacyPfDb.loadAllEntityData.and.resolveTo(
+      legacyData as unknown as Awaited<
+        ReturnType<LegacyPfDbService['loadAllEntityData']>
+      >,
+    );
+
+    await (
+      service as unknown as {
+        _createAutoBackup(dialog: unknown): Promise<void>;
+      }
+    )._createAutoBackup(dialogRef);
+
+    expect(mockBackupAppData).toHaveBeenCalledOnceWith({
+      data: legacyData,
+      isThrowOnError: true,
+    });
   });
 
   describe('checkAndMigrate', () => {

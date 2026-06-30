@@ -39,12 +39,23 @@ import {
   ProjectTaskList,
   filterOutTodayTag,
   removeTaskFromPlannerDays,
+  removeTasksFromPlannerDays,
   removeTasksFromList,
   TaskWithTags,
   updateProject,
   updateTags,
 } from './task-shared-helpers';
 import { plannerFeatureKey } from '../../../features/planner/store/planner.reducer';
+import { TASK_REPEAT_CFG_FEATURE_NAME } from '../../../features/task-repeat-cfg/store/task-repeat-cfg.reducer';
+import { TaskRepeatCfgState } from '../../../features/task-repeat-cfg/task-repeat-cfg.model';
+import {
+  getTaskRepeatOccurrenceDay,
+  isValidTaskRepeatOccurrenceDay,
+} from '../../../features/task-repeat-cfg/get-task-repeat-occurrence-day.util';
+
+type RootStateWithTaskRepeatCfg = RootState & {
+  [TASK_REPEAT_CFG_FEATURE_NAME]?: TaskRepeatCfgState;
+};
 
 // =============================================================================
 // ACTION HANDLERS
@@ -56,6 +67,22 @@ const handleAddTask = (
   isAddToBottom: boolean,
   isAddToBacklog: boolean,
 ): RootState => {
+  if (task.repeatCfgId) {
+    const repeatCfgState = (state as RootStateWithTaskRepeatCfg)[
+      TASK_REPEAT_CFG_FEATURE_NAME
+    ];
+    const repeatCfg = repeatCfgState?.entities[task.repeatCfgId];
+    const occurrenceDay = getTaskRepeatOccurrenceDay(task);
+    if (
+      (repeatCfgState && !repeatCfg) ||
+      (repeatCfg &&
+        ((repeatCfg.endDate && occurrenceDay > repeatCfg.endDate) ||
+          repeatCfg.deletedInstanceDates?.includes(occurrenceDay)))
+    ) {
+      return state;
+    }
+  }
+
   let updatedState = state;
 
   // Determine if task should be added to Today tag
@@ -138,6 +165,91 @@ const handleAddTask = (
   }
 
   return updatedState;
+};
+
+const handleMaterializeTaskRepeatCfgInstance = (
+  state: RootState,
+  task: TaskWithTags,
+  subTasks: Task[],
+  repeatCfgId: string,
+  occurrenceDay: string,
+  dueWithTime: number,
+  remindAt: number | undefined,
+  isAddToBottom: boolean,
+  isAddToBacklog: boolean,
+  isExistingTask: boolean,
+): RootState => {
+  const repeatCfg = (state as RootStateWithTaskRepeatCfg)[TASK_REPEAT_CFG_FEATURE_NAME]
+    ?.entities[repeatCfgId];
+  if (
+    !repeatCfg ||
+    (repeatCfg.endDate && occurrenceDay > repeatCfg.endDate) ||
+    repeatCfg.deletedInstanceDates?.includes(occurrenceDay)
+  ) {
+    return state;
+  }
+
+  if (isExistingTask) {
+    return state;
+  }
+
+  const normalizedTask: TaskWithTags = {
+    ...task,
+    repeatOccurrenceDay: occurrenceDay,
+    dueDay: undefined,
+    dueWithTime,
+    remindAt,
+  };
+  const updatedState = handleAddTask(
+    state,
+    normalizedTask,
+    isAddToBottom,
+    isAddToBacklog,
+  );
+  let taskState = updatedState[TASK_FEATURE_NAME];
+
+  for (const subTask of subTasks) {
+    const parentTask = taskState.entities[task.id] as Task | undefined;
+    if (!parentTask || taskState.entities[subTask.id]) {
+      continue;
+    }
+
+    const isFirstSubTask = parentTask.subTaskIds.length === 0;
+    const normalizedSubTask: Task = {
+      ...DEFAULT_TASK,
+      ...subTask,
+      ...(isFirstSubTask && Object.keys(subTask.timeSpentOnDay ?? {}).length === 0
+        ? {
+            timeSpentOnDay: parentTask.timeSpentOnDay,
+            timeSpent: calcTotalTimeSpent(parentTask.timeSpentOnDay),
+          }
+        : {}),
+      ...(isFirstSubTask && !subTask.timeEstimate
+        ? { timeEstimate: parentTask.timeEstimate }
+        : {}),
+      parentId: task.id,
+      tagIds: [],
+      projectId: parentTask.projectId,
+    };
+
+    const stateWithSubTask = taskAdapter.addOne(normalizedSubTask, taskState);
+    taskState = {
+      ...stateWithSubTask,
+      entities: {
+        ...stateWithSubTask.entities,
+        [task.id]: {
+          ...parentTask,
+          subTaskIds: [...parentTask.subTaskIds, subTask.id],
+        },
+      },
+    };
+    taskState = reCalcTimesForParentIfParent(task.id, taskState);
+  }
+
+  return {
+    ...updatedState,
+    [TASK_FEATURE_NAME]: taskState,
+  };
 };
 
 /**
@@ -397,7 +509,7 @@ const handleDeleteTasks = (state: RootState, taskIds: string[]): RootState => {
     [TASK_FEATURE_NAME]: {
       ...newTaskState,
       currentTaskId:
-        newTaskState.currentTaskId && taskIds.includes(newTaskState.currentTaskId)
+        newTaskState.currentTaskId && allIds.includes(newTaskState.currentTaskId)
           ? null
           : newTaskState.currentTaskId,
     },
@@ -431,7 +543,7 @@ const handleDeleteTasks = (state: RootState, taskIds: string[]): RootState => {
   }
 
   // Remove the deleted task ids (incl. subtasks via allIds) from all tags.
-  return removeTasksFromAllTags(updatedState, allIds);
+  return removeTasksFromPlannerDays(removeTasksFromAllTags(updatedState, allIds), allIds);
 };
 
 /**
@@ -834,6 +946,31 @@ const createActionHandlers = (state: RootState, action: Action): ActionHandlerMa
     >;
     return handleAddTask(state, task, isAddToBottom, isAddToBacklog);
   },
+  [TaskSharedActions.materializeTaskRepeatCfgInstance.type]: () => {
+    const {
+      task,
+      subTasks,
+      repeatCfgId,
+      occurrenceDay,
+      dueWithTime,
+      remindAt,
+      isAddToBottom,
+      isAddToBacklog,
+      isExistingTask,
+    } = action as ReturnType<typeof TaskSharedActions.materializeTaskRepeatCfgInstance>;
+    return handleMaterializeTaskRepeatCfgInstance(
+      state,
+      task,
+      subTasks,
+      repeatCfgId,
+      occurrenceDay,
+      dueWithTime,
+      remindAt,
+      isAddToBottom,
+      isAddToBacklog,
+      isExistingTask,
+    );
+  },
   [TaskSharedActions.convertToMainTask.type]: () => {
     const { task, parentTagIds, isPlanForToday, afterTaskId, isDone } =
       action as ReturnType<typeof TaskSharedActions.convertToMainTask>;
@@ -859,6 +996,26 @@ const createActionHandlers = (state: RootState, action: Action): ActionHandlerMa
   [TaskSharedActions.deleteTasks.type]: () => {
     const { taskIds } = action as ReturnType<typeof TaskSharedActions.deleteTasks>;
     return handleDeleteTasks(state, taskIds);
+  },
+  [TaskSharedActions.stopTaskRepeatCfgFromDate.type]: () => {
+    const { taskRepeatCfgId, stopDate, taskIds } = action as ReturnType<
+      typeof TaskSharedActions.stopTaskRepeatCfgFromDate
+    >;
+    if (!isValidTaskRepeatOccurrenceDay(stopDate)) {
+      return state;
+    }
+    const replayDiscoveredTaskIds = (state[TASK_FEATURE_NAME].ids as string[]).filter(
+      (taskId) => {
+        const task = state[TASK_FEATURE_NAME].entities[taskId];
+        return (
+          !!task &&
+          !task.parentId &&
+          task.repeatCfgId === taskRepeatCfgId &&
+          getTaskRepeatOccurrenceDay(task) >= stopDate
+        );
+      },
+    );
+    return handleDeleteTasks(state, unique([...taskIds, ...replayDiscoveredTaskIds]));
   },
   [TaskSharedActions.restoreDeletedTask.type]: () => {
     return handleRestoreDeletedTask(

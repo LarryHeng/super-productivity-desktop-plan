@@ -6,11 +6,13 @@ import { TaskService } from '../tasks/task.service';
 import { WorkContextService } from '../work-context/work-context.service';
 import {
   addTaskRepeatCfgToTask,
+  deleteTaskRepeatCfgInstance,
   deleteTaskRepeatCfgs,
   updateTaskRepeatCfg,
   updateTaskRepeatCfgs,
   upsertTaskRepeatCfg,
 } from './store/task-repeat-cfg.actions';
+import { addSubTask } from '../tasks/store/task.actions';
 import { DEFAULT_TASK_REPEAT_CFG, TaskRepeatCfg } from './task-repeat-cfg.model';
 import { of } from 'rxjs';
 import { WorkContextType } from '../work-context/work-context.model';
@@ -32,12 +34,16 @@ import { getRepeatableTaskId } from './get-repeatable-task-id.util';
 import { DateService } from '../../core/date/date.service';
 import { getDateTimeFromClockString } from '../../util/get-date-time-from-clock-string';
 import { remindOptionToMilliseconds } from '../tasks/util/remind-option-to-milliseconds';
+import { DeletedTaskIssueSidecarService } from '../issue/two-way-sync/deleted-task-issue-sidecar.service';
+import { TimeBlockDeleteSidecarService } from '../calendar-integration/time-block/time-block-delete-sidecar.service';
 
 describe('TaskRepeatCfgService', () => {
   let service: TaskRepeatCfgService;
   let store: MockStore;
   let matDialog: jasmine.SpyObj<MatDialog>;
   let taskService: jasmine.SpyObj<TaskService>;
+  let deletedTaskIssueSidecar: jasmine.SpyObj<DeletedTaskIssueSidecarService>;
+  let timeBlockDeleteSidecar: jasmine.SpyObj<TimeBlockDeleteSidecarService>;
   let dispatchSpy: jasmine.Spy;
 
   const formatIsoDate = (d: Date): string => getDbDateStr(d);
@@ -79,11 +85,20 @@ describe('TaskRepeatCfgService', () => {
       'getTasksWithSubTasksByRepeatCfgId$',
       'getTasksByRepeatCfgId$',
       'getArchiveTasksForRepeatCfgId',
+      'removeMultipleTasks',
     ]);
     const workContextServiceSpy = jasmine.createSpyObj('WorkContextService', [], {
       activeWorkContextType: WorkContextType.PROJECT,
       activeWorkContextId: 'test-project',
     });
+    const deletedTaskIssueSidecarSpy = jasmine.createSpyObj(
+      'DeletedTaskIssueSidecarService',
+      ['set'],
+    );
+    const timeBlockDeleteSidecarSpy = jasmine.createSpyObj(
+      'TimeBlockDeleteSidecarService',
+      ['set'],
+    );
 
     TestBed.configureTestingModule({
       providers: [
@@ -100,6 +115,14 @@ describe('TaskRepeatCfgService', () => {
         { provide: TaskService, useValue: taskServiceSpy },
         { provide: WorkContextService, useValue: workContextServiceSpy },
         {
+          provide: DeletedTaskIssueSidecarService,
+          useValue: deletedTaskIssueSidecarSpy,
+        },
+        {
+          provide: TimeBlockDeleteSidecarService,
+          useValue: timeBlockDeleteSidecarSpy,
+        },
+        {
           provide: DateService,
           useValue: {
             todayStr: () => getDbDateStr(),
@@ -114,6 +137,12 @@ describe('TaskRepeatCfgService', () => {
     store = TestBed.inject(MockStore);
     matDialog = TestBed.inject(MatDialog) as jasmine.SpyObj<MatDialog>;
     taskService = TestBed.inject(TaskService) as jasmine.SpyObj<TaskService>;
+    deletedTaskIssueSidecar = TestBed.inject(
+      DeletedTaskIssueSidecarService,
+    ) as jasmine.SpyObj<DeletedTaskIssueSidecarService>;
+    timeBlockDeleteSidecar = TestBed.inject(
+      TimeBlockDeleteSidecarService,
+    ) as jasmine.SpyObj<TimeBlockDeleteSidecarService>;
 
     dispatchSpy = spyOn(store, 'dispatch');
   });
@@ -323,6 +352,302 @@ describe('TaskRepeatCfgService', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(dispatchSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('stopTaskRepeatCfgFromDate', () => {
+    it('rejects an invalid stop date before reading or dispatching', async () => {
+      await expectAsync(
+        service.stopTaskRepeatCfgFromDate('cfg-123', '2026-13-40'),
+      ).toBeRejectedWithError(/Invalid repeat stop date/);
+
+      expect(taskService.getTasksWithSubTasksByRepeatCfgId$).not.toHaveBeenCalled();
+      expect(dispatchSpy).not.toHaveBeenCalled();
+    });
+
+    it('explains that the selected and later occurrences will be removed', () => {
+      const dialogRefSpy = jasmine.createSpyObj({ afterClosed: of(false) });
+      matDialog.open.and.returnValue(dialogRefSpy);
+
+      service.stopTaskRepeatCfgFromDateWithDialog('cfg-123', '2026-07-04');
+
+      expect(matDialog.open).toHaveBeenCalledWith(jasmine.anything(), {
+        restoreFocus: true,
+        data: {
+          message: 'F.TASK_REPEAT.D_CONFIRM_STOP_FROM_DATE.MSG',
+          okTxt: 'F.TASK_REPEAT.D_CONFIRM_STOP_FROM_DATE.OK',
+          translateParams: { date: '2026-07-04' },
+        },
+      });
+    });
+
+    it('keeps earlier instances and deletes the selected and later live instances', async () => {
+      const before = {
+        ...mockTaskWithSubTasks,
+        id: 'before',
+        repeatCfgId: 'cfg-123',
+        created: new Date(2026, 6, 3, 12).getTime(),
+      };
+      const cutoff = {
+        ...mockTaskWithSubTasks,
+        id: 'cutoff',
+        repeatCfgId: 'cfg-123',
+        created: new Date(2026, 6, 4, 12).getTime(),
+      };
+      const after = {
+        ...mockTaskWithSubTasks,
+        id: 'after',
+        repeatCfgId: 'cfg-123',
+        created: new Date(2026, 6, 5, 12).getTime(),
+      };
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(
+        of([before, cutoff, after]),
+      );
+      taskService.getArchiveTasksForRepeatCfgId.and.resolveTo([]);
+
+      await service.stopTaskRepeatCfgFromDate('cfg-123', '2026-07-04');
+
+      expect(dispatchSpy).toHaveBeenCalledTimes(1);
+      expect(dispatchSpy.calls.mostRecent().args[0]).toEqual(
+        jasmine.objectContaining({
+          type: '[Task Shared] stopTaskRepeatCfgFromDate',
+          taskRepeatCfgId: 'cfg-123',
+          stopDate: '2026-07-04',
+          endDate: '2026-07-03',
+          taskIds: ['cutoff', 'after'],
+          archivedTaskIds: [],
+        }),
+      );
+      expect(deletedTaskIssueSidecar.set).toHaveBeenCalledWith([]);
+      expect(timeBlockDeleteSidecar.set).toHaveBeenCalledWith([]);
+      expect(taskService.removeMultipleTasks).not.toHaveBeenCalled();
+    });
+
+    it('includes cutoff and later archived parents and subtasks in the atomic action', async () => {
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(of([]));
+      taskService.getArchiveTasksForRepeatCfgId.and.resolveTo([
+        {
+          ...mockTask,
+          id: 'archived-before',
+          repeatCfgId: 'cfg-123',
+          created: new Date(2026, 6, 3, 12).getTime(),
+          subTaskIds: ['archived-before-child'],
+        },
+        {
+          ...mockTask,
+          id: 'archived-cutoff',
+          repeatCfgId: 'cfg-123',
+          created: new Date(2026, 6, 4, 12).getTime(),
+          subTaskIds: ['archived-cutoff-child'],
+        },
+      ]);
+
+      await service.stopTaskRepeatCfgFromDate('cfg-123', '2026-07-04');
+
+      expect(dispatchSpy.calls.mostRecent().args[0]).toEqual(
+        jasmine.objectContaining({
+          archivedTaskIds: ['archived-cutoff', 'archived-cutoff-child'],
+        }),
+      );
+    });
+
+    it('prepares issue and time-block sidecars before dispatching the compound delete', async () => {
+      const cutoff = {
+        ...mockTaskWithSubTasks,
+        id: 'cutoff',
+        repeatCfgId: 'cfg-123',
+        created: new Date(2026, 6, 4, 12).getTime(),
+        dueWithTime: new Date(2026, 6, 4, 14).getTime(),
+        issueId: 'issue-1',
+        issueType: 'GITHUB' as const,
+        issueProviderId: 'provider-1',
+      };
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(of([cutoff]));
+      taskService.getArchiveTasksForRepeatCfgId.and.resolveTo([]);
+
+      await service.stopTaskRepeatCfgFromDate('cfg-123', '2026-07-04');
+
+      expect(timeBlockDeleteSidecar.set).toHaveBeenCalledBefore(dispatchSpy);
+      expect(timeBlockDeleteSidecar.set).toHaveBeenCalledWith(['cutoff']);
+      expect(deletedTaskIssueSidecar.set).toHaveBeenCalledBefore(dispatchSpy);
+      expect(deletedTaskIssueSidecar.set).toHaveBeenCalledWith([
+        {
+          issueId: 'issue-1',
+          issueType: 'GITHUB',
+          issueProviderId: 'provider-1',
+        },
+      ]);
+    });
+
+    it('includes live subtasks in cleanup sidecars and the atomic action', async () => {
+      const child = {
+        ...mockTask,
+        id: 'cutoff-child',
+        parentId: 'cutoff',
+        dueWithTime: new Date(2026, 6, 4, 15).getTime(),
+        issueId: 'issue-child',
+        issueType: 'GITHUB' as const,
+        issueProviderId: 'provider-1',
+      };
+      const cutoff = {
+        ...mockTaskWithSubTasks,
+        id: 'cutoff',
+        repeatCfgId: 'cfg-123',
+        created: new Date(2026, 6, 4, 12).getTime(),
+        subTaskIds: [child.id],
+        subTasks: [child],
+      };
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(of([cutoff]));
+      taskService.getArchiveTasksForRepeatCfgId.and.resolveTo([]);
+
+      await service.stopTaskRepeatCfgFromDate('cfg-123', '2026-07-04');
+
+      expect(dispatchSpy.calls.mostRecent().args[0]).toEqual(
+        jasmine.objectContaining({
+          taskIds: ['cutoff', 'cutoff-child'],
+        }),
+      );
+      expect(timeBlockDeleteSidecar.set).toHaveBeenCalledWith(['cutoff-child']);
+      expect(deletedTaskIssueSidecar.set).toHaveBeenCalledWith([
+        {
+          issueId: 'issue-child',
+          issueType: 'GITHUB',
+          issueProviderId: 'provider-1',
+        },
+      ]);
+    });
+  });
+
+  describe('moveTaskRepeatCfgInstance', () => {
+    it('excludes an existing concrete occurrence before rescheduling it', async () => {
+      const occurrenceDay = '2026-07-04';
+      const scheduleTime = new Date(2026, 6, 4, 14, 5).getTime();
+      const existingTask = {
+        ...mockTaskWithSubTasks,
+        repeatCfgId: mockTaskRepeatCfg.id,
+        repeatOccurrenceDay: occurrenceDay,
+      };
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(of([existingTask]));
+
+      await service.moveTaskRepeatCfgInstance(
+        mockTaskRepeatCfg,
+        occurrenceDay,
+        scheduleTime,
+      );
+
+      expect(dispatchSpy).toHaveBeenCalledTimes(2);
+      expect(dispatchSpy.calls.argsFor(0)[0]).toEqual(
+        jasmine.objectContaining({
+          type: deleteTaskRepeatCfgInstance.type,
+          repeatCfgId: mockTaskRepeatCfg.id,
+          dateStr: occurrenceDay,
+        }),
+      );
+      expect(dispatchSpy.calls.argsFor(1)[0]).toEqual(
+        jasmine.objectContaining({
+          type: TaskSharedActions.scheduleTaskWithTime.type,
+          task: existingTask,
+          dueWithTime: scheduleTime,
+        }),
+      );
+    });
+
+    it('creates, excludes and schedules a concrete task with sync-safe actions', async () => {
+      const occurrenceDay = '2026-07-04';
+      const scheduleTime = new Date(2026, 6, 4, 14, 5).getTime();
+      const expectedId = getRepeatableTaskId(mockTaskRepeatCfg.id, occurrenceDay);
+      const concreteTask = {
+        ...mockTask,
+        id: expectedId,
+        repeatCfgId: mockTaskRepeatCfg.id,
+        created: new Date(2026, 6, 4, 12).getTime(),
+        dueDay: occurrenceDay,
+      };
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(of([]));
+      taskService.createNewTaskWithDefaults.and.returnValue(concreteTask);
+
+      await service.moveTaskRepeatCfgInstance(
+        mockTaskRepeatCfg,
+        occurrenceDay,
+        scheduleTime,
+      );
+
+      expect(dispatchSpy).toHaveBeenCalledTimes(3);
+      expect(dispatchSpy.calls.argsFor(0)[0]).toEqual(
+        jasmine.objectContaining({
+          type: '[Task Shared] addTask',
+          task: jasmine.objectContaining({
+            id: expectedId,
+            repeatCfgId: mockTaskRepeatCfg.id,
+            repeatOccurrenceDay: occurrenceDay,
+            dueDay: occurrenceDay,
+          }),
+        }),
+      );
+      expect(dispatchSpy.calls.argsFor(1)[0]).toEqual(
+        jasmine.objectContaining({
+          type: deleteTaskRepeatCfgInstance.type,
+          repeatCfgId: mockTaskRepeatCfg.id,
+          dateStr: occurrenceDay,
+        }),
+      );
+      expect(dispatchSpy.calls.argsFor(2)[0]).toEqual(
+        jasmine.objectContaining({
+          type: '[Task Shared] scheduleTaskWithTime',
+          dueWithTime: scheduleTime,
+        }),
+      );
+      expect(dispatchSpy).not.toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          type: updateTaskRepeatCfg.type,
+          taskRepeatCfg: jasmine.objectContaining({
+            changes: jasmine.objectContaining({
+              lastTaskCreationDay: occurrenceDay,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('inherits repeat subtask templates before scheduling the instance', async () => {
+      const occurrenceDay = '2026-07-04';
+      const scheduleTime = new Date(2026, 6, 4, 14, 5).getTime();
+      const repeatCfg: TaskRepeatCfg = {
+        ...mockTaskRepeatCfg,
+        shouldInheritSubtasks: true,
+        subTaskTemplates: [
+          {
+            title: 'Inherited child',
+            notes: 'Child notes',
+            timeEstimate: 30 * 60 * 1000,
+          },
+        ],
+      };
+      taskService.getTasksWithSubTasksByRepeatCfgId$.and.returnValue(of([]));
+      taskService.createNewTaskWithDefaults.and.callFake((args: any) => ({
+        ...DEFAULT_TASK,
+        id: args.id ?? 'sub-task-1',
+        title: args.title,
+        ...args.additional,
+      }));
+
+      await service.moveTaskRepeatCfgInstance(repeatCfg, occurrenceDay, scheduleTime);
+
+      expect(dispatchSpy).toHaveBeenCalledTimes(4);
+      expect(dispatchSpy.calls.argsFor(1)[0]).toEqual(
+        jasmine.objectContaining({
+          type: addSubTask.type,
+          task: jasmine.objectContaining({
+            title: 'Inherited child',
+            notes: 'Child notes',
+            timeEstimate: 30 * 60 * 1000,
+          }),
+        }),
+      );
+      expect(dispatchSpy.calls.argsFor(2)[0].type).toBe(deleteTaskRepeatCfgInstance.type);
+      expect(dispatchSpy.calls.argsFor(3)[0].type).toBe(
+        '[Task Shared] scheduleTaskWithTime',
+      );
     });
   });
 

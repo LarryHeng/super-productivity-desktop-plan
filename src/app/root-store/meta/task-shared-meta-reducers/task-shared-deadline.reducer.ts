@@ -209,6 +209,19 @@ const createActionHandlers = (state: RootState, action: Action): ActionHandlerMa
     }
     return state;
   },
+  [TaskSharedActions.materializeTaskRepeatCfgInstance.type]: () => {
+    const { task, autoPlanToday, autoPlanStartOfNextDayDiffMs } = action as ReturnType<
+      typeof TaskSharedActions.materializeTaskRepeatCfgInstance
+    >;
+    if (task.deadlineDay || task.deadlineWithTime !== undefined) {
+      return autoPlanTaskDueToDeadline(
+        state,
+        task.id,
+        getAutoPlanContext(autoPlanToday, autoPlanStartOfNextDayDiffMs),
+      );
+    }
+    return state;
+  },
   [TaskSharedActions.applyShortSyntax.type]: () => {
     const { task, taskChanges, autoPlanToday, autoPlanStartOfNextDayDiffMs } =
       action as ReturnType<typeof TaskSharedActions.applyShortSyntax>;

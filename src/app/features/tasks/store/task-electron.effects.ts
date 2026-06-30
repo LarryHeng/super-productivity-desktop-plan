@@ -39,7 +39,9 @@ import { TaskLog } from '../../../core/log';
 import { combineLatest } from 'rxjs';
 import {
   buildEisenhowerTaskWidgetPanels,
+  buildTaskWidgetLabels,
   mapTaskForTaskWidget,
+  TASK_WIDGET_TRANSLATION_KEYS,
 } from './task-widget-panels.util';
 import { TranslateService } from '@ngx-translate/core';
 import { TaskWidgetSettingsService } from '../../config/task-widget-settings.service';
@@ -147,17 +149,21 @@ export class TaskElectronEffects {
         this._store$.pipe(select(selectTodayTaskIds)),
         this._store$.pipe(select(selectTaskEntities)),
         this._store$.pipe(select(selectAllTasksInActiveProjects)),
+        this._translateService.stream(TASK_WIDGET_TRANSLATION_KEYS),
       ]).pipe(
-        tap(([todayTaskIds, taskEntities, allTasks]) => {
+        tap(([todayTaskIds, taskEntities, allTasks, translations]) => {
+          const translateTitle = (title: string): string => {
+            const translated = translations[title];
+            return typeof translated === 'string' ? translated : title;
+          };
           const tasks = todayTaskIds
             .map((id) => taskEntities[id])
             .filter((t) => !!t && !t.isDone)
             .map((t) => mapTaskForTaskWidget(t!));
           window.ea.updateTodayTasks(tasks);
           window.ea.updateTaskWidgetTasks({
-            panels: buildEisenhowerTaskWidgetPanels(allTasks, (title) =>
-              this._translateService.instant(title),
-            ),
+            panels: buildEisenhowerTaskWidgetPanels(allTasks, translateTitle),
+            labels: buildTaskWidgetLabels(translateTitle),
           });
         }),
       ),

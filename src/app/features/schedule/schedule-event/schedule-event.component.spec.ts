@@ -38,6 +38,22 @@ const makeTaskScheduleEvent = (overlap?: ScheduleEvent['overlap']): ScheduleEven
   data: { id: 'task-1', title: 'Task', timeEstimate: 3600000 } as any,
 });
 
+const makeRepeatProjectionScheduleEvent = (
+  plannedForDay?: string,
+  id = 'repeat_cfg_with_underscores_2026-07-04',
+): ScheduleEvent => ({
+  id,
+  type: SVEType.RepeatProjection,
+  style: '',
+  startHours: 10,
+  timeLeftInHours: 1,
+  plannedForDay,
+  data: {
+    id: 'repeat_cfg_with_underscores',
+    title: 'Repeated task',
+  } as any,
+});
+
 describe('ScheduleEventComponent – isReferenceCalendar', () => {
   let fixture: ComponentFixture<ScheduleEventComponent>;
   let component: ScheduleEventComponent;
@@ -146,6 +162,71 @@ describe('ScheduleEventComponent – isReferenceCalendar', () => {
         // calMenuTrigger is undefined when MatMenuTrigger is not resolved – openMenu was never called
         expect(trigger).toBeUndefined();
       }
+    });
+  });
+
+  describe('clickHandler – repeat projection target date', () => {
+    it('uses plannedForDay when the repeat configuration id contains underscores', async () => {
+      fixture.componentRef.setInput(
+        'event',
+        makeRepeatProjectionScheduleEvent('2026-07-04'),
+      );
+
+      await component.clickHandler(new MouseEvent('click'));
+
+      expect(matDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+        data: {
+          repeatCfg: jasmine.objectContaining({
+            id: 'repeat_cfg_with_underscores',
+          }),
+          targetDate: '2026-07-04',
+        },
+      });
+    });
+
+    it('falls back to a strict date suffix when plannedForDay is absent', async () => {
+      fixture.componentRef.setInput('event', makeRepeatProjectionScheduleEvent());
+
+      await component.clickHandler(new MouseEvent('click'));
+
+      expect(matDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+        data: {
+          repeatCfg: jasmine.any(Object),
+          targetDate: '2026-07-04',
+        },
+      });
+    });
+
+    it('does not treat an arbitrary id segment as a target date', async () => {
+      fixture.componentRef.setInput(
+        'event',
+        makeRepeatProjectionScheduleEvent(undefined, 'repeat_cfg_with_underscores'),
+      );
+
+      await component.clickHandler(new MouseEvent('click'));
+
+      expect(matDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+        data: {
+          repeatCfg: jasmine.any(Object),
+          targetDate: undefined,
+        },
+      });
+    });
+
+    it('rejects a calendar-invalid date suffix', async () => {
+      fixture.componentRef.setInput(
+        'event',
+        makeRepeatProjectionScheduleEvent(undefined, 'repeat_cfg_2026-13-40'),
+      );
+
+      await component.clickHandler(new MouseEvent('click'));
+
+      expect(matDialog.open).toHaveBeenCalledWith(jasmine.any(Function), {
+        data: {
+          repeatCfg: jasmine.any(Object),
+          targetDate: undefined,
+        },
+      });
     });
   });
 

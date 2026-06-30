@@ -18,9 +18,26 @@ let userDataDir;
 let installDir;
 let externalDir;
 let nextDialogResult = { canceled: true, filePaths: [] };
+let mutateCopiedTarget = null;
+let isFailSymlinkCreation = false;
 
 const installMocks = () => {
   Module._load = function patchedLoad(request, parent, isMain) {
+    if (request === 'fs') {
+      return {
+        ...fs,
+        cpSync: (source, target, options) => {
+          fs.cpSync(source, target, options);
+          mutateCopiedTarget?.(source, target);
+        },
+        symlinkSync: (...args) => {
+          if (isFailSymlinkCreation) {
+            throw new Error('simulated junction creation failure');
+          }
+          return fs.symlinkSync(...args);
+        },
+      };
+    }
     if (request === 'electron') {
       return {
         ipcMain: {
@@ -82,6 +99,8 @@ test.beforeEach(() => {
     fs.mkdtempSync(path.join(os.tmpdir(), 'sp-install-')),
   );
   externalDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'sp-bak-')));
+  mutateCopiedTarget = null;
+  isFailSymlinkCreation = false;
   installMocks();
   load();
 });
@@ -94,14 +113,19 @@ test.afterEach(() => {
   fs.rmSync(externalDir, { recursive: true, force: true });
 });
 
-test('fresh installs store backups below the selected installation directory', async () => {
+test('fresh installs store backups in the real userData directory', async () => {
   const result = await handlers['GET_BACKUP_PATH_INFO']({});
-  const expected = path.join(installDir, 'backups');
+  const expected = path.join(userDataDir, 'backups');
 
-  assert.equal(result.backupDir, path.join(userDataDir, 'backups'));
-  assert.equal(result.linkTarget, expected);
+  assert.equal(result.backupDir, expected);
+  assert.equal(result.linkTarget, null);
   assert.equal(result.effectiveDir, expected);
   assert.equal(fs.realpathSync.native(result.backupDir), expected);
+  assert.equal(
+    fs.existsSync(path.join(installDir, 'backups')),
+    false,
+    'the installation directory is not used as a data directory',
+  );
 });
 
 test('PICK_BACKUP_LINK_TARGET links the default backup dir to the selected folder', async () => {
@@ -165,12 +189,199 @@ test('PICK_BACKUP_LINK_TARGET migrates existing backup files before linking', as
   assert.equal(fs.realpathSync.native(backupDir), externalDir);
 });
 
+test('PICK_BACKUP_LINK_TARGET merges assets from two non-empty repositories and preserves timestamps', async () => {
+  const backupDir = path.join(userDataDir, 'backups');
+  const sourceAssetsDir = path.join(backupDir, '.assets');
+  const targetAssetsDir = path.join(externalDir, '.assets');
+  const archiveDir = path.join(backupDir, 'archive');
+  const sourceId = 'a'.repeat(32);
+  const targetId = 'b'.repeat(32);
+  const sourceBackupPath = path.join(backupDir, 'old.json');
+  const sourceAssetPath = path.join(sourceAssetsDir, `${sourceId}.png`);
+  const sourceArchivePath = path.join(archiveDir, 'nested.json');
+  const sourceBackupTime = new Date('2020-01-02T03:04:05.000Z');
+  const sourceAssetTime = new Date('2021-02-03T04:05:06.000Z');
+  const sourceArchiveTime = new Date('2022-03-04T05:06:07.000Z');
+  const sourceData = { background: `image:${sourceId}` };
+
+  fs.mkdirSync(sourceAssetsDir);
+  fs.mkdirSync(targetAssetsDir);
+  fs.mkdirSync(archiveDir);
+  fs.writeFileSync(sourceBackupPath, JSON.stringify(sourceData));
+  fs.writeFileSync(sourceAssetPath, 'source-background');
+  fs.writeFileSync(sourceArchivePath, '{"nested":true}');
+  fs.writeFileSync(path.join(externalDir, 'current.json'), '{"current":true}');
+  fs.writeFileSync(path.join(targetAssetsDir, `${targetId}.png`), 'target-background');
+  fs.utimesSync(sourceBackupPath, sourceBackupTime, sourceBackupTime);
+  fs.utimesSync(sourceAssetPath, sourceAssetTime, sourceAssetTime);
+  fs.utimesSync(archiveDir, sourceArchiveTime, sourceArchiveTime);
+  nextDialogResult = { canceled: false, filePaths: [externalDir] };
+
+  const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
+
+  assert.ok(!('error' in result));
+  assert.equal(
+    fs.readFileSync(path.join(externalDir, 'current.json'), 'utf8'),
+    '{"current":true}',
+  );
+  assert.equal(
+    fs.readFileSync(path.join(targetAssetsDir, `${targetId}.png`), 'utf8'),
+    'target-background',
+  );
+  assert.equal(
+    fs.readFileSync(path.join(targetAssetsDir, `${sourceId}.png`), 'utf8'),
+    'source-background',
+  );
+  assert.equal(
+    fs.readdirSync(externalDir).some((name) => name.startsWith('.assets.migrated-')),
+    false,
+  );
+  assert.equal(
+    fs.statSync(path.join(externalDir, 'old.json')).mtime.getTime(),
+    sourceBackupTime.getTime(),
+  );
+  assert.equal(
+    fs.statSync(path.join(targetAssetsDir, `${sourceId}.png`)).mtime.getTime(),
+    sourceAssetTime.getTime(),
+  );
+  assert.equal(
+    fs.statSync(path.join(externalDir, 'archive')).mtime.getTime(),
+    sourceArchiveTime.getTime(),
+  );
+
+  await handlers['BACKUP_LOAD_DATA']({}, path.join(externalDir, 'old.json'));
+
+  assert.equal(
+    fs.readFileSync(path.join(userDataDir, 'bg-images', `${sourceId}.png`), 'utf8'),
+    'source-background',
+  );
+
+  await handlers['BACKUP']({}, { data: { latest: true }, maxBackupFiles: 2 });
+
+  assert.equal(
+    fs.existsSync(path.join(externalDir, 'old.json')),
+    false,
+    'retention recognizes the migrated backup as the oldest file',
+  );
+  assert.equal(fs.existsSync(path.join(externalDir, 'current.json')), true);
+});
+
+test('PICK_BACKUP_LINK_TARGET rejects conflicting asset contents without overwriting either repository', async () => {
+  const backupDir = path.join(userDataDir, 'backups');
+  const sourceAssetsDir = path.join(backupDir, '.assets');
+  const targetAssetsDir = path.join(externalDir, '.assets');
+  const id = 'a'.repeat(32);
+  fs.mkdirSync(sourceAssetsDir);
+  fs.mkdirSync(targetAssetsDir);
+  fs.writeFileSync(path.join(sourceAssetsDir, `${id}.png`), 'source-background');
+  fs.writeFileSync(path.join(targetAssetsDir, `${id}.png`), 'target-background');
+  nextDialogResult = { canceled: false, filePaths: [externalDir] };
+
+  const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
+
+  assert.deepEqual(result, {
+    error: 'Backup folder could not be changed.',
+  });
+  assert.equal(fs.lstatSync(backupDir).isSymbolicLink(), false);
+  assert.equal(
+    fs.readFileSync(path.join(sourceAssetsDir, `${id}.png`), 'utf8'),
+    'source-background',
+  );
+  assert.equal(
+    fs.readFileSync(path.join(targetAssetsDir, `${id}.png`), 'utf8'),
+    'target-background',
+  );
+});
+
+test('PICK_BACKUP_LINK_TARGET keeps all pre-existing collision files', async () => {
+  const backupDir = path.join(userDataDir, 'backups');
+  const fixedNow = 1_750_000_000_000;
+  const originalDateNow = Date.now;
+  fs.writeFileSync(path.join(backupDir, 'old.json'), '{"source":true}');
+  fs.writeFileSync(path.join(externalDir, 'old.json'), '{"existing":1}');
+  fs.writeFileSync(
+    path.join(externalDir, `old.migrated-${fixedNow}.json`),
+    '{"existing":2}',
+  );
+  Date.now = () => fixedNow;
+  nextDialogResult = { canceled: false, filePaths: [externalDir] };
+
+  try {
+    const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
+
+    assert.ok(!('error' in result));
+    assert.equal(
+      fs.readFileSync(path.join(externalDir, 'old.json'), 'utf8'),
+      '{"existing":1}',
+    );
+    assert.equal(
+      fs.readFileSync(path.join(externalDir, `old.migrated-${fixedNow}.json`), 'utf8'),
+      '{"existing":2}',
+    );
+    assert.equal(
+      fs.readFileSync(path.join(externalDir, `old.migrated-${fixedNow}-1.json`), 'utf8'),
+      '{"source":true}',
+    );
+  } finally {
+    Date.now = originalDateNow;
+  }
+});
+
+test('PICK_BACKUP_LINK_TARGET preserves the source when copy verification fails', async () => {
+  const backupDir = path.join(userDataDir, 'backups');
+  const sourceFile = path.join(backupDir, 'old.json');
+  fs.writeFileSync(sourceFile, '{"old":true}');
+  mutateCopiedTarget = (_source, target) => {
+    fs.writeFileSync(target, '{"bad":true}');
+  };
+  load();
+  nextDialogResult = { canceled: false, filePaths: [externalDir] };
+
+  const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
+
+  assert.deepEqual(result, {
+    error: 'Backup folder could not be changed.',
+  });
+  assert.equal(fs.lstatSync(backupDir).isSymbolicLink(), false);
+  assert.equal(fs.readFileSync(sourceFile, 'utf8'), '{"old":true}');
+  assert.equal(
+    fs.existsSync(path.join(externalDir, 'old.json')),
+    false,
+    'a failed verified copy is rolled back from the selected directory',
+  );
+});
+
+test('PICK_BACKUP_LINK_TARGET restores the source when junction creation fails', async () => {
+  const backupDir = path.join(userDataDir, 'backups');
+  const sourceFile = path.join(backupDir, 'old.json');
+  fs.writeFileSync(sourceFile, '{"old":true}');
+  isFailSymlinkCreation = true;
+  load();
+  nextDialogResult = { canceled: false, filePaths: [externalDir] };
+
+  const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
+
+  assert.deepEqual(result, {
+    error: 'Backup folder could not be changed.',
+  });
+  assert.equal(fs.lstatSync(backupDir).isSymbolicLink(), false);
+  assert.equal(fs.readFileSync(sourceFile, 'utf8'), '{"old":true}');
+});
+
 test('PICK_BACKUP_LINK_TARGET migrates files from an existing linked target', async () => {
   const replacementDir = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'sp-bak-replacement-')),
   );
   try {
-    fs.writeFileSync(path.join(installDir, 'backups', 'old.json'), '{"old":true}');
+    const backupDir = path.join(userDataDir, 'backups');
+    fs.rmSync(backupDir, { recursive: true, force: true });
+    fs.symlinkSync(
+      externalDir,
+      backupDir,
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
+    fs.writeFileSync(path.join(externalDir, 'old.json'), '{"old":true}');
+    load();
     nextDialogResult = { canceled: false, filePaths: [replacementDir] };
 
     const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
@@ -202,9 +413,27 @@ test('PICK_BACKUP_LINK_TARGET returns a serializable error result', async () => 
   });
 });
 
+test('PICK_BACKUP_LINK_TARGET rejects an ancestor of userData', async () => {
+  nextDialogResult = {
+    canceled: false,
+    filePaths: [path.dirname(userDataDir)],
+  };
+
+  const result = await handlers['PICK_BACKUP_LINK_TARGET']({});
+
+  assert.deepEqual(result, {
+    error: 'Backup folder could not be changed.',
+  });
+  assert.equal(
+    fs.lstatSync(path.join(userDataDir, 'backups')).isSymbolicLink(),
+    false,
+    'the default backup directory must not become a self-containing link',
+  );
+});
+
 test('automatic backup restores referenced managed backgrounds with the JSON data', async () => {
   const id = 'a'.repeat(32);
-  const imageDir = path.join(installDir, 'bg-images');
+  const imageDir = path.join(userDataDir, 'bg-images');
   const imagePath = path.join(imageDir, `${id}.png`);
   fs.mkdirSync(imageDir, { recursive: true });
   fs.writeFileSync(imagePath, 'background-bytes');
@@ -216,14 +445,14 @@ test('automatic backup restores referenced managed backgrounds with the JSON dat
 
   await handlers['BACKUP']({}, { data, maxBackupFiles: 20 });
   const backupName = fs
-    .readdirSync(path.join(installDir, 'backups'))
+    .readdirSync(path.join(userDataDir, 'backups'))
     .find((name) => name.endsWith('.json'));
   assert.ok(backupName);
   assert.equal(
-    fs.existsSync(path.join(installDir, 'backups', '.assets', `${id}.png`)),
+    fs.existsSync(path.join(userDataDir, 'backups', '.assets', `${id}.png`)),
     true,
   );
-  const assetDir = path.join(installDir, 'backups', '.assets');
+  const assetDir = path.join(userDataDir, 'backups', '.assets');
   const future = new Date(Date.now() + 5_000);
   fs.utimesSync(assetDir, future, future);
   const latest = await handlers['BACKUP_IS_AVAILABLE']({});
@@ -234,4 +463,20 @@ test('automatic backup restores referenced managed backgrounds with the JSON dat
   await handlers['BACKUP_LOAD_DATA']({}, path.join(userDataDir, 'backups', backupName));
 
   assert.equal(fs.readFileSync(imagePath, 'utf8'), 'background-bytes');
+});
+
+test('migration safety backup surfaces write failures to its caller', async () => {
+  const backupDir = path.join(userDataDir, 'backups');
+  fs.rmSync(backupDir, { recursive: true, force: true });
+  fs.writeFileSync(backupDir, 'not-a-directory');
+
+  await assert.rejects(
+    handlers['BACKUP'](
+      {},
+      {
+        data: { ok: true },
+        isThrowOnError: true,
+      },
+    ),
+  );
 });

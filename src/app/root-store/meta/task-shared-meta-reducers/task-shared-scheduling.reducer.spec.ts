@@ -37,6 +37,34 @@ describe('taskSharedSchedulingMetaReducer', () => {
     jasmine.clock().uninstall();
   });
 
+  describe('materializeTaskRepeatCfgInstance action', () => {
+    it('schedules the materialized task within the same atomic dispatch', () => {
+      const dueWithTime = new Date(2024, 5, 15, 14, 5).getTime();
+      const testState = createStateWithExistingTasks(['task1'], [], ['task1'], []);
+      const action = {
+        type: '[Task Shared] materializeTaskRepeatCfgInstance',
+        task: createMockTask(),
+        dueWithTime,
+        isMoveToBacklog: false,
+      };
+
+      metaReducer(testState, action);
+
+      expectStateUpdate(
+        {
+          ...expectTaskUpdate('task1', {
+            dueWithTime,
+            dueDay: undefined,
+          }),
+          ...expectTagUpdate('TODAY', { taskIds: ['task1'] }),
+        },
+        action,
+        mockReducer,
+        testState,
+      );
+    });
+  });
+
   describe('scheduleTaskWithTime action', () => {
     const createScheduleAction = (
       taskOverrides: Partial<Task> = {},

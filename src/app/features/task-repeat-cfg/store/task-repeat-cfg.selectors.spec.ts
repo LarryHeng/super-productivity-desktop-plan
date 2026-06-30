@@ -52,6 +52,25 @@ const dummyRepeatable = (id: string, fields: Partial<TaskRepeatCfg>): TaskRepeat
 
 describe('selectTaskRepeatCfgsDueOnDay', () => {
   describe('for DAILY', () => {
+    it('returns a config with an unprocessed occurrence on its end date', () => {
+      const result = selectAllUnprocessedTaskRepeatCfgs.projector(
+        [
+          dummyRepeatable('R1', {
+            repeatCycle: 'DAILY',
+            repeatEvery: 1,
+            startDate: '2026-07-01',
+            lastTaskCreationDay: '2026-07-03',
+            endDate: '2026-07-04',
+          }),
+        ],
+        {
+          dayDate: dateStrToUtcDate('2026-07-06').getTime(),
+        },
+      );
+
+      expect(result.map((item) => item.id)).toEqual(['R1']);
+    });
+
     it('should return cfg for a far future task', () => {
       const result = selectTaskRepeatCfgsForExactDay.projector(
         [

@@ -293,16 +293,17 @@ describe('validateOperationPayload', () => {
       expect(result.warnings).toBeUndefined();
     });
 
-    it('should validate TIME_TRACKING UPDATE with actual segment shape', () => {
+    it('should validate TIME_TRACKING UPDATE with a manual segment source', () => {
       const op = createTestOperation({
         opType: OpType.Update,
         entityType: 'TIME_TRACKING' as EntityType,
-        entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000',
+        entityId: 'TASK_SEGMENT:2026-06-27:task-1:1000:2000:manual',
         payload: {
           taskId: 'task-1',
           date: '2026-06-27',
           start: 1_000,
           end: 2_000,
+          source: 'manual',
         },
       });
 

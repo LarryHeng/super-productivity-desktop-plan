@@ -7,8 +7,8 @@ test.describe('Schedule overlap', () => {
   }) => {
     await workViewPage.waitForTaskList();
 
-    // Navigate to schedule view
-    await page.getByRole('menuitem', { name: 'Schedule' }).click();
+    // Navigate to the timeline view.
+    await page.getByRole('menuitem', { name: 'Timeline' }).click();
 
     const addTask = async (taskDescription: string): Promise<void> => {
       // Last day is far enough into the future to avoid any created tasks
@@ -25,7 +25,7 @@ test.describe('Schedule overlap', () => {
       });
 
       const newTaskInput = page.getByRole('combobox', { name: 'Schedule task...' });
-      await newTaskInput.fill(taskDescription);
+      await newTaskInput.fill(`${taskDescription} 25m`);
       await newTaskInput.press('Enter');
     };
 

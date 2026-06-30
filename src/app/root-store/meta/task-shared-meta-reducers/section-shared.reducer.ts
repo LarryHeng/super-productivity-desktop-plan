@@ -19,6 +19,7 @@ import { WorkContextType } from '../../../features/work-context/work-context.mod
 import { TODAY_TAG } from '../../../features/tag/tag.const';
 import { moveItemAfterAnchor } from '../../../features/work-context/store/work-context-meta.helper';
 import { canApplyConvertToSubTask } from '../../../features/tasks/util/can-convert-task-to-sub-task';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 
 // Must run before taskSharedCrudMetaReducer — handlers read pre-update
 // task state to compute cleanups. Position pinned by
@@ -311,6 +312,26 @@ const ACTION_HANDLERS: Record<string, Handler> = {
   [TaskSharedActions.deleteTasks.type]: (state, action) => {
     const { taskIds } = action as ReturnType<typeof TaskSharedActions.deleteTasks>;
     return handleTaskRemoval(state, taskIds);
+  },
+  [TaskSharedActions.stopTaskRepeatCfgFromDate.type]: (state, action) => {
+    const { taskRepeatCfgId, stopDate, taskIds } = action as ReturnType<
+      typeof TaskSharedActions.stopTaskRepeatCfgFromDate
+    >;
+    const replayDiscoveredTaskIds = (state[TASK_FEATURE_NAME].ids as string[]).filter(
+      (taskId) => {
+        const task = state[TASK_FEATURE_NAME].entities[taskId];
+        return (
+          !!task &&
+          !task.parentId &&
+          task.repeatCfgId === taskRepeatCfgId &&
+          getDbDateStr(task.created) >= stopDate
+        );
+      },
+    );
+    return handleTaskRemoval(
+      state,
+      Array.from(new Set([...taskIds, ...replayDiscoveredTaskIds])),
+    );
   },
   [TaskSharedActions.moveToArchive.type]: (state, action) => {
     // Strip archived task ids from sections. Restore is intentionally

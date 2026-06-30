@@ -11,6 +11,7 @@ import {
   hasNthWeekdayAnchor,
 } from './get-nth-weekday-of-month.util';
 import { Log } from '../../../core/log';
+import { getDbDateStr } from '../../../util/get-db-date-str';
 
 export const getNextRepeatOccurrence = (
   taskRepeatCfg: TaskRepeatCfg,
@@ -52,6 +53,8 @@ export const getNextRepeatOccurrence = (
   // via its own `candidate >= checkDate` predicate (checkDate === fromDate in
   // inclusive mode), so it does not use `fromDateFloor`.
   const fromDateFloor = inclusive ? new Date(checkDate) : null;
+  const isPastEndDate = (date: Date): boolean =>
+    !!taskRepeatCfg.endDate && getDbDateStr(date) > taskRepeatCfg.endDate;
 
   if (inclusive) {
     // Relocating an existing instance: ignore prior-creation gating entirely so
@@ -72,6 +75,9 @@ export const getNextRepeatOccurrence = (
       const maxDaysToCheck = 365 * 2; // reasonable limit
 
       for (let i = 0; i < maxDaysToCheck; i++) {
+        if (isPastEndDate(checkDate)) {
+          return null;
+        }
         const diffInDays = getDiffInDays(startDateDate, checkDate);
         if (diffInDays >= 0 && diffInDays % taskRepeatCfg.repeatEvery === 0) {
           return checkDate;
@@ -85,6 +91,9 @@ export const getNextRepeatOccurrence = (
       const maxDaysToCheck = 365 * 2; // reasonable limit
 
       for (let i = 0; i < maxDaysToCheck; i++) {
+        if (isPastEndDate(checkDate)) {
+          return null;
+        }
         const diffInWeeks = getDiffInWeeks(startDateDate, checkDate);
         const todayDay = checkDate.getDay();
         const todayDayStr = TASK_REPEAT_WEEKDAY_MAP[
@@ -115,6 +124,7 @@ export const getNextRepeatOccurrence = (
             const diffInMonth = getDiffInMonth(startDateDate, cursor);
             return (
               candidate >= checkDate &&
+              !isPastEndDate(candidate) &&
               diffInMonth >= 0 &&
               diffInMonth % taskRepeatCfg.repeatEvery === 0
             );
@@ -150,6 +160,9 @@ export const getNextRepeatOccurrence = (
       setDateSafely(checkDate, dayOfMonthRepeat);
 
       for (let i = 0; i < maxMonthsToCheck; i++) {
+        if (isPastEndDate(checkDate)) {
+          return null;
+        }
         const diffInMonth = getDiffInMonth(startDateDate, checkDate);
 
         if (
@@ -198,6 +211,9 @@ export const getNextRepeatOccurrence = (
       }
 
       for (let i = 0; i < maxYearsToCheck; i++) {
+        if (isPastEndDate(checkDate)) {
+          return null;
+        }
         const diffInYears = getDiffInYears(startDateDate, checkDate);
 
         if (

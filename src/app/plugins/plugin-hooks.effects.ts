@@ -189,7 +189,10 @@ export class PluginHooksEffects {
   tasksDelete$ = createEffect(
     () =>
       this.actions$.pipe(
-        ofType(TaskSharedActions.deleteTasks),
+        ofType(
+          TaskSharedActions.deleteTasks,
+          TaskSharedActions.stopTaskRepeatCfgFromDate,
+        ),
         tap((action) => {
           this.pluginService.dispatchHook(PluginHooks.TASK_DELETE, {
             taskIds: action.taskIds,
@@ -202,7 +205,11 @@ export class PluginHooksEffects {
   taskAdd$ = createEffect(
     () =>
       this.actions$.pipe(
-        ofType(TaskSharedActions.addTask, addSubTask),
+        ofType(
+          TaskSharedActions.addTask,
+          TaskSharedActions.materializeTaskRepeatCfgInstance,
+          addSubTask,
+        ),
         switchMap((action) =>
           this.store.pipe(
             select(selectTaskById, { id: action.task.id }),
@@ -266,6 +273,8 @@ export class PluginHooksEffects {
           TaskSharedActions.updateTask,
           TaskSharedActions.deleteTask,
           TaskSharedActions.deleteTasks,
+          TaskSharedActions.stopTaskRepeatCfgFromDate,
+          TaskSharedActions.materializeTaskRepeatCfgInstance,
           // Include subtask move actions
           moveSubTask,
           moveSubTaskUp,
@@ -321,6 +330,8 @@ export class PluginHooksEffects {
           TaskSharedActions.addTask,
           TaskSharedActions.deleteTask,
           TaskSharedActions.deleteTasks,
+          TaskSharedActions.stopTaskRepeatCfgFromDate,
+          TaskSharedActions.materializeTaskRepeatCfgInstance,
           TaskSharedActions.moveToOtherProject,
           // Project task list actions
           projectActions.moveProjectTaskToBacklogListAuto,
