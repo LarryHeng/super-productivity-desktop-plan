@@ -140,6 +140,12 @@ export interface TaskCopy
   remindAt?: number;
   repeatCfgId?: string;
   /**
+   * Permanent origin repeat config ID. Persists even after repeatCfgId is cleared
+   * (e.g. when the config is deleted) so that stop-from-date operations can still
+   * identify and remove the already-unlinked occurrences. Never cleared once set.
+   */
+  repeatOriginCfgId?: string;
+  /**
    * Immutable logical day for a generated repeat occurrence.
    * Unlike `dueDay` and `created`, this survives scheduling and timezone changes.
    */

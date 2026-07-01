@@ -467,7 +467,9 @@ export class ArchiveOperationHandler implements ArchiveSideEffectPort<Persistent
       if (
         !task ||
         task.parentId ||
-        task.repeatCfgId !== taskRepeatCfgId ||
+        (task.repeatCfgId !== taskRepeatCfgId &&
+          task.repeatOriginCfgId !== taskRepeatCfgId &&
+          !task.id.startsWith(`rpt_${taskRepeatCfgId}_`)) ||
         getTaskRepeatOccurrenceDay(task) < stopDate
       ) {
         return [];

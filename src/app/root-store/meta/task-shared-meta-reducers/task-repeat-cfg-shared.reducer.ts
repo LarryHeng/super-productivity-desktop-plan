@@ -25,10 +25,15 @@ const handleDeleteTaskRepeatCfg = (state: RootState, repeatCfgId: string): RootS
     return state;
   }
 
-  // Clear repeatCfgId from all found tasks
+  // Clear repeatCfgId but preserve repeatOriginCfgId so that concurrent
+  // stop-from-date operations can still identify and remove these occurrences.
   const taskUpdates: Update<Task>[] = taskIdsToUnlink.map((id) => ({
     id,
-    changes: { repeatCfgId: undefined },
+    changes: {
+      repeatCfgId: undefined,
+      repeatOriginCfgId:
+        taskState.entities[id]?.repeatOriginCfgId ?? taskState.entities[id]?.repeatCfgId,
+    },
   }));
 
   return {

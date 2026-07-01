@@ -2,9 +2,10 @@ import { expect, test } from '../../fixtures/test.fixture';
 import {
   gotoHashRoute,
   openRecurDialog,
-  openRecurDialogFromProjection,
+  openRecurDialogFromFutureProjection,
   saveRecurDialog,
   setRecurStartDate,
+  unscheduleTaskFromContextMenu,
 } from '../../utils/recurring-task-helpers';
 
 /**
@@ -51,8 +52,14 @@ test.describe('Recurring Task - Move Start Date Earlier With No Live Instance (#
 
     // 1. Create the task and make it recurring (daily) starting May 4, 2026.
     await workViewPage.addTask(taskTitle);
+    await gotoHashRoute(
+      page,
+      '/#/project/INBOX_PROJECT/tasks',
+      page.locator('task').filter({ hasText: taskTitle }).first(),
+    );
     const task = taskPage.getTaskByText(taskTitle).first();
     await expect(task).toBeVisible({ timeout: 10000 });
+    await unscheduleTaskFromContextMenu(page, task);
     await taskPage.openTaskDetail(task);
     await openRecurDialog(page);
     await setRecurStartDate(page, '04/05/2026');
@@ -81,24 +88,26 @@ test.describe('Recurring Task - Move Start Date Earlier With No Live Instance (#
 
     // 3. Re-open the repeat config from a transparent projection and move
     //    startDate to May 2 — earlier than the stale anchor (May 4).
-    await gotoHashRoute(
-      page,
-      '/#/planner',
-      page.locator('planner-repeat-projection').filter({ hasText: taskTitle }).first(),
-    );
-    await openRecurDialogFromProjection(page, taskTitle);
+    await openRecurDialogFromFutureProjection(page, taskTitle);
     await setRecurStartDate(page, '02/05/2026');
     await saveRecurDialog(page);
 
     // 4. Verify: the task now projects onto May 2, 3 and 4 — the days the stale
     //    anchor used to suppress. May 5 is the control (it projected pre-fix
     //    too). No live instance was recreated, so every day is a projection.
-    await gotoHashRoute(page, '/#/planner', page.locator('planner-day').first());
-
-    for (const date of [/^2\/5$/, /^3\/5$/, /^4\/5$/, /^5\/5$/]) {
-      const day = page
-        .locator('planner-day')
-        .filter({ has: page.locator('.date', { hasText: date }) });
+    const returnToday = page.getByRole('button', { name: /Return to Today/i });
+    if (await returnToday.isEnabled()) {
+      await returnToday.click();
+    }
+    for (const date of ['2026-05-02', '2026-05-03']) {
+      const day = page.locator(`planner-day[data-day="${date}"]`);
+      await expect(
+        day.locator('planner-repeat-projection').filter({ hasText: taskTitle }),
+      ).toHaveCount(1, { timeout: 15000 });
+    }
+    await page.getByRole('button', { name: /Next week/i }).click();
+    for (const date of ['2026-05-04', '2026-05-05']) {
+      const day = page.locator(`planner-day[data-day="${date}"]`);
       await expect(
         day.locator('planner-repeat-projection').filter({ hasText: taskTitle }),
       ).toHaveCount(1, { timeout: 15000 });

@@ -323,7 +323,9 @@ const ACTION_HANDLERS: Record<string, Handler> = {
         return (
           !!task &&
           !task.parentId &&
-          task.repeatCfgId === taskRepeatCfgId &&
+          (task.repeatCfgId === taskRepeatCfgId ||
+            task.repeatOriginCfgId === taskRepeatCfgId ||
+            task.id.startsWith(`rpt_${taskRepeatCfgId}_`)) &&
           getDbDateStr(task.created) >= stopDate
         );
       },

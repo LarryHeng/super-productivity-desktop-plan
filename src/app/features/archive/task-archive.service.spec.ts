@@ -582,8 +582,14 @@ describe('TaskArchiveService', () => {
 
       expect(service.updateTasks).toHaveBeenCalledWith(
         [
-          { id: 'task1', changes: { repeatCfgId: undefined } },
-          { id: 'task2', changes: { repeatCfgId: undefined } },
+          {
+            id: 'task1',
+            changes: { repeatCfgId: undefined, repeatOriginCfgId: 'repeat1' },
+          },
+          {
+            id: 'task2',
+            changes: { repeatCfgId: undefined, repeatOriginCfgId: 'repeat1' },
+          },
         ],
         { isSkipDispatch: true, isIgnoreDBLock: undefined },
       );

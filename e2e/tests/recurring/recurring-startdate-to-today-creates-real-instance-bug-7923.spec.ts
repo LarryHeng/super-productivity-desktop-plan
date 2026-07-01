@@ -2,9 +2,10 @@ import { expect, test } from '../../fixtures/test.fixture';
 import {
   gotoHashRoute,
   openRecurDialog,
-  openRecurDialogFromProjection,
+  openRecurDialogFromFutureProjection,
   saveRecurDialog,
   setRecurStartDate,
+  unscheduleTaskFromContextMenu,
 } from '../../utils/recurring-task-helpers';
 
 /**
@@ -55,8 +56,14 @@ test.describe('Recurring Task - Move startDate to Today Creates Real Instance (#
     // 1. Create the task and make it recurring (daily) starting May 10 (9 days
     //    in the future). This materialises a live instance for May 10.
     await workViewPage.addTask(taskTitle);
+    await gotoHashRoute(
+      page,
+      '/#/project/INBOX_PROJECT/tasks',
+      page.locator('task').filter({ hasText: taskTitle }).first(),
+    );
     const task = taskPage.getTaskByText(taskTitle).first();
     await expect(task).toBeVisible({ timeout: 10000 });
+    await unscheduleTaskFromContextMenu(page, task);
     await taskPage.openTaskDetail(task);
     await openRecurDialog(page);
     await setRecurStartDate(page, FUTURE_START_DDMMYYYY);
@@ -82,12 +89,7 @@ test.describe('Recurring Task - Move startDate to Today Creates Real Instance (#
     //    (starting May 10, since lastTaskCreationDay = May 10 suppresses earlier
     //    days). Open the projection for May 11 and change startDate to today
     //    (May 1) — the exact scenario from issue #7923.
-    await gotoHashRoute(
-      page,
-      '/#/planner',
-      page.locator('planner-repeat-projection').filter({ hasText: taskTitle }).first(),
-    );
-    await openRecurDialogFromProjection(page, taskTitle);
+    await openRecurDialogFromFutureProjection(page, taskTitle);
     await setRecurStartDate(page, FIXED_TODAY_DDMMYYYY); // Move startDate → today
     await saveRecurDialog(page);
 

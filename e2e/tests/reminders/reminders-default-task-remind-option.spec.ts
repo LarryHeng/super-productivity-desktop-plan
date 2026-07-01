@@ -130,14 +130,15 @@ test.describe('Default task reminder option', () => {
     // Wait for the global add-task input to be available
     await addTaskInput.waitFor({ state: 'visible', timeout: 15000 });
     await addTaskInput.fill('due task 25m @at 1pm');
-    await addTaskInput.press('Enter');
+    await page.locator('.e2e-add-task-submit').click();
 
-    // Close the add-task bar by clicking the backdrop
+    // Short-syntax autocomplete can leave a Material menu above the add-bar
+    // backdrop. Close the stacked overlays with Escape in the same order as a user.
+    await workViewPage.ensureOverlaysClosed();
     const backdrop = page.locator('.backdrop');
-    const backdropVisible = await backdrop.isVisible().catch(() => false);
-    if (backdropVisible) {
-      await backdrop.click();
-      await backdrop.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+    if (await backdrop.isVisible().catch(() => false)) {
+      await backdrop.click({ force: true });
+      await backdrop.waitFor({ state: 'hidden', timeout: 5000 });
     }
 
     // Wait for task to be created and reschedule button to appear

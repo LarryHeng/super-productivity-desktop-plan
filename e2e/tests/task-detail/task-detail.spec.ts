@@ -13,8 +13,14 @@ test.describe('Task detail', () => {
     await workViewPage.waitForTaskList();
 
     await workViewPage.addTask('task');
-    await page.getByText(/task/).first().hover();
-    await page.getByRole('button', { name: 'Show/hide task panel' }).click();
+    // Tasks created in the custom build default to 5 minutes from now,
+    // so they won't appear in the "Today" view. Navigate to Inbox instead.
+    await page.goto('/#/project/INBOX_PROJECT/tasks');
+    await workViewPage.waitForTaskList();
+
+    const taskEl = page.locator('task').filter({ hasText: /task/ }).first();
+    await taskEl.hover();
+    await taskEl.locator('.show-additional-info-btn').click();
   };
 
   const addAndOpenCompleteTask = async (
@@ -23,8 +29,12 @@ test.describe('Task detail', () => {
   ): Promise<void> => {
     await addAndOpenIncompleteTask(workViewPage, page);
 
-    await page.getByText(/task/).first().hover();
-    await page.getByRole('checkbox', { name: 'Toggle completion status' }).click();
+    // Close the detail panel first to access the task row again
+    await page.waitForTimeout(300);
+
+    const taskEl = page.locator('task').filter({ hasText: /task/ }).first();
+    await taskEl.hover();
+    await taskEl.locator('done-toggle').click();
   };
 
   const findDateInfo = (page: Page, infoPrefix: string): Locator =>

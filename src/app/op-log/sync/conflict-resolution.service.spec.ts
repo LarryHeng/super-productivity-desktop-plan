@@ -2795,6 +2795,360 @@ describe('ConflictResolutionService', () => {
       );
     });
 
+    it('legacy remote HRS stop without taskRepeatCfgSnapshot wins against local DELETE and gets snapshot extracted from local DELETE payload', async () => {
+      // Legacy HRS stop operations (from earlier builds) did not carry
+      // taskRepeatCfgSnapshot. When the local side has already deleted the
+      // repeat config, getCurrentEntityState returns undefined. We must
+      // extract the snapshot from the local DELETE op's payload instead.
+      const repeatCfgEntity = {
+        id: 'repeat-cfg-1',
+        title: 'Deleted repeat config',
+        endDate: '2026-07-03',
+        tagIds: ['tag-a'],
+        projectId: 'proj-x',
+      };
+      const localDelete: Operation = {
+        id: 'local-delete',
+        clientId: 'client-a',
+        actionType: ActionType.REPEAT_CFG_UPDATE,
+        opType: OpType.Delete,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: { taskRepeatCfg: repeatCfgEntity },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-a']: 1 },
+        timestamp: 1_000,
+        schemaVersion: 1,
+      };
+      // Legacy stop from remote: no taskRepeatCfgSnapshot
+      const legacyRemoteStop: Operation = {
+        id: 'remote-legacy-stop',
+        clientId: 'client-b',
+        actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+        opType: OpType.Update,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: {
+            taskRepeatCfgId: 'repeat-cfg-1',
+            stopDate: '2026-07-04',
+            endDate: '2026-07-03',
+            taskIds: ['repeat-task-1'],
+            archivedTaskIds: [],
+            // NOTE: no taskRepeatCfgSnapshot — this is the legacy case
+          },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-b']: 1 },
+        timestamp: 2_000,
+        schemaVersion: 1,
+      };
+
+      // Entity state is undefined (already deleted locally)
+      mockStore.select.and.returnValue(of(undefined));
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [legacyRemoteStop],
+      });
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localDelete], [legacyRemoteStop]),
+      ]);
+
+      // Remote stop wins (HRS stop beats DELETE)
+      expect(result.localWinOpsCreated).toBe(0);
+      // The applied stop op must have a taskRepeatCfgSnapshot extracted from local DELETE payload
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [
+          jasmine.objectContaining({
+            actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+            payload: jasmine.objectContaining({
+              actionPayload: jasmine.objectContaining({
+                taskRepeatCfgSnapshot: jasmine.objectContaining({
+                  id: 'repeat-cfg-1',
+                  title: 'Deleted repeat config',
+                }),
+              }),
+            }),
+          }),
+        ],
+        jasmine.any(Object),
+      );
+    });
+
+    it('legacy remote HRS stop without taskRepeatCfgSnapshot wins against local DELETE with flat payload', async () => {
+      // Same as above but with a flat local DELETE payload (no MultiEntityPayload wrapping)
+      const repeatCfgEntity = {
+        id: 'repeat-cfg-1',
+        title: 'Flat deleted cfg',
+        endDate: '2026-07-03',
+      };
+      const localDelete: Operation = {
+        id: 'local-delete-flat',
+        clientId: 'client-a',
+        actionType: ActionType.REPEAT_CFG_UPDATE,
+        opType: OpType.Delete,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: { taskRepeatCfg: repeatCfgEntity },
+        vectorClock: { ['client-a']: 1 },
+        timestamp: 1_000,
+        schemaVersion: 1,
+      };
+      const legacyRemoteStop: Operation = {
+        id: 'remote-legacy-stop-flat',
+        clientId: 'client-b',
+        actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+        opType: OpType.Update,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: {
+            taskRepeatCfgId: 'repeat-cfg-1',
+            stopDate: '2026-07-04',
+            endDate: '2026-07-03',
+            taskIds: ['repeat-task-2'],
+            archivedTaskIds: [],
+          },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-b']: 1 },
+        timestamp: 2_000,
+        schemaVersion: 1,
+      };
+
+      mockStore.select.and.returnValue(of(undefined));
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [legacyRemoteStop],
+      });
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localDelete], [legacyRemoteStop]),
+      ]);
+
+      expect(result.localWinOpsCreated).toBe(0);
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [
+          jasmine.objectContaining({
+            actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+            payload: jasmine.objectContaining({
+              actionPayload: jasmine.objectContaining({
+                taskRepeatCfgSnapshot: jasmine.objectContaining({
+                  id: 'repeat-cfg-1',
+                  title: 'Flat deleted cfg',
+                }),
+              }),
+            }),
+          }),
+        ],
+        jasmine.any(Object),
+      );
+    });
+
+    it('legacy local HRS stop without taskRepeatCfgSnapshot wins and gets snapshot from local DELETE sibling op', async () => {
+      // Local side: a legacy stop (no snapshot) AND a cfg DELETE — sibling ops.
+      // When the local stop wins, it must get the snapshot from the sibling DELETE.
+      const repeatCfgEntity = {
+        id: 'repeat-cfg-1',
+        title: 'Stopped sibling cfg',
+        endDate: '2026-07-03',
+      };
+      const legacyLocalStop: Operation = {
+        id: 'local-legacy-stop',
+        clientId: 'client-a',
+        actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+        opType: OpType.Update,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: {
+            taskRepeatCfgId: 'repeat-cfg-1',
+            stopDate: '2026-07-04',
+            endDate: '2026-07-03',
+            taskIds: ['repeat-task-3'],
+            archivedTaskIds: [],
+            // NOTE: no taskRepeatCfgSnapshot
+          },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-a']: 1 },
+        timestamp: 2_000,
+        schemaVersion: 1,
+      };
+      const localDelete: Operation = {
+        id: 'local-delete-sibling',
+        clientId: 'client-a',
+        actionType: ActionType.REPEAT_CFG_UPDATE,
+        opType: OpType.Delete,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: { taskRepeatCfg: repeatCfgEntity },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-a']: 2 },
+        timestamp: 1_500,
+        schemaVersion: 1,
+      };
+      const remoteUpdate = createCfgUpdateOp('remote-update', 'client-b', 1_000);
+
+      // Entity state is undefined (deleted locally)
+      mockStore.select.and.returnValue(of(undefined));
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([legacyLocalStop, localDelete], [remoteUpdate]),
+      ]);
+
+      // Local stop wins (HRS stop beats UPDATE)
+      expect(result.localWinOpsCreated).toBe(1);
+      // The local-win stop op must have a taskRepeatCfgSnapshot extracted from local DELETE payload
+      expect(mockOpLogStore.appendWithVectorClockUpdate).toHaveBeenCalledWith(
+        jasmine.objectContaining({
+          actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+          entityType: 'TASK_REPEAT_CFG',
+          entityId: 'repeat-cfg-1',
+          payload: jasmine.objectContaining({
+            actionPayload: jasmine.objectContaining({
+              taskRepeatCfgSnapshot: jasmine.objectContaining({
+                id: 'repeat-cfg-1',
+                title: 'Stopped sibling cfg',
+              }),
+            }),
+          }),
+        }),
+        'local',
+      );
+    });
+
+    it('legacy remote HRS stop without taskRepeatCfgSnapshot: falls back to remote snapshot when local DELETE has no entity payload', async () => {
+      // When the local DELETE is a bulk deleteTasks (only taskIds, no entity),
+      // we cannot extract a snapshot from local. The remote stop's own payload
+      // (even without snapshot) is the best we have — the stop should still apply.
+      const localDelete: Operation = {
+        id: 'local-bulk-delete',
+        clientId: 'client-a',
+        actionType: ActionType.REPEAT_CFG_UPDATE,
+        opType: OpType.Delete,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: { taskIds: ['repeat-cfg-1'] },
+        vectorClock: { ['client-a']: 1 },
+        timestamp: 1_000,
+        schemaVersion: 1,
+      };
+      const legacyRemoteStop: Operation = {
+        id: 'remote-legacy-bulk',
+        clientId: 'client-b',
+        actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+        opType: OpType.Update,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: {
+            taskRepeatCfgId: 'repeat-cfg-1',
+            stopDate: '2026-07-04',
+            endDate: '2026-07-03',
+            taskIds: ['repeat-task-4'],
+            archivedTaskIds: [],
+          },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-b']: 1 },
+        timestamp: 2_000,
+        schemaVersion: 1,
+      };
+
+      mockStore.select.and.returnValue(of(undefined));
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [legacyRemoteStop],
+      });
+
+      const result = await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localDelete], [legacyRemoteStop]),
+      ]);
+
+      expect(result.localWinOpsCreated).toBe(0);
+      // The stop still applies successfully even though we couldn't add a snapshot
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [
+          jasmine.objectContaining({
+            actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+            id: 'remote-legacy-bulk',
+          }),
+        ],
+        jasmine.any(Object),
+      );
+    });
+
+    it('legacy remote HRS stop wins against local DELETE: action type stays HRS stop, not converted to LWW Update', async () => {
+      // Regression test: ensure _convertToLWWUpdatesIfNeeded does NOT convert
+      // HRS stop actions to LWW Update even when local has a DELETE with entity.
+      const repeatCfgEntity = {
+        id: 'repeat-cfg-1',
+        title: 'Stop-wins entity',
+      };
+      const localDelete: Operation = {
+        id: 'local-del-stopwins',
+        clientId: 'client-a',
+        actionType: ActionType.REPEAT_CFG_UPDATE,
+        opType: OpType.Delete,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: { taskRepeatCfg: repeatCfgEntity },
+        vectorClock: { ['client-a']: 1 },
+        timestamp: 1_000,
+        schemaVersion: 1,
+      };
+      const legacyRemoteStop: Operation = {
+        id: 'remote-stop-wins',
+        clientId: 'client-b',
+        actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+        opType: OpType.Update,
+        entityType: 'TASK_REPEAT_CFG',
+        entityId: 'repeat-cfg-1',
+        payload: {
+          actionPayload: {
+            taskRepeatCfgId: 'repeat-cfg-1',
+            stopDate: '2026-07-04',
+            endDate: '2026-07-03',
+            taskIds: ['repeat-task-5'],
+            archivedTaskIds: [],
+          },
+          entityChanges: [],
+        },
+        vectorClock: { ['client-b']: 1 },
+        timestamp: 2_000,
+        schemaVersion: 1,
+      };
+
+      mockStore.select.and.returnValue(of(undefined));
+      mockOperationApplier.applyOperations.and.resolveTo({
+        appliedOps: [legacyRemoteStop],
+      });
+
+      await service.autoResolveConflictsLWW([
+        createRepeatCfgConflict([localDelete], [legacyRemoteStop]),
+      ]);
+
+      // Must NOT have been converted to LWW Update
+      expect(mockOperationApplier.applyOperations).toHaveBeenCalledWith(
+        [
+          jasmine.objectContaining({
+            actionType: ActionType.TASK_SHARED_STOP_REPEAT_CFG_FROM_DATE,
+          }),
+        ],
+        jasmine.any(Object),
+      );
+      // Must NOT have an LWW Update action type in the applied ops
+      const appliedOps = mockOperationApplier.applyOperations.calls.mostRecent()
+        .args[0] as Operation[];
+      const hasLwwUpdate = appliedOps.some(
+        (op) => (op.actionType as string) === '[TASK_REPEAT_CFG] LWW Update',
+      );
+      expect(hasLwwUpdate).toBe(false);
+    });
+
     it('makes sibling conflicts follow a local terminal stop with one merged op', async () => {
       const localStop = createStopFromDateOp('local-stop', 'client-a', 1_000);
       const localUpdate = createCfgUpdateOp('local-update', 'client-a', 2_000);

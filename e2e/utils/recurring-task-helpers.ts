@@ -24,6 +24,22 @@ export const openRecurDialog = async (page: Page): Promise<Locator> => {
   return dialog;
 };
 
+/** Make a newly created desktop-plan task explicitly unscheduled. */
+export const unscheduleTaskFromContextMenu = async (
+  page: Page,
+  task: Locator,
+): Promise<void> => {
+  await task.click({ button: 'right' });
+  const menu = page.locator('.mat-mdc-menu-content').last();
+  await expect(menu).toBeVisible({ timeout: 5000 });
+  const unscheduleButton = menu
+    .locator('button')
+    .filter({ has: page.locator('mat-icon', { hasText: /^event_busy$/ }) });
+  await expect(unscheduleButton).toBeVisible({ timeout: 5000 });
+  await unscheduleButton.click();
+  await expect(menu).toBeHidden({ timeout: 5000 });
+};
+
 /**
  * Open the recurring-config dialog by clicking a transparent planner
  * projection. After the live instance is deleted, the repeat config can only be
@@ -42,6 +58,27 @@ export const openRecurDialogFromProjection = async (
   const dialog = page.locator(DIALOG_CONTAINER);
   await dialog.waitFor({ state: 'visible', timeout: 10000 });
   return dialog;
+};
+
+/** Find a repeat projection in the current or a following planner week. */
+export const openRecurDialogFromFutureProjection = async (
+  page: Page,
+  taskTitle: string,
+  maxWeeks = 4,
+): Promise<Locator> => {
+  await gotoHashRoute(page, '/#/planner', page.locator('planner-day').first());
+  const projection = page
+    .locator('planner-repeat-projection')
+    .filter({ hasText: taskTitle })
+    .first();
+  for (let week = 0; week <= maxWeeks; week++) {
+    if (await projection.isVisible().catch(() => false)) {
+      return openRecurDialogFromProjection(page, taskTitle);
+    }
+    await page.getByRole('button', { name: /Next week/i }).click();
+  }
+  await expect(projection).toBeVisible({ timeout: 5000 });
+  return openRecurDialogFromProjection(page, taskTitle);
 };
 
 /**

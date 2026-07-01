@@ -430,8 +430,8 @@ export class TaskArchiveService {
         return {
           id: t.id,
           changes: {
-            // TODO check if undefined causes problems
             repeatCfgId: undefined,
+            repeatOriginCfgId: t.repeatOriginCfgId ?? t.repeatCfgId,
           },
         };
       });

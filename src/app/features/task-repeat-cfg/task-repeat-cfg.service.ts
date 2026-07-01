@@ -576,6 +576,7 @@ export class TaskRepeatCfgService {
         id: taskId,
         additional: {
           repeatCfgId: taskRepeatCfg.id,
+          repeatOriginCfgId: taskRepeatCfg.id,
           repeatOccurrenceDay: dueDay,
           timeEstimate: taskRepeatCfg.defaultEstimate || 0,
           projectId: taskRepeatCfg.projectId || undefined,

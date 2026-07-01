@@ -3452,6 +3452,169 @@ describe('taskSharedCrudMetaReducer', () => {
     });
   });
 
+  describe('stopTaskRepeatCfgFromDate with repeatOriginCfgId convergence', () => {
+    let fullReducer: ActionReducer<any, Action>;
+
+    beforeEach(() => {
+      const baseReducer = (state: TestRootState, action: Action): TestRootState => ({
+        ...state,
+        [TASK_REPEAT_CFG_FEATURE_NAME]: taskRepeatCfgReducer(
+          state[TASK_REPEAT_CFG_FEATURE_NAME],
+          action,
+        ),
+      });
+      fullReducer = taskSharedCrudMetaReducer(baseReducer);
+    });
+
+    const repeatCfgId = 'rc-1';
+    const occurrenceDay = '2026-07-05';
+
+    const createState = (overrides: {
+      taskRepeatCfgId?: string;
+      taskRepeatOriginCfgId?: string;
+    }): TestRootState => ({
+      ...createBaseState(),
+      [TASK_REPEAT_CFG_FEATURE_NAME]: {
+        ids: [repeatCfgId],
+        entities: {
+          [repeatCfgId]: {
+            ...DEFAULT_TASK_REPEAT_CFG,
+            id: repeatCfgId,
+            title: 'Repeat',
+          },
+        },
+      },
+      [TASK_FEATURE_NAME]: {
+        ...createBaseState()[TASK_FEATURE_NAME],
+        ids: ['rpt_rc-1_2026-07-05'],
+        entities: {
+          ['rpt_rc-1_2026-07-05']: createMockTask({
+            id: 'rpt_rc-1_2026-07-05',
+            title: 'Occurrence',
+            repeatCfgId: overrides.taskRepeatCfgId,
+            repeatOriginCfgId: overrides.taskRepeatOriginCfgId,
+            repeatOccurrenceDay: occurrenceDay,
+            dueDay: occurrenceDay,
+            created: new Date(2026, 6, 5, 12).getTime(),
+          }),
+        },
+      },
+    });
+
+    const stopAction = () =>
+      ({
+        type: '[Task Shared] stopTaskRepeatCfgFromDate',
+        taskRepeatCfgId: repeatCfgId,
+        stopDate: occurrenceDay,
+        endDate: '2026-07-04',
+        taskIds: [],
+        archivedTaskIds: [],
+      }) as unknown as Action;
+
+    it('deletes an occurrence identified by repeatCfgId alone', () => {
+      const state = createState({ taskRepeatCfgId: repeatCfgId });
+      const result = fullReducer(state, stopAction()) as TestRootState;
+      expect(result[TASK_FEATURE_NAME].entities['rpt_rc-1_2026-07-05']).toBeUndefined();
+    });
+
+    it('deletes an occurrence identified by repeatOriginCfgId after repeatCfgId is cleared', () => {
+      const state = createState({
+        taskRepeatCfgId: undefined,
+        taskRepeatOriginCfgId: repeatCfgId,
+      });
+      const result = fullReducer(state, stopAction()) as TestRootState;
+      expect(result[TASK_FEATURE_NAME].entities['rpt_rc-1_2026-07-05']).toBeUndefined();
+    });
+
+    it('deletes an occurrence identified by task ID prefix even without any cfg fields', () => {
+      const state = createState({
+        taskRepeatCfgId: undefined,
+        taskRepeatOriginCfgId: undefined,
+      });
+      const result = fullReducer(state, stopAction()) as TestRootState;
+      expect(result[TASK_FEATURE_NAME].entities['rpt_rc-1_2026-07-05']).toBeUndefined();
+    });
+
+    it('preserves an occurrence before stopDate', () => {
+      const state = createState({ taskRepeatCfgId: repeatCfgId });
+      const stopBefore = {
+        type: '[Task Shared] stopTaskRepeatCfgFromDate',
+        taskRepeatCfgId: repeatCfgId,
+        stopDate: '2026-07-06',
+        endDate: '2026-07-05',
+        taskIds: [],
+        archivedTaskIds: [],
+      } as unknown as Action;
+      const result = fullReducer(state, stopBefore) as TestRootState;
+      expect(result[TASK_FEATURE_NAME].entities['rpt_rc-1_2026-07-05']).toBeDefined();
+    });
+
+    it('does not delete a non-repeat task that shares no cfg identity', () => {
+      const manualState = {
+        ...createState({ taskRepeatCfgId: undefined, taskRepeatOriginCfgId: undefined }),
+        [TASK_FEATURE_NAME]: {
+          ...createState({
+            taskRepeatCfgId: undefined,
+            taskRepeatOriginCfgId: undefined,
+          })[TASK_FEATURE_NAME],
+          ids: ['manual-task'],
+          entities: {
+            ['manual-task']: createMockTask({
+              id: 'manual-task',
+              title: 'Manual',
+              repeatCfgId: undefined,
+              repeatOriginCfgId: undefined,
+              repeatOccurrenceDay: undefined,
+              dueDay: occurrenceDay,
+            }),
+          },
+        },
+      };
+      const result = fullReducer(manualState, stopAction()) as TestRootState;
+      expect(result[TASK_FEATURE_NAME].entities['manual-task']).toBeDefined();
+    });
+
+    it('handles config ID with underscore correctly', () => {
+      const cfgId = 'rc__with_underscore';
+      const state: TestRootState = {
+        ...createBaseState(),
+        [TASK_REPEAT_CFG_FEATURE_NAME]: {
+          ids: [cfgId],
+          entities: {
+            [cfgId]: { ...DEFAULT_TASK_REPEAT_CFG, id: cfgId, title: 'Repeat' },
+          },
+        },
+        [TASK_FEATURE_NAME]: {
+          ...createBaseState()[TASK_FEATURE_NAME],
+          ids: ['rpt_rc__with_underscore_2026-07-05'],
+          entities: {
+            ['rpt_rc__with_underscore_2026-07-05']: createMockTask({
+              id: 'rpt_rc__with_underscore_2026-07-05',
+              title: 'Occ',
+              repeatCfgId: cfgId,
+              repeatOriginCfgId: cfgId,
+              repeatOccurrenceDay: occurrenceDay,
+              dueDay: occurrenceDay,
+              created: new Date(2026, 6, 5, 12).getTime(),
+            }),
+          },
+        },
+      };
+      const action = {
+        type: '[Task Shared] stopTaskRepeatCfgFromDate',
+        taskRepeatCfgId: cfgId,
+        stopDate: occurrenceDay,
+        endDate: '2026-07-04',
+        taskIds: [],
+        archivedTaskIds: [],
+      } as unknown as Action;
+      const result = fullReducer(state, action) as TestRootState;
+      expect(
+        result[TASK_FEATURE_NAME].entities['rpt_rc__with_underscore_2026-07-05'],
+      ).toBeUndefined();
+    });
+  });
+
   describe('other actions', () => {
     it('should pass through other actions to the reducer', () => {
       const action = { type: 'SOME_OTHER_ACTION' };

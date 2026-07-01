@@ -174,6 +174,17 @@ export abstract class BasePage {
     );
     await input.fill(hasEstimate ? prefixedTaskName : `${prefixedTaskName} 25m`);
 
+    // If the task text contains short-syntax triggers (e.g. @today) the async
+    // parser (which includes a dynamic import of chrono-node) needs time to
+    // parse them before the submit handler checks estimate state. Without a
+    // brief wait the submit may fire before parsing completes and the estimate
+    // slot is still null, which causes the add-task-bar to show a snackbar
+    // ("Estimate required") instead of creating the task.
+    const hasShortSyntax = /[@!#][^\s]/.test(prefixedTaskName);
+    if (hasShortSyntax) {
+      await this.page.waitForTimeout(300);
+    }
+
     // Store the initial count before submission
     const initialCount = await this.page.locator('task').count();
     const expectedCount = initialCount + 1;
