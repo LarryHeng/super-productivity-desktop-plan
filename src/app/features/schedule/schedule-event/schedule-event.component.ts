@@ -43,6 +43,7 @@ import { DateTimeFormatService } from '../../../core/date-time-format/date-time-
 import { FH } from '../schedule.const';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
 import { DialogManualTimeRecordComponent } from '../manual-time-record/dialog-manual-time-record.component';
+import { DialogPromptComponent } from '../../../ui/dialog-prompt/dialog-prompt.component';
 import { getDbDateStr, isDBDateStr } from '../../../util/get-db-date-str';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
 

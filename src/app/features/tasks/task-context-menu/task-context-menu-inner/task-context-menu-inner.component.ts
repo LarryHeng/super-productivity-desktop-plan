@@ -458,6 +458,11 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
     this.contextMenuTrigger()?.closeMenu();
   }
 
+  requestAdjustActualRecord(): void {
+    this.adjustActualRecord.emit();
+    this.contextMenuTrigger()?.closeMenu();
+  }
+
   setEstimate(ms: number): void {
     if (ms === this.task.timeEstimate) {
       return;
