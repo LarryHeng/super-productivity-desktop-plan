@@ -204,12 +204,14 @@ export class ShortSyntaxEffects {
             }
 
             // Build task changes including tagIds update
-            const tagIds: string[] = [...(r.taskChanges.tagIds || task.tagIds)];
+            const tagIds: string[] = r.taskChanges.tagIds?.length
+              ? r.taskChanges.tagIds
+              : [...task.tagIds];
             const isEqualTags =
               tagIds.length === task.tagIds.length &&
               tagIds.every((id, i) => id === task.tagIds[i]);
             const finalTaskChanges = { ...taskChanges };
-            if (tagIds && tagIds.length && !isEqualTags) {
+            if (tagIds.length && !isEqualTags) {
               finalTaskChanges.tagIds = unique(tagIds);
             }
 
