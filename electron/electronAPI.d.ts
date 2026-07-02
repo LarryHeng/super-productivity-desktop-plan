@@ -331,4 +331,6 @@ export interface ElectronAPI {
 
   onLocalRestApiRequest(listener: (payload: LocalRestApiRequestPayload) => void): void;
   sendLocalRestApiResponse(payload: LocalRestApiResponsePayload): void;
+
+  loadProductivityQuotes(): Promise<string | null>;
 }

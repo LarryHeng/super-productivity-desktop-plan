@@ -305,6 +305,9 @@ const ea: ElectronAPI = {
   },
   sendLocalRestApiResponse: (payload: LocalRestApiResponsePayload) =>
     _send(IPC.LOCAL_REST_API_RESPONSE, payload),
+
+  loadProductivityQuotes: (): Promise<string | null> =>
+    _invoke(IPC.GET_PRODUCTIVITY_QUOTES) as Promise<string | null>,
 };
 
 // Expose ea to window for ipc-event.ts using contextBridge for context isolation

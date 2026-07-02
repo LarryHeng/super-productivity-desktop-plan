@@ -185,6 +185,7 @@ body.uses-theme-background #task-widget-container::after {
   transform: translateX(-50%);
   cursor: col-resize;
   pointer-events: auto;
+  -webkit-app-region: no-drag;
 }
 
 #row-divider {
@@ -196,6 +197,7 @@ body.uses-theme-background #task-widget-container::after {
   transform: translateY(-50%);
   cursor: row-resize;
   pointer-events: auto;
+  -webkit-app-region: no-drag;
 }
 
 #cross-center {
@@ -207,6 +209,7 @@ body.uses-theme-background #task-widget-container::after {
   cursor: move;
   border-radius: 50%;
   pointer-events: auto;
+  -webkit-app-region: no-drag;
 }
 
 #col-divider:hover,

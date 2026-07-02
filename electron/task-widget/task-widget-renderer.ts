@@ -85,26 +85,27 @@ const persistRatios = (): void => {
   }
 };
 
-const applyRatios = (): void => {
-  const colPct = Math.round(colRatio * 100);
-  const rowPct = Math.round(rowRatio * 100);
-  matrixGrid.style.gridTemplateColumns = `${colPct}% ${100 - colPct}%`;
-  matrixGrid.style.gridTemplateRows = `${rowPct}% ${100 - rowPct}%`;
+const GAP = 10;
 
-  const gridRect = matrixGrid.getBoundingClientRect();
-  const xOffset = gridRect.width * colRatio;
-  const yOffset = gridRect.height * rowRatio;
-  const colX = gridRect.left + xOffset;
-  const rowY = gridRect.top + yOffset;
+const applyRatios = (): void => {
+  const w = matrixGrid.clientWidth;
+  const h = matrixGrid.clientHeight;
+  const availW = w - GAP;
+  const availH = h - GAP;
+  const col1W = Math.round(colRatio * availW);
+  const col2W = availW - col1W;
+  const row1H = Math.round(rowRatio * availH);
+  const row2H = availH - row1H;
+
+  matrixGrid.style.gridTemplateColumns = `${col1W}px ${col2W}px`;
+  matrixGrid.style.gridTemplateRows = `${row1H}px ${row2H}px`;
+
+  const halfGap = GAP / 2;
+  const colX = col1W + halfGap;
+  const rowY = row1H + halfGap;
 
   colDivider.style.left = `${colX}px`;
-  colDivider.style.top = `${gridRect.top}px`;
-  colDivider.style.height = `${gridRect.height}px`;
-
-  rowDivider.style.left = `${gridRect.left}px`;
   rowDivider.style.top = `${rowY}px`;
-  rowDivider.style.width = `${gridRect.width}px`;
-
   crossCenter.style.left = `${colX}px`;
   crossCenter.style.top = `${rowY}px`;
 };
@@ -135,18 +136,21 @@ crossCenter.addEventListener('mousedown', (e) => onDragStart('cross', e));
 
 document.addEventListener('mousemove', (e) => {
   if (!activeDrag) return;
-  const gridRect = matrixGrid.getBoundingClientRect();
-  if (gridRect.width <= 0 || gridRect.height <= 0) return;
+  const w = matrixGrid.clientWidth;
+  const h = matrixGrid.clientHeight;
+  if (w <= GAP + 1 || h <= GAP + 1) return;
+  const availW = w - GAP;
+  const availH = h - GAP;
 
   const dx = e.clientX - dragStartX;
   const dy = e.clientY - dragStartY;
 
   if (activeDrag === 'col' || activeDrag === 'cross') {
-    const dRatio = dx / gridRect.width;
+    const dRatio = dx / availW;
     colRatio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, dragStartColRatio + dRatio));
   }
   if (activeDrag === 'row' || activeDrag === 'cross') {
-    const dRatio = dy / gridRect.height;
+    const dRatio = dy / availH;
     rowRatio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, dragStartRowRatio + dRatio));
   }
 
@@ -291,6 +295,10 @@ const renderPanels = (
     section.appendChild(list);
     matrixGrid.appendChild(section);
   }
+  matrixGrid.appendChild(colDivider);
+  matrixGrid.appendChild(rowDivider);
+  matrixGrid.appendChild(crossCenter);
+  applyRatios();
 };
 
 window.taskWidgetAPI.onUpdateContent((data) => {
