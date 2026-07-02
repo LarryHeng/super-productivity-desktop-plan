@@ -1,10 +1,11 @@
-# Desktop Plan 18.12.0-desktop-plan.8
+# Desktop Plan 18.12.0-desktop-plan.9
 
 感谢 Super Productivity 官方项目、Johannes Millan 和所有上游贡献者。
 本版本是基于 Super Productivity 18.12.0 的非官方 Windows 桌面规划衍生版。
 
 ## 本次修复
 
+- 补齐 35 个缺失的简体中文翻译，包括语言名称和插件标签等界面文案。
 - 修复删除重复配置与”从某日停止重复”并发同步时的收敛漏洞（新增 repeatOriginCfgId）。
 - 修复旧版 HRS stop 操作因缺少 taskRepeatCfgSnapshot 导致同步分叉。
 - 修复 task-detail E2E 测试对定制版默认排程的不兼容。
