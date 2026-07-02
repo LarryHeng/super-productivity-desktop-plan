@@ -1151,7 +1151,10 @@
       "PLAN_START_DAY": "Start of {{date}}",
       "PLANNED_BLOCK_COLOR": "Planned time",
       "SHIFT_KEY_INFO": "Hold Shift to toggle day planning mode",
-      "START": "Work Start"
+      "START": "Work Start",
+      "CREATE_TASK_PLACEHOLDER": "click to create task",
+      "PLAN_TASK_FOR_DAY": "Plan task for day...",
+      "SCHEDULE_TASK_PLACEHOLDER": "Schedule task..."
     },
     "SEARCH_BAR": {
       "INCLUDE_COMPLETED": "Include completed and archived tasks",

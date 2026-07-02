@@ -171,3 +171,14 @@
 }
 
 <ng-content></ng-content>
+
+@if (se().type === SVEType.ActualTask || se().type === SVEType.CompletedPlannedTask) {
+  <button
+    class="delete-actual-record-btn"
+    [matTooltip]="'Delete time record'"
+    (click)="deleteActualRecord(); $event.stopPropagation()"
+    mat-icon-button
+  >
+    <mat-icon>delete</mat-icon>
+  </button>
+}

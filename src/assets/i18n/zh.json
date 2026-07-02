@@ -1151,7 +1151,10 @@
       "PLAN_START_DAY": "{{date}} 开始",
       "PLANNED_BLOCK_COLOR": "规划时间",
       "SHIFT_KEY_INFO": "按住 Shift 键切换日计划模式",
-      "START": "工作开始"
+      "START": "工作开始",
+      "CREATE_TASK_PLACEHOLDER": "点击创建任务",
+      "PLAN_TASK_FOR_DAY": "计划当日任务…",
+      "SCHEDULE_TASK_PLACEHOLDER": "安排任务…"
     },
     "SEARCH_BAR": {
       "INCLUDE_COMPLETED": "包含已完成和已归档任务",

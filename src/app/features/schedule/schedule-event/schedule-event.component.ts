@@ -493,10 +493,38 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     this.taskContextMenu()?.open(event);
   }
 
+  deleteActualRecord(): void {
+    const t = this.task();
+    const evt = this.se();
+    if (
+      !t ||
+      (evt.type !== SVEType.ActualTask && evt.type !== SVEType.CompletedPlannedTask)
+    )
+      return;
+    const dayStr =
+      typeof (evt as any).plannedForDay === 'string'
+        ? (evt as any).plannedForDay
+        : typeof evt.start === 'number'
+          ? getDbDateStr(evt.start)
+          : undefined;
+    if (!dayStr) return;
+    const newTimeSpentOnDay = { ...(t.timeSpentOnDay || {}) };
+    delete newTimeSpentOnDay[dayStr];
+    this._store.dispatch(
+      TaskSharedActions.updateTask({
+        task: { id: t.id, changes: { timeSpentOnDay: newTimeSpentOnDay } },
+      }),
+    );
+  }
+
   deleteTask(): void {
     const t = this.task();
     if (!t) return;
-
+    const evt = this.se();
+    if (evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask) {
+      this.deleteActualRecord();
+      return;
+    }
     this._store
       .select(selectTaskByIdWithSubTaskData, { id: t.id })
       .pipe(
@@ -593,6 +621,19 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
 
     const t = this.task();
     const evt = this.se();
+    if (!t) return false;
+
+    const isActualOrCompleted =
+      evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask;
+    if (isActualOrCompleted) {
+      const dayStr =
+        typeof (evt as any).plannedForDay === 'string'
+          ? (evt as any).plannedForDay
+          : undefined;
+      if (!dayStr || !t.timeSpentOnDay?.[dayStr]) return false;
+      return t.timeSpentOnDay[dayStr] > 0;
+    }
+
     // Allow resizing for all task types with a time estimate
     return (
       !!t &&
@@ -681,24 +722,58 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
 
     const t = this.task();
     if (t && Math.abs(timeChangeInMs) > 30000) {
-      // Only update if change is more than 30 seconds (to be more responsive)
-      const rawEstimate = t.timeEstimate + timeChangeInMs;
-      const roundedEstimate = Math.max(
-        FIVE_MINUTES_IN_MS,
-        Math.round(rawEstimate / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS,
-      );
+      const evt = this.se();
+      const isActualOrCompleted =
+        evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask;
 
-      if (roundedEstimate !== t.timeEstimate) {
-        this._store.dispatch(
-          TaskSharedActions.updateTask({
-            task: {
-              id: t.id,
-              changes: {
-                timeEstimate: roundedEstimate,
-              },
-            },
-          }),
+      if (isActualOrCompleted) {
+        // Only allow reducing actual time blocks
+        if (timeChangeInMs < 0) {
+          const dayStr =
+            typeof (evt as any).plannedForDay === 'string'
+              ? (evt as any).plannedForDay
+              : getDbDateStr(evt.start as number);
+          if (!dayStr || !t.timeSpentOnDay?.[dayStr]) {
+            this._resizeHeight.set('');
+            return;
+          }
+          const currentSpent = t.timeSpentOnDay[dayStr];
+          const newSpent = Math.max(0, currentSpent + timeChangeInMs);
+          const roundedSpent =
+            Math.round(newSpent / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS;
+          if (roundedSpent !== currentSpent) {
+            this._store.dispatch(
+              TaskSharedActions.updateTask({
+                task: {
+                  id: t.id,
+                  changes: {
+                    timeSpentOnDay: { ...t.timeSpentOnDay, [dayStr]: roundedSpent },
+                  },
+                },
+              }),
+            );
+          }
+        }
+      } else {
+        // Existing logic for planned blocks (can both reduce and extend)
+        const rawEstimate = t.timeEstimate + timeChangeInMs;
+        const roundedEstimate = Math.max(
+          FIVE_MINUTES_IN_MS,
+          Math.round(rawEstimate / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS,
         );
+
+        if (roundedEstimate !== t.timeEstimate) {
+          this._store.dispatch(
+            TaskSharedActions.updateTask({
+              task: {
+                id: t.id,
+                changes: {
+                  timeEstimate: roundedEstimate,
+                },
+              },
+            }),
+          );
+        }
       }
     }
 

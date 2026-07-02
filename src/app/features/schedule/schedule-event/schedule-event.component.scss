@@ -605,3 +605,29 @@
   height: 0;
   visibility: hidden;
 }
+
+.delete-actual-record-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 5;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  transform: scale(0.7);
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--c-warn);
+  }
+}
+
+:host:hover .delete-actual-record-btn {
+  opacity: 0.8;
+
+  &:hover {
+    opacity: 1;
+  }
+}
