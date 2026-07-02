@@ -5,7 +5,12 @@ import {
   BoardPanelCfgTaskDoneState,
   BoardPanelCfgTaskTypeFilter,
 } from './boards.model';
-import { IMPORTANT_TAG, IN_PROGRESS_TAG, URGENT_TAG } from '../tag/tag.const';
+import {
+  HIDDEN_MATRIX_TAG,
+  IMPORTANT_TAG,
+  IN_PROGRESS_TAG,
+  URGENT_TAG,
+} from '../tag/tag.const';
 import { T } from '../../t.const';
 
 export const DEFAULT_BOARDS: BoardCfg[] = [
@@ -18,7 +23,7 @@ export const DEFAULT_BOARDS: BoardCfg[] = [
         id: 'URGENT_AND_IMPORTANT',
         title: T.F.BOARDS.DEFAULT.URGENT_IMPORTANT,
         includedTagIds: [IMPORTANT_TAG.id, URGENT_TAG.id],
-        excludedTagIds: [],
+        excludedTagIds: [HIDDEN_MATRIX_TAG.id],
         taskIds: [],
         // Show both done and undone tasks so the done-toggle (which only flips
         // isDone) leaves the task visible — Eisenhower has no Done column. #7498
@@ -32,7 +37,7 @@ export const DEFAULT_BOARDS: BoardCfg[] = [
         id: 'NOT_URGENT_AND_IMPORTANT',
         title: T.F.BOARDS.DEFAULT.NOT_URGENT_IMPORTANT,
         includedTagIds: [IMPORTANT_TAG.id],
-        excludedTagIds: [URGENT_TAG.id],
+        excludedTagIds: [URGENT_TAG.id, HIDDEN_MATRIX_TAG.id],
         taskIds: [],
         taskDoneState: BoardPanelCfgTaskDoneState.All,
         scheduledState: BoardPanelCfgScheduledState.All,
@@ -44,7 +49,7 @@ export const DEFAULT_BOARDS: BoardCfg[] = [
         id: 'URGENT_AND_NOT_IMPORTANT',
         title: T.F.BOARDS.DEFAULT.URGENT_NOT_IMPORTANT,
         includedTagIds: [URGENT_TAG.id],
-        excludedTagIds: [IMPORTANT_TAG.id],
+        excludedTagIds: [IMPORTANT_TAG.id, HIDDEN_MATRIX_TAG.id],
         taskIds: [],
         taskDoneState: BoardPanelCfgTaskDoneState.All,
         scheduledState: BoardPanelCfgScheduledState.All,
@@ -56,7 +61,7 @@ export const DEFAULT_BOARDS: BoardCfg[] = [
         id: 'NOT_URGENT_AND_NOT_IMPORTANT',
         title: T.F.BOARDS.DEFAULT.NOT_URGENT_NOT_IMPORTANT,
         includedTagIds: [],
-        excludedTagIds: [IMPORTANT_TAG.id, URGENT_TAG.id],
+        excludedTagIds: [IMPORTANT_TAG.id, URGENT_TAG.id, HIDDEN_MATRIX_TAG.id],
         taskIds: [],
         taskDoneState: BoardPanelCfgTaskDoneState.All,
         scheduledState: BoardPanelCfgScheduledState.All,

@@ -17,6 +17,7 @@ import { unique } from '../../../util/unique';
 import { addTag } from '../../tag/store/tag.actions';
 import {
   DEFAULT_TAG,
+  HIDDEN_MATRIX_TAG,
   IMPORTANT_TAG,
   IN_PROGRESS_TAG,
   URGENT_TAG,
@@ -58,7 +59,12 @@ export class BoardComponent {
     const missingTagIds = this.missingTagIds();
     if (missingTagIds.length) {
       missingTagIds.forEach((tagId) => {
-        const defaultTags = [IMPORTANT_TAG, URGENT_TAG, IN_PROGRESS_TAG];
+        const defaultTags = [
+          IMPORTANT_TAG,
+          URGENT_TAG,
+          IN_PROGRESS_TAG,
+          HIDDEN_MATRIX_TAG,
+        ];
 
         const defaultTag = defaultTags.find((tagInner) => tagInner.id === tagId);
 

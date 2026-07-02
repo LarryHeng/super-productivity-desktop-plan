@@ -96,6 +96,26 @@ export const IN_PROGRESS_TAG: Tag = {
 };
 
 /**
+ * Hidden-from-matrix tag — assigned to tasks that should be excluded from
+ * the Eisenhower matrix widget panels. Replaces EM_IMPORTANT / EM_URGENT
+ * when the user runs "Remove Matrix Tags".
+ */
+export const HIDDEN_MATRIX_TAG: Tag = {
+  color: null,
+  created: Date.now(),
+  ...WORK_CONTEXT_DEFAULT_COMMON,
+  icon: 'visibility_off',
+  title: 'hidden',
+  id: 'EM_HIDDEN',
+  theme: {
+    ...WORK_CONTEXT_DEFAULT_THEME,
+    primary: '#9e9e9e',
+    backgroundImageDark: '',
+    isDisableBackgroundTint: false,
+  },
+};
+
+/**
  * IDs of system-created tags that should be excluded when counting user-created tags.
  * These tags are created automatically and don't represent user data.
  */
@@ -104,4 +124,5 @@ export const SYSTEM_TAG_IDS: ReadonlySet<string> = new Set([
   URGENT_TAG.id,
   IMPORTANT_TAG.id,
   IN_PROGRESS_TAG.id,
+  HIDDEN_MATRIX_TAG.id,
 ]);

@@ -9,7 +9,7 @@ import { OperationWriteFlushService } from '../../op-log/sync/operation-write-fl
 import { GlobalConfigService } from '../config/global-config.service';
 import { SYNC_WAIT_TIMEOUT_MS } from '../../imex/sync/sync.const';
 import { Log } from '../../core/log';
-import { IMPORTANT_TAG, URGENT_TAG } from '../tag/tag.const';
+import { HIDDEN_MATRIX_TAG, IMPORTANT_TAG, URGENT_TAG } from '../tag/tag.const';
 
 const DAILY_SETTLEMENT_SYNC_WAIT_TIMEOUT_MS = 30000;
 
@@ -63,12 +63,16 @@ export class DailySettlementService {
     );
 
     for (const task of doneTasks) {
-      this._taskService.updateTags(
-        task,
-        (task.tagIds ?? []).filter(
-          (tagId) => tagId !== URGENT_TAG.id && tagId !== IMPORTANT_TAG.id,
-        ),
+      const filtered = (task.tagIds ?? []).filter(
+        (tagId) => tagId !== URGENT_TAG.id && tagId !== IMPORTANT_TAG.id,
       );
+      const hasMatrixTags = filtered.length < (task.tagIds ?? []).length;
+      // Swap EM_IMPORTANT / EM_URGENT for EM_HIDDEN instead of just removing them.
+      // Already-hidden tasks keep EM_HIDDEN unchanged.
+      const newTagIds = hasMatrixTags
+        ? [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])]
+        : (task.tagIds ?? []);
+      this._taskService.updateTags(task, newTagIds);
     }
 
     return doneTasks.length;

@@ -7,7 +7,7 @@ import { BeforeFinishDayService } from '../before-finish-day/before-finish-day.s
 import { SyncWrapperService } from '../../imex/sync/sync-wrapper.service';
 import { OperationWriteFlushService } from '../../op-log/sync/operation-write-flush.service';
 import { GlobalConfigService } from '../config/global-config.service';
-import { IMPORTANT_TAG, URGENT_TAG } from '../tag/tag.const';
+import { HIDDEN_MATRIX_TAG, IMPORTANT_TAG, URGENT_TAG } from '../tag/tag.const';
 
 describe('DailySettlementService', () => {
   let service: DailySettlementService;
@@ -98,7 +98,10 @@ describe('DailySettlementService', () => {
 
     expect(settledCount).toBe(1);
     expect(taskService.moveToArchive).not.toHaveBeenCalled();
-    expect(taskService.updateTags).toHaveBeenCalledOnceWith(doneParent, ['keep-me']);
+    expect(taskService.updateTags).toHaveBeenCalledOnceWith(doneParent, [
+      'keep-me',
+      HIDDEN_MATRIX_TAG.id,
+    ]);
   });
 
   it('only clears tags for tasks completed before the automatic settlement boundary', async () => {
