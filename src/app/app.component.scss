@@ -30,6 +30,13 @@
     transform: translate(-50%, -50%);
     width: 90px;
     height: 90px;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+  }
+
+  .app-loading .logo:hover {
+    transform: translate(-50%, -50%) scale(1.15);
+    transition: transform 0.2s ease-out;
   }
 
   .app-loading .logo path {
