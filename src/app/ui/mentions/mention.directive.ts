@@ -46,6 +46,23 @@ const KEY_UP = 38;
 const KEY_DOWN = 40;
 const KEY_BUFFERED = 229;
 
+// Fuzzy match — characters of needle appear in order in haystack (with
+// gaps allowed). A single mismatch or missing char still matches if >⅔ of
+// chars are present in order. Short search strings (≤3) use substring
+// matching to avoid over-matching noise.
+const _fuzzyMatch = (haystack: string, needle: string): boolean => {
+  if (!needle) return true;
+  if (needle.length > haystack.length) return false;
+  if (needle.length <= 3) return haystack.includes(needle);
+  let ni = 0;
+  for (let hi = 0; hi < haystack.length && ni < needle.length; hi++) {
+    if (haystack[hi] === needle[ni]) ni++;
+  }
+  if (ni === needle.length) return true;
+  // Relaxed: at least 2/3 of needle chars matched in order
+  return ni >= Math.ceil((needle.length * 2) / 3);
+};
+
 /**
  * Angular Mentions.
  * https://github.com/dmacfarlane/angular-mentions
@@ -117,30 +134,61 @@ export class MentionDirective implements OnChanges {
       const searchStringLowerCase = searchString.toLowerCase();
       const labelKey = this.activeConfig?.labelKey || 'label';
 
-      const getLabel = (e: MentionItem | string): string | null => {
+      const getLabel = (
+        e: MentionItem | string,
+      ): { label: string; isFuzzy: boolean } | null => {
         if (!e) return null;
-        if (typeof e === 'string') return e;
+        if (typeof e === 'string') return { label: e, isFuzzy: false };
         if (typeof e === 'object') {
           const itemValue = e[labelKey];
-          return typeof itemValue === 'string' ? itemValue : null;
+          return typeof itemValue === 'string'
+            ? { label: itemValue, isFuzzy: false }
+            : null;
         }
         return null;
       };
 
-      const filteredItems = items.filter((e: MentionItem | string) => {
-        const label = getLabel(e);
-        return label !== null && label.toLowerCase().includes(searchStringLowerCase);
-      });
+      // Pre-scan: try exact substring first; only fall back to fuzzy when
+      // no exact matches exist (avoids fuzzy noise for clean input).
+      const filteredItems: (MentionItem | string)[] = [];
+      const fuzzyItems: (MentionItem | string)[] = [];
+      for (const e of items) {
+        const info = getLabel(e);
+        if (!info) continue;
+        const labelLower = info.label.toLowerCase();
+        if (labelLower.includes(searchStringLowerCase)) {
+          filteredItems.push(e);
+        } else if (_fuzzyMatch(labelLower, searchStringLowerCase)) {
+          fuzzyItems.push(e);
+        }
+      }
 
-      // Rank prefix matches above mid-string matches; preserve the
-      // existing alphabetical order from addConfig() as a tiebreaker.
+      // Expose fuzzy match state so the directive can notify the host
+      // that results are approximate (non-blocking; map access is O(1)).
+      if (fuzzyItems.length > 0 && filteredItems.length === 0) {
+        filteredItems.push(...fuzzyItems);
+      } else if (fuzzyItems.length > 0) {
+        // Exact match exists, append fuzzy for discovery
+        filteredItems.push(...fuzzyItems);
+      }
+
+      // Rank prefix matches above mid-string, then fuzzy; preserve
+      // alphabetical order from addConfig() as tiebreaker.
       filteredItems.sort((a, b) => {
-        const aIdx = getLabel(a)!.toLowerCase().indexOf(searchStringLowerCase);
-        const bIdx = getLabel(b)!.toLowerCase().indexOf(searchStringLowerCase);
-        return aIdx - bIdx;
+        const aL = getLabel(a)!.label.toLowerCase();
+        const bL = getLabel(b)!.label.toLowerCase();
+        const aExactIdx = aL.indexOf(searchStringLowerCase);
+        const bExactIdx = bL.indexOf(searchStringLowerCase);
+        // Exact matches rank first
+        if (aExactIdx >= 0 && bExactIdx >= 0) return aExactIdx - bExactIdx;
+        if (aExactIdx >= 0) return -1;
+        if (bExactIdx >= 0) return 1;
+        // Both fuzzy: rank by match start distance (earlier = better)
+        const aFz = aL.indexOf(searchStringLowerCase[0]);
+        const bFz = bL.indexOf(searchStringLowerCase[0]);
+        return aFz - bFz;
       });
 
-      // Return the same type as the input array
       return filteredItems as typeof items;
     },
   };
@@ -353,8 +401,8 @@ export class MentionDirective implements OnChanges {
         if (!this.activeConfig!.allowSpace && event.keyCode === KEY_SPACE) {
           this.startPos = -1;
         } else if (event.keyCode === KEY_BACKSPACE && pos > 0) {
-          const newPos = pos - 1;
-          if (newPos == this.startPos) {
+          pos = pos - 1;
+          if (pos == this.startPos) {
             this.stopSearch();
           }
         } else if (this.searchList && this.searchList.hidden) {
