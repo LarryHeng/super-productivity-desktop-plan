@@ -3112,6 +3112,7 @@
     "CLEAR_MATRIX_TAGS_TITLE": "Remove matrix tags from completed tasks?",
     "CLEAR_MATRIX_TAGS_CONFIRM": "This removes only the Urgent and Important tags from completed tasks. All other tags and history remain unchanged.",
     "CLEARED_MATRIX_TAGS": "Removed matrix tags from {{nr}} completed task(s)",
+    "REMOVE_MATRIX_TAGS": "Remove from matrix",
     "ARCHIVE_DONE_WARNING_TITLE": "Archive completed tasks?",
     "ARCHIVE_DONE_WARNING": "Archived tasks will no longer appear in Planner or Timeline. Their history can still be viewed in History.",
     "NO_DONE_TASKS": "There are currently no completed tasks",

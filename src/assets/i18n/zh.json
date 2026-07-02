@@ -3112,6 +3112,7 @@
     "CLEAR_MATRIX_TAGS_TITLE": "移除已完成任务的矩阵标签？",
     "CLEAR_MATRIX_TAGS_CONFIRM": "只会移除已完成任务的 Urgent 和 Important 标签，其他标签和历史记录都会保留。",
     "CLEARED_MATRIX_TAGS": "已移除 {{nr}} 个已完成任务的矩阵标签",
+    "REMOVE_MATRIX_TAGS": "移除矩阵标签",
     "ARCHIVE_DONE_WARNING_TITLE": "归档已完成任务？",
     "ARCHIVE_DONE_WARNING": "归档后，这些任务将无法在规划表和时间表中显示；历史记录仍可在历史归档中查看。",
     "NO_DONE_TASKS": "当前没有已完成的任务",

@@ -291,8 +291,20 @@
     </button>
   }
 
+  @if (hasMatrixTags()) {
+    <button
+      (click)="removeMatrixTags()"
+      mat-menu-item
+    >
+      <span class="menuItemLeft">
+        <mat-icon>visibility_off</mat-icon>
+        {{ T.F.TASK.CMP.REMOVE_MATRIX_TAGS | translate }}
+      </span>
+    </button>
+    <mat-divider></mat-divider>
+  }
+
   <button
-    #tagMenuTrigger="matMenuTrigger"
     [matMenuTriggerFor]="tagMenu"
     mat-menu-item
     [menuTouchFix]="tagMenuTrigger"

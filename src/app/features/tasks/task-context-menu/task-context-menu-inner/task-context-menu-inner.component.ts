@@ -71,6 +71,7 @@ import { IssueIconPipe } from '../../../issue/issue-icon/issue-icon.pipe';
 import { showFocusOverlay } from '../../../focus-mode/store/focus-mode.actions';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { TagService } from '../../../tag/tag.service';
+import { HIDDEN_MATRIX_TAG, IMPORTANT_TAG, URGENT_TAG } from '../../../tag/tag.const';
 import { DialogPromptComponent } from '../../../../ui/dialog-prompt/dialog-prompt.component';
 import { TaskSharedActions } from '../../../../root-store/meta/task-shared.actions';
 import { selectTodayTaskIds } from '../../../work-context/store/work-context.selectors';
@@ -142,6 +143,11 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
   );
   readonly isFocusModeEnabled = computed(
     () => this._globalConfigService.appFeatures().isFocusModeEnabled,
+  );
+  hasMatrixTags = computed(
+    () =>
+      this.task?.tagIds?.includes(IMPORTANT_TAG.id) ||
+      this.task?.tagIds?.includes(URGENT_TAG.id),
   );
 
   // eslint-disable-next-line @angular-eslint/no-output-native
@@ -558,6 +564,18 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
 
   onTagsUpdated(tagIds: string[]): void {
     this._taskService.updateTags(this.task, tagIds);
+  }
+
+  removeMatrixTags(): void {
+    const task = this.task;
+    const filtered = (task.tagIds ?? []).filter(
+      (id: string) => id !== URGENT_TAG.id && id !== IMPORTANT_TAG.id,
+    );
+    const removed = filtered.length < (task.tagIds ?? []).length;
+    const newTagIds = removed
+      ? [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])]
+      : (task.tagIds ?? []);
+    this._taskService.updateTags(task, newTagIds);
   }
 
   toggleTag(tagId: string): void {

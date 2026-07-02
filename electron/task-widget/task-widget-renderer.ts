@@ -88,11 +88,18 @@ const persistRatios = (): void => {
 const GAP = 10;
 
 const applyRatios = (): void => {
-  const w = matrixGrid.clientWidth;
-  const h = matrixGrid.clientHeight;
-  if (w <= 0 || h <= 0) return;
-  const availW = w - GAP;
-  const availH = h - GAP;
+  const gridStyles = getComputedStyle(matrixGrid);
+  const padLeft = parseFloat(gridStyles.paddingLeft) || 0;
+  const padRight = parseFloat(gridStyles.paddingRight) || 0;
+  const padTop = parseFloat(gridStyles.paddingTop) || 0;
+  const padBottom = parseFloat(gridStyles.paddingBottom) || 0;
+
+  const contentW = matrixGrid.clientWidth - padLeft - padRight;
+  const contentH = matrixGrid.clientHeight - padTop - padBottom;
+  if (contentW <= GAP + 1 || contentH <= GAP + 1) return;
+
+  const availW = contentW - GAP;
+  const availH = contentH - GAP;
   const col1W = Math.round(colRatio * availW);
   const col2W = availW - col1W;
   const row1H = Math.round(rowRatio * availH);
@@ -102,11 +109,15 @@ const applyRatios = (): void => {
   matrixGrid.style.gridTemplateRows = `${row1H}px ${row2H}px`;
 
   const halfGap = GAP / 2;
-  const colX = col1W + halfGap;
-  const rowY = row1H + halfGap;
+  const colX = padLeft + col1W + halfGap;
+  const rowY = padTop + row1H + halfGap;
 
   colDivider.style.left = `${colX}px`;
+  colDivider.style.top = `${padTop}px`;
+  colDivider.style.height = `${contentH}px`;
   rowDivider.style.top = `${rowY}px`;
+  rowDivider.style.left = `${padLeft}px`;
+  rowDivider.style.width = `${contentW}px`;
   crossCenter.style.left = `${colX}px`;
   crossCenter.style.top = `${rowY}px`;
 };
@@ -135,11 +146,18 @@ crossCenter.addEventListener('mousedown', (e) => onDragStart('cross', e));
 
 document.addEventListener('mousemove', (e) => {
   if (!activeDrag) return;
-  const w = matrixGrid.clientWidth;
-  const h = matrixGrid.clientHeight;
-  if (w <= GAP + 1 || h <= GAP + 1) return;
-  const availW = w - GAP;
-  const availH = h - GAP;
+  const gridStyles = getComputedStyle(matrixGrid);
+  const padLeft = parseFloat(gridStyles.paddingLeft) || 0;
+  const padRight = parseFloat(gridStyles.paddingRight) || 0;
+  const padTop = parseFloat(gridStyles.paddingTop) || 0;
+  const padBottom = parseFloat(gridStyles.paddingBottom) || 0;
+
+  const contentW = matrixGrid.clientWidth - padLeft - padRight;
+  const contentH = matrixGrid.clientHeight - padTop - padBottom;
+  if (contentW <= GAP + 1 || contentH <= GAP + 1) return;
+
+  const availW = contentW - GAP;
+  const availH = contentH - GAP;
 
   const dx = e.clientX - dragStartX;
   const dy = e.clientY - dragStartY;
