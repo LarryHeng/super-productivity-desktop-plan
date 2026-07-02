@@ -90,6 +90,7 @@ const GAP = 10;
 const applyRatios = (): void => {
   const w = matrixGrid.clientWidth;
   const h = matrixGrid.clientHeight;
+  if (w <= 0 || h <= 0) return;
   const availW = w - GAP;
   const availH = h - GAP;
   const col1W = Math.round(colRatio * availW);
@@ -109,8 +110,6 @@ const applyRatios = (): void => {
   crossCenter.style.left = `${colX}px`;
   crossCenter.style.top = `${rowY}px`;
 };
-
-applyRatios();
 
 let activeDrag: 'col' | 'row' | 'cross' | null = null;
 let dragStartX = 0;

@@ -25,14 +25,10 @@ import { MatTooltip } from '@angular/material/tooltip';
         min-width: 0;
         display: flex;
         justify-content: center;
-        overflow: hidden;
       }
 
       .header-quote {
         text-align: center;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
         font-size: 13px;
         font-style: italic;
         color: var(--c-secondary-text, rgba(128, 128, 128, 0.7));

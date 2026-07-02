@@ -678,6 +678,7 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
   readonly _resizeHeight = signal('');
   private _startY = 0;
   private _startHeight = 0;
+  private _lastClientY = 0;
 
   isResizable(): boolean {
     if (this.isResizeDisabled() || this.isDragPreview() || this.isMonthView()) {
@@ -730,6 +731,7 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
 
     event.preventDefault();
     const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
+    this._lastClientY = clientY;
     const deltaY = clientY - this._startY;
 
     // Calculate new height based on grid row height for snap-to-grid behavior
@@ -769,13 +771,10 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     document.removeEventListener('touchmove', moveHandler);
     document.removeEventListener('touchend', endHandler);
 
-    // Calculate new duration based on height change
-    const currentHeight = this._elRef.nativeElement.offsetHeight;
-    const heightDelta = currentHeight - this._startHeight;
-
-    // Convert height change to time change (based on grid row height)
-    // Each row represents a time slice (FH rows per hour)
-    const timeChangeInMs = this._calculateTimeFromHeightDelta(heightDelta);
+    // Calculate time change from pointer delta (more reliable than offsetHeight
+    // which may not have been updated in the DOM by Angular OnPush yet)
+    const clientDelta = this._lastClientY - this._startY;
+    const timeChangeInMs = this._calculateTimeFromHeightDelta(clientDelta);
 
     const t = this.task();
     if (t && Math.abs(timeChangeInMs) > 30000) {

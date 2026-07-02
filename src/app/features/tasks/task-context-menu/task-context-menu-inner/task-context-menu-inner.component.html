@@ -336,20 +336,22 @@
     </button>
   }
 
-  <button
-    (click)="deleteTask()"
-    class="color-warn"
-    mat-menu-item
-  >
-    <span class="menuItemLeft">
-      <mat-icon class="color-warn-i">delete_forever</mat-icon>
-      {{
-        (task.repeatCfgId ? T.F.TASK.CMP.DELETE_REPEAT_INSTANCE : T.F.TASK.CMP.DELETE)
-          | translate
-      }}
-    </span>
-    <span class="key-i">{{ kb.taskDelete }}</span>
-  </button>
+  @if (!isActualRecord()) {
+    <button
+      (click)="deleteTask()"
+      class="color-warn"
+      mat-menu-item
+    >
+      <span class="menuItemLeft">
+        <mat-icon class="color-warn-i">delete_forever</mat-icon>
+        {{
+          (task.repeatCfgId ? T.F.TASK.CMP.DELETE_REPEAT_INSTANCE : T.F.TASK.CMP.DELETE)
+            | translate
+        }}
+      </span>
+      <span class="key-i">{{ kb.taskDelete }}</span>
+    </button>
+  }
 </mat-menu>
 
 <mat-menu

@@ -563,7 +563,7 @@ export class TaskDetailPanelComponent implements OnInit, AfterViewInit, OnDestro
 
   estimateTime(): void {
     this._matDialog.open(DialogTimeEstimateComponent, {
-      data: { task: this.task() },
+      data: { task: this.task(), isEstimateOnly: true },
     });
   }
 
