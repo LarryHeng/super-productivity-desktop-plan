@@ -40,6 +40,7 @@ import { PluginHeaderBtnsComponent } from '../../plugins/ui/plugin-header-btns.c
 import { PluginWorkContextHeaderBtnsComponent } from '../../plugins/ui/plugin-work-context-header-btns.component';
 import { PluginSidePanelBtnsComponent } from '../../plugins/ui/plugin-side-panel-btns.component';
 import { PageTitleComponent } from './page-title/page-title.component';
+import { HeaderProductivityTipComponent } from './header-productivity-tip/header-productivity-tip.component';
 import { PlayButtonComponent } from './play-button/play-button.component';
 import { DesktopPanelButtonsComponent } from './desktop-panel-buttons/desktop-panel-buttons.component';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -67,6 +68,7 @@ import { UserProfileService } from '../../features/user-profile/user-profile.ser
     PluginWorkContextHeaderBtnsComponent,
     PluginSidePanelBtnsComponent,
     PageTitleComponent,
+    HeaderProductivityTipComponent,
     PlayButtonComponent,
     DesktopPanelButtonsComponent,
     UserProfileButtonComponent,

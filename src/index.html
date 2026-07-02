@@ -358,6 +358,8 @@
 
       function showTip(tips) {
         var randomIndex = Math.floor(Math.random() * tips.length);
+        window.productivityTips = tips;
+        window.randomIndex = randomIndex;
         var headingEl = document.getElementById('heading');
         var textEl = document.getElementById('text');
         if (headingEl && textEl) {

@@ -84,6 +84,7 @@ import { OnboardingHintService } from './features/onboarding/onboarding-hint.ser
 import { MaterialIconsLoaderService } from './ui/material-icons-loader.service';
 import { BrowserTitleService } from './core/browser-title/browser-title.service';
 import { normalizeBackgroundFocus } from './core/theme/background-focus.util';
+import { pickRandomTip } from './core-ui/productivity-tips.const';
 
 const ONBOARDING_PRESET_EXIT_DELAY = 1000;
 const ONBOARDING_ENTRANCE_COMPLETE_DELAY = 2000;
@@ -165,6 +166,11 @@ export const getBackgroundImageBlur = (context: WorkContextThemeSource): number 
   ],
 })
 export class AppComponent implements OnDestroy, AfterViewInit {
+  private _startupTip = pickRandomTip();
+  isAppLoading = signal(true);
+  splashHeading = signal(this._startupTip[0]);
+  splashBody = signal(this._startupTip[1]);
+
   private _globalConfigService = inject(GlobalConfigService);
   private _shortcutService = inject(ShortcutService);
   private _bannerService = inject(BannerService);
@@ -261,6 +267,9 @@ export class AppComponent implements OnDestroy, AfterViewInit {
   constructor() {
     this._startupService.init();
     void this._materialIconsLoaderService.ensureFontReady();
+
+    // Keep splash visible for 5 seconds after Angular boots
+    setTimeout(() => this.isAppLoading.set(false), 5000);
 
     // Skip onboarding for existing users with data
     if (this.isShowOnboardingPresets()) {
