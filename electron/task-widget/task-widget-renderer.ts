@@ -42,6 +42,129 @@ document.addEventListener('contextmenu', blockRightClick, true);
 document.addEventListener('mousedown', blockRightClick, true);
 document.addEventListener('mouseup', blockRightClick, true);
 
+const colDivider = document.getElementById('col-divider') as HTMLDivElement;
+const rowDivider = document.getElementById('row-divider') as HTMLDivElement;
+const crossCenter = document.getElementById('cross-center') as HTMLDivElement;
+const LS_KEY = 'taskWidgetMatrixRatios';
+const DEFAULT_COL_RATIO = 0.5;
+const DEFAULT_ROW_RATIO = 0.5;
+const MIN_RATIO = 0.18;
+const MAX_RATIO = 0.82;
+
+let colRatio = DEFAULT_COL_RATIO;
+let rowRatio = DEFAULT_ROW_RATIO;
+
+try {
+  const stored = localStorage.getItem(LS_KEY);
+  if (stored) {
+    const parsed = JSON.parse(stored);
+    if (
+      typeof parsed.col === 'number' &&
+      parsed.col >= MIN_RATIO &&
+      parsed.col <= MAX_RATIO
+    ) {
+      colRatio = parsed.col;
+    }
+    if (
+      typeof parsed.row === 'number' &&
+      parsed.row >= MIN_RATIO &&
+      parsed.row <= MAX_RATIO
+    ) {
+      rowRatio = parsed.row;
+    }
+  }
+} catch (_) {
+  /* ignore */
+}
+
+const persistRatios = (): void => {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ col: colRatio, row: rowRatio }));
+  } catch (_) {
+    /* ignore */
+  }
+};
+
+const applyRatios = (): void => {
+  const colPct = Math.round(colRatio * 100);
+  const rowPct = Math.round(rowRatio * 100);
+  matrixGrid.style.gridTemplateColumns = `${colPct}% ${100 - colPct}%`;
+  matrixGrid.style.gridTemplateRows = `${rowPct}% ${100 - rowPct}%`;
+
+  const gridRect = matrixGrid.getBoundingClientRect();
+  const xOffset = gridRect.width * colRatio;
+  const yOffset = gridRect.height * rowRatio;
+  const colX = gridRect.left + xOffset;
+  const rowY = gridRect.top + yOffset;
+
+  colDivider.style.left = `${colX}px`;
+  colDivider.style.top = `${gridRect.top}px`;
+  colDivider.style.height = `${gridRect.height}px`;
+
+  rowDivider.style.left = `${gridRect.left}px`;
+  rowDivider.style.top = `${rowY}px`;
+  rowDivider.style.width = `${gridRect.width}px`;
+
+  crossCenter.style.left = `${colX}px`;
+  crossCenter.style.top = `${rowY}px`;
+};
+
+applyRatios();
+
+let activeDrag: 'col' | 'row' | 'cross' | null = null;
+let dragStartX = 0;
+let dragStartY = 0;
+let dragStartColRatio = 0;
+let dragStartRowRatio = 0;
+
+const onDragStart = (mode: 'col' | 'row' | 'cross', e: MouseEvent): void => {
+  activeDrag = mode;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  dragStartColRatio = colRatio;
+  dragStartRowRatio = rowRatio;
+  if (mode === 'col' || mode === 'cross') colDivider.classList.add('active');
+  if (mode === 'row' || mode === 'cross') rowDivider.classList.add('active');
+  if (mode === 'cross') crossCenter.classList.add('active');
+  e.preventDefault();
+};
+
+colDivider.addEventListener('mousedown', (e) => onDragStart('col', e));
+rowDivider.addEventListener('mousedown', (e) => onDragStart('row', e));
+crossCenter.addEventListener('mousedown', (e) => onDragStart('cross', e));
+
+document.addEventListener('mousemove', (e) => {
+  if (!activeDrag) return;
+  const gridRect = matrixGrid.getBoundingClientRect();
+  if (gridRect.width <= 0 || gridRect.height <= 0) return;
+
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+
+  if (activeDrag === 'col' || activeDrag === 'cross') {
+    const dRatio = dx / gridRect.width;
+    colRatio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, dragStartColRatio + dRatio));
+  }
+  if (activeDrag === 'row' || activeDrag === 'cross') {
+    const dRatio = dy / gridRect.height;
+    rowRatio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, dragStartRowRatio + dRatio));
+  }
+
+  applyRatios();
+});
+
+document.addEventListener('mouseup', () => {
+  if (!activeDrag) return;
+  colDivider.classList.remove('active');
+  rowDivider.classList.remove('active');
+  crossCenter.classList.remove('active');
+  activeDrag = null;
+  persistRatios();
+});
+
+const resizeObserver2 = new ResizeObserver(() => applyRatios());
+resizeObserver2.observe(matrixGrid);
+
 showMainBtn.addEventListener('click', () => {
   window.taskWidgetAPI.showMainWindow();
 });
