@@ -24,7 +24,9 @@ export class TaskContextMenuComponent {
   isAdvancedControls = input<boolean>(false);
   isTimeSpentEditHidden = input<boolean>(false);
   isManualRecordAvailable = input<boolean>(false);
+  isActualRecord = input<boolean>(false);
   manualRecord = output<void>();
+  adjustActualRecord = output<void>();
 
   isShowInner: boolean = false;
 

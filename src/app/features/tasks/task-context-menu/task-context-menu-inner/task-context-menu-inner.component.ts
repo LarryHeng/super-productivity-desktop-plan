@@ -134,6 +134,7 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
   isAdvancedControls = input<boolean>(false);
   isTimeSpentEditHidden = input<boolean>(false);
   isManualRecordAvailable = input<boolean>(false);
+  isActualRecord = input<boolean>(false);
   todayList = toSignal(this._store.select(selectTodayTaskIds), { initialValue: [] });
   isOnTodayList = computed(() => this.task && this.todayList().includes(this.task.id));
   readonly isTimeTrackingEnabled = computed(
@@ -146,6 +147,7 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
   // eslint-disable-next-line @angular-eslint/no-output-native
   close = output();
   manualRecord = output<void>();
+  adjustActualRecord = output<void>();
 
   contextMenuPosition: { x: string; y: string } = { x: '100px', y: '100px' };
 

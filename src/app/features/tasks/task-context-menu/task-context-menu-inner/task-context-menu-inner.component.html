@@ -168,6 +168,18 @@
     </button>
   }
 
+  @if (isActualRecord()) {
+    <button
+      (click)="requestAdjustActualRecord()"
+      mat-menu-item
+    >
+      <span class="menuItemLeft">
+        <mat-icon>edit</mat-icon>
+        {{ T.F.SCHEDULE.ADJUST_RECORD | translate }}
+      </span>
+    </button>
+  }
+
   @if (isAdvancedControls() && !task.parentId && !task.isDone) {
     <button
       (click)="moveToTop()"

@@ -169,6 +169,11 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     );
   });
 
+  readonly isActualRecord = computed(() => {
+    const type = this.se().type;
+    return type === SVEType.ActualTask || type === SVEType.CompletedPlannedTask;
+  });
+
   readonly title = computed(() => {
     const evt = this.se();
     return (
@@ -267,6 +272,10 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
 
     if (evt.isBeyondBudget) {
       addClass += ' is-beyond-budget';
+    }
+
+    if (this.isResizable()) {
+      addClass += ' resizable';
     }
 
     return evt.type + '  ' + addClass;
@@ -574,6 +583,61 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  adjustActualRecord(): void {
+    const t = this.task();
+    const evt = this.se();
+    if (
+      !t ||
+      (evt.type !== SVEType.ActualTask && evt.type !== SVEType.CompletedPlannedTask)
+    )
+      return;
+
+    const dayStr =
+      typeof (evt as any).plannedForDay === 'string'
+        ? (evt as any).plannedForDay
+        : evt.start
+          ? getDbDateStr(evt.start)
+          : undefined;
+    if (!dayStr || !t.timeSpentOnDay?.[dayStr]) return;
+
+    const currentMs = t.timeSpentOnDay[dayStr];
+    const currentMinutes = Math.round(currentMs / 60000);
+
+    this._matDialog
+      .open(DialogPromptComponent, {
+        data: {
+          title: this._translateService.instant(T.F.SCHEDULE.ADJUST_RECORD_TITLE),
+          message: this._translateService.instant(T.F.SCHEDULE.ADJUST_RECORD_PLACEHOLDER),
+          value: currentMinutes,
+          type: 'number',
+        },
+      })
+      .afterClosed()
+      .subscribe((newMinutes: number | undefined) => {
+        if (newMinutes === undefined || newMinutes === null || newMinutes < 0) return;
+        const newMs = newMinutes * 60000;
+        if (newMs === 0) {
+          this.deleteActualRecord();
+          return;
+        }
+        if (newMs !== currentMs) {
+          this._store.dispatch(
+            TaskSharedActions.updateTask({
+              task: {
+                id: t.id,
+                changes: {
+                  timeSpentOnDay: {
+                    ...t.timeSpentOnDay,
+                    [dayStr]: newMs,
+                  },
+                },
+              },
+            }),
+          );
+        }
+      });
+  }
+
   markAsDone(): void {
     const t = this.task();
     if (!t) return;
@@ -634,16 +698,8 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
       return t.timeSpentOnDay[dayStr] > 0;
     }
 
-    // Allow resizing for all task types with a time estimate
-    return (
-      !!t &&
-      (evt.type === SVEType.ScheduledTask ||
-        evt.type === SVEType.Task ||
-        evt.type === SVEType.SplitTaskContinuedLast ||
-        evt.type === SVEType.TaskPlannedForDay ||
-        evt.type === SVEType.SplitTaskPlannedForDay) &&
-      t.timeEstimate > 0
-    );
+    // Planned blocks: no resize allowed (only system timer + manual backfill)
+    return false;
   }
 
   onResizeStart(event: MouseEvent | TouchEvent): void {
@@ -727,48 +783,26 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
         evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask;
 
       if (isActualOrCompleted) {
-        // Only allow reducing actual time blocks
-        if (timeChangeInMs < 0) {
-          const dayStr =
-            typeof (evt as any).plannedForDay === 'string'
-              ? (evt as any).plannedForDay
-              : getDbDateStr(evt.start as number);
-          if (!dayStr || !t.timeSpentOnDay?.[dayStr]) {
-            this._resizeHeight.set('');
-            return;
-          }
-          const currentSpent = t.timeSpentOnDay[dayStr];
-          const newSpent = Math.max(0, currentSpent + timeChangeInMs);
-          const roundedSpent =
-            Math.round(newSpent / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS;
-          if (roundedSpent !== currentSpent) {
-            this._store.dispatch(
-              TaskSharedActions.updateTask({
-                task: {
-                  id: t.id,
-                  changes: {
-                    timeSpentOnDay: { ...t.timeSpentOnDay, [dayStr]: roundedSpent },
-                  },
-                },
-              }),
-            );
-          }
+        // Allow bidirectional resizing of actual time blocks (enlarge or shrink)
+        const dayStr =
+          typeof (evt as any).plannedForDay === 'string'
+            ? (evt as any).plannedForDay
+            : getDbDateStr(evt.start as number);
+        if (!dayStr || !t.timeSpentOnDay?.[dayStr]) {
+          this._resizeHeight.set('');
+          return;
         }
-      } else {
-        // Existing logic for planned blocks (can both reduce and extend)
-        const rawEstimate = t.timeEstimate + timeChangeInMs;
-        const roundedEstimate = Math.max(
-          FIVE_MINUTES_IN_MS,
-          Math.round(rawEstimate / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS,
-        );
-
-        if (roundedEstimate !== t.timeEstimate) {
+        const currentSpent = t.timeSpentOnDay[dayStr];
+        const newSpent = Math.max(0, currentSpent + timeChangeInMs);
+        const roundedSpent =
+          Math.round(newSpent / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS;
+        if (roundedSpent !== currentSpent) {
           this._store.dispatch(
             TaskSharedActions.updateTask({
               task: {
                 id: t.id,
                 changes: {
-                  timeEstimate: roundedEstimate,
+                  timeSpentOnDay: { ...t.timeSpentOnDay, [dayStr]: roundedSpent },
                 },
               },
             }),

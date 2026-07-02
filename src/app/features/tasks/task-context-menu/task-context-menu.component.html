@@ -4,7 +4,9 @@
     [isAdvancedControls]="isAdvancedControls()"
     [isTimeSpentEditHidden]="isTimeSpentEditHidden()"
     [isManualRecordAvailable]="isManualRecordAvailable()"
+    [isActualRecord]="isActualRecord()"
     (manualRecord)="manualRecord.emit()"
+    (adjustActualRecord)="adjustActualRecord.emit()"
     (close)="isShowInner = false"
     [task]="task()"
   ></task-context-menu-inner>

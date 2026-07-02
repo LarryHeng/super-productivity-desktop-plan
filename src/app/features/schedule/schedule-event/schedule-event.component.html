@@ -99,7 +99,9 @@
     [task]="task()"
     [isTimeSpentEditHidden]="true"
     [isManualRecordAvailable]="isManualRecordAvailable()"
+    [isActualRecord]="isActualRecord()"
     (manualRecord)="openManualRecord()"
+    (adjustActualRecord)="adjustActualRecord()"
   ></task-context-menu>
 }
 
