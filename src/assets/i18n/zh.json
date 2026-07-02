@@ -2241,6 +2241,8 @@
     "DONT_SHOW_AGAIN": "不再显示",
     "DUPLICATE": "重复",
     "DURATION_DESCRIPTION": "例如 \"5h 23m\"，结果为 5 小时 23 分钟",
+    "SPLASH": "启动画面显示时长",
+    "SPLASH_DESCRIPTION": "启动名言停留多久后自动进入应用。例如 \"5s\" 表示 5 秒。",
     "EDIT": "编辑",
     "ENABLED": "启用",
     "EXAMPLE_VAL": "例如 32m",

@@ -70,6 +70,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     // off only on GNOME+Wayland) and the settings checkbox is seeded display-only
     // in misc-settings-form (#7891).
     isShowProductivityTipLonger: false,
+    splashDuration: 5000,
     customTheme: 'default',
     defaultStartPage: 0,
     globalBackgroundImage: null,

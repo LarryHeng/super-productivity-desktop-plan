@@ -2,12 +2,13 @@ import { hasMeaningfulStateData } from './has-meaningful-state-data.util';
 import { INBOX_PROJECT } from '../../features/project/project.const';
 
 // The default app ships with only the INBOX project and the built-in system
-// tags (TODAY, EM_URGENT, EM_IMPORTANT, KANBAN_IN_PROGRESS — see SYSTEM_TAG_IDS).
+// tags (TODAY, EM_URGENT, EM_IMPORTANT, KANBAN_IN_PROGRESS, EM_HIDDEN — see SYSTEM_TAG_IDS).
 const SYSTEM_TAG_IDS_FIXTURE = [
   'TODAY',
   'EM_URGENT',
   'EM_IMPORTANT',
   'KANBAN_IN_PROGRESS',
+  'EM_HIDDEN',
 ];
 
 const initialState = (): Record<string, unknown> => ({

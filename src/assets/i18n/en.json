@@ -2241,6 +2241,8 @@
     "DONT_SHOW_AGAIN": "Do not show again",
     "DUPLICATE": "Duplicate",
     "DURATION_DESCRIPTION": "e.g. \"5h 23m\" which results in 5 hours and 23 minutes",
+    "SPLASH": "Splash screen duration",
+    "SPLASH_DESCRIPTION": "How long the startup quote remains visible. e.g. \"5s\" for 5 seconds.",
     "EDIT": "Edit",
     "ENABLED": "Enabled",
     "EXAMPLE_VAL": "e.g. 32m",

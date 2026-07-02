@@ -135,6 +135,15 @@ export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
       },
     },
     {
+      key: 'splashDuration',
+      type: 'duration',
+      templateOptions: {
+        label: T.G.SPLASH,
+        description: T.G.SPLASH_DESCRIPTION,
+        isShowSaveBtn: true,
+      },
+    },
+    {
       key: 'isTrayShowCurrentCountdown',
       type: 'checkbox',
       templateOptions: {

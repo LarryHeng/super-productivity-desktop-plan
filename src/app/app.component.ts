@@ -268,8 +268,9 @@ export class AppComponent implements OnDestroy, AfterViewInit {
     this._startupService.init();
     void this._materialIconsLoaderService.ensureFontReady();
 
-    // Keep splash visible for 5 seconds after Angular boots
-    setTimeout(() => this.isAppLoading.set(false), 5000);
+    // Keep splash visible for configured duration (default 5 seconds) after Angular boots
+    const splashMs = this._globalConfigService.misc()?.splashDuration ?? 5000;
+    setTimeout(() => this.isAppLoading.set(false), splashMs);
 
     // Skip onboarding for existing users with data
     if (this.isShowOnboardingPresets()) {

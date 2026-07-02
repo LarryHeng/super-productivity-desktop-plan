@@ -1,4 +1,4 @@
-# Desktop Plan 18.12.0-desktop-plan.9
+# Desktop Plan 18.12.0-desktop-plan.10
 
 感谢 Super Productivity 官方项目、Johannes Millan 和所有上游贡献者。
 本版本是基于 Super Productivity 18.12.0 的非官方 Windows 桌面规划衍生版。

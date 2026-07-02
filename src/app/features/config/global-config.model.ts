@@ -40,6 +40,8 @@ export type MiscConfig = Readonly<{
   // optional because it was added later
   isDisableCelebration?: boolean;
   isShowProductivityTipLonger?: boolean;
+  /** Splash screen display duration in milliseconds. Default 5000 (5 seconds). */
+  splashDuration?: number;
   isTrayShowCurrentCountdown?: boolean;
   isUseCustomWindowTitleBar?: boolean;
   customTheme?: string;
