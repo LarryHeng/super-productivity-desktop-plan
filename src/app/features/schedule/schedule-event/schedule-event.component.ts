@@ -691,13 +691,9 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
 
     const isActualOrCompleted =
       evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask;
+    // Actual blocks: no resize allowed (only system timer + manual backfill)
     if (isActualOrCompleted) {
-      const dayStr =
-        typeof (evt as any).plannedForDay === 'string'
-          ? (evt as any).plannedForDay
-          : undefined;
-      if (!dayStr || !t.timeSpentOnDay?.[dayStr]) return false;
-      return t.timeSpentOnDay[dayStr] > 0;
+      return false;
     }
 
     // Planned blocks: no resize allowed (only system timer + manual backfill)

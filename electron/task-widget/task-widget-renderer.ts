@@ -96,6 +96,12 @@ const applyRatios = (): void => {
   const padTop = parseFloat(gridStyles.paddingTop) || 0;
   const padBottom = parseFloat(gridStyles.paddingBottom) || 0;
 
+  // Temporarily clear pixel tracks so grid uses CSS 1fr and we read its
+  // real constrained width instead of an overflowed stale value.
+  matrixGrid.style.gridTemplateColumns = '';
+  matrixGrid.style.gridTemplateRows = '';
+  void matrixGrid.offsetWidth;
+
   const contentW = matrixGrid.clientWidth - padLeft - padRight;
   const contentH = matrixGrid.clientHeight - padTop - padBottom;
   if (contentW <= 0 || contentH <= 0) return;
@@ -230,7 +236,7 @@ document.addEventListener('mouseup', () => {
 });
 
 const dividerResizeObserver = new ResizeObserver(() => applyRatios());
-dividerResizeObserver.observe(matrixGrid);
+dividerResizeObserver.observe(container);
 
 showMainBtn.addEventListener('click', () => {
   window.taskWidgetAPI.showMainWindow();
@@ -431,7 +437,20 @@ window.taskWidgetAPI.onUpdateBackground((data) => {
 
 const updateResponsiveState = (): void => {
   const w = document.documentElement.clientWidth;
-  document.body.classList.toggle('size-narrow', w < 560);
+  const isNarrow = w < 560;
+  document.body.classList.toggle('size-narrow', isNarrow);
+  if (isNarrow) {
+    matrixGrid.style.gridTemplateColumns = '';
+    matrixGrid.style.gridTemplateRows = '';
+    colDivider.style.display = 'none';
+    rowDivider.style.display = 'none';
+    crossCenter.style.display = 'none';
+  } else {
+    colDivider.style.display = '';
+    rowDivider.style.display = '';
+    crossCenter.style.display = '';
+    applyRatios();
+  }
 };
 
 const resizeObserver = new ResizeObserver(updateResponsiveState);

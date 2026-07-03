@@ -307,7 +307,7 @@
   <button
     [matMenuTriggerFor]="tagMenu"
     mat-menu-item
-    [menuTouchFix]="tagMenuTrigger"
+    [menuTouchFix]="contextMenuTrigger()"
     (menuOpened)="focusFirstSubmenuItem(tagMenu)"
     class="e2e-edit-tags-btn"
   >
