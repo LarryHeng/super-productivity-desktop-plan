@@ -71,6 +71,7 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     // in misc-settings-form (#7891).
     isShowProductivityTipLonger: false,
     splashDuration: 5000,
+    isDiagnosticLoggingEnabled: false,
     customTheme: 'default',
     defaultStartPage: 0,
     globalBackgroundImage: null,

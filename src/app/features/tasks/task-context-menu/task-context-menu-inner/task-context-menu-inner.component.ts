@@ -73,6 +73,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { TagService } from '../../../tag/tag.service';
 import { HIDDEN_MATRIX_TAG, IMPORTANT_TAG, URGENT_TAG } from '../../../tag/tag.const';
 import { DialogPromptComponent } from '../../../../ui/dialog-prompt/dialog-prompt.component';
+import { DiagnosticLogService } from '../../../../core/diagnostic-log.service';
 import { TaskSharedActions } from '../../../../root-store/meta/task-shared.actions';
 import { selectTodayTaskIds } from '../../../work-context/store/work-context.selectors';
 import { DateService } from '../../../../core/date/date.service';
@@ -126,6 +127,7 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
   private readonly _dateService = inject(DateService);
   private readonly _menuTreeService = inject(MenuTreeService);
   private readonly _addSubtaskInputService = inject(AddSubtaskInputService);
+  private readonly _diagLog = inject(DiagnosticLogService);
 
   protected readonly isTouchActive = isTouchActive;
   protected readonly T = T;
@@ -568,15 +570,15 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
 
   removeMatrixTags(): void {
     const task = this.task;
-    // Strip matrix tags and always add EM_HIDDEN so the task disappears
-    // from all Eisenhower panels regardless of which tags it had before.
     const filtered = (task.tagIds ?? []).filter(
       (id: string) => id !== URGENT_TAG.id && id !== IMPORTANT_TAG.id,
     );
     const newTagIds = [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])];
-    // Ensure EM_HIDDEN exists as a tag entity before updating — if the tag
-    // store doesn't contain it, the reducer's handleTagUpdates will silently
-    // drop the bidirectional sync (but the task entity will still be updated).
+    this._diagLog.debug('removeMatrixTags:click', {
+      taskId: task.id,
+      before: [...(task.tagIds ?? [])],
+      after: newTagIds,
+    });
     this._tagService.addTag(HIDDEN_MATRIX_TAG);
     this._taskService.updateTags(task, newTagIds);
   }

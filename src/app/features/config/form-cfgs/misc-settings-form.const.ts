@@ -182,5 +182,13 @@ export const MISC_SETTINGS_FORM_CFG: ConfigFormSection<MiscConfig> = {
         label: T.GCF.MISC.DEFAULT_START_PAGE,
       },
     },
+    {
+      key: 'isDiagnosticLoggingEnabled',
+      type: 'checkbox',
+      templateOptions: {
+        label: T.GCF.MISC.IS_DIAGNOSTIC_LOGGING,
+        description: T.GCF.MISC.IS_DIAGNOSTIC_LOGGING_HINT,
+      },
+    },
   ],
 };

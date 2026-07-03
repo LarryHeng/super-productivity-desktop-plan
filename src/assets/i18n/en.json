@@ -2540,6 +2540,8 @@
       "IS_TRAY_SHOW_CURRENT_COUNTDOWN": "Show current countdown in the tray / status menu (macOS only)",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR": "Use custom title bar (Windows/Linux only)",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR_HINT": "Requires restart to take effect.",
+      "IS_DIAGNOSTIC_LOGGING": "Diagnostic logging",
+      "IS_DIAGNOSTIC_LOGGING_HINT": "Record all operations (NgRx actions, UI interactions) for troubleshooting. Logs can be exported from the Logs dialog.",
       "IS_VERTICAL_ACTION_BAR": "Vertical action bar on the side (experimental)",
       "IS_VERTICAL_ACTION_BAR_HINT": "Moves the header action buttons into a vertical strip on the right edge of the window. Desktop only.",
       "START_OF_NEXT_DAY": "Start time of the next day",

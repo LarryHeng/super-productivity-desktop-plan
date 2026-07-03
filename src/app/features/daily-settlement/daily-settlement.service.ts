@@ -66,12 +66,9 @@ export class DailySettlementService {
       const filtered = (task.tagIds ?? []).filter(
         (tagId) => tagId !== URGENT_TAG.id && tagId !== IMPORTANT_TAG.id,
       );
-      const hasMatrixTags = filtered.length < (task.tagIds ?? []).length;
-      // Swap EM_IMPORTANT / EM_URGENT for EM_HIDDEN instead of just removing them.
-      // Already-hidden tasks keep EM_HIDDEN unchanged.
-      const newTagIds = hasMatrixTags
-        ? [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])]
-        : (task.tagIds ?? []);
+      // Always add EM_HIDDEN for completed tasks — even those without current
+      // matrix tags — so they stay out of all Eisenhower matrix panels.
+      const newTagIds = [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])];
       this._taskService.updateTags(task, newTagIds);
     }
 

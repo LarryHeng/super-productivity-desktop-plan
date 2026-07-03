@@ -44,6 +44,8 @@ export type MiscConfig = Readonly<{
   splashDuration?: number;
   isTrayShowCurrentCountdown?: boolean;
   isUseCustomWindowTitleBar?: boolean;
+  /** Enable diagnostic logging: records all operations (NgRx actions, UI interactions) for troubleshooting */
+  isDiagnosticLoggingEnabled?: boolean;
   customTheme?: string;
   // number: one of DefaultStartPage. string: project id.
   defaultStartPage?: number | string;

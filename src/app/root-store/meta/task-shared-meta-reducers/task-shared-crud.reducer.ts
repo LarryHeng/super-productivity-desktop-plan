@@ -25,6 +25,7 @@ import { DEFAULT_TASK, Task, TaskWithSubTasks } from '../../../features/tasks/ta
 import { calcTotalTimeSpent } from '../../../features/tasks/util/calc-total-time-spent';
 import { IN_PROGRESS_TAG, TODAY_TAG } from '../../../features/tag/tag.const';
 import { unique } from '../../../util/unique';
+import { Log } from '../../../core/log';
 import { appStateFeatureKey } from '../../app-state/app-state.reducer';
 import { getDbDateStr } from '../../../util/get-db-date-str';
 import { moveItemAfterAnchor } from '../../../features/work-context/store/work-context-meta.helper';
@@ -787,7 +788,12 @@ const handleUpdateTask = (state: RootState, taskUpdate: Update<Task>): RootState
   if (cleanedTaskUpdate.changes.tagIds) {
     const oldTagIds = currentTask.tagIds;
     const newTagIds = cleanedTaskUpdate.changes.tagIds;
-
+    Log.debug('handleUpdateTask:tagIds', {
+      taskId,
+      oldTagIds,
+      newTagIds,
+      emHiddenInEntities: !!state[TAG_FEATURE_NAME].entities['EM_HIDDEN'],
+    });
     updatedState = handleTagUpdates(updatedState, taskId, oldTagIds, newTagIds);
   }
 
@@ -913,6 +919,13 @@ const handleTagUpdates = (
     .filter((newId) => !oldTagIdSet.has(newId))
     .filter((newId) => newId !== TODAY_TAG.id)
     .filter((tagId) => state[TAG_FEATURE_NAME].entities[tagId]); // Only existing tags
+
+  Log.debug('handleTagUpdates:filtered', {
+    taskId,
+    tagsToRemoveFrom: tagsToRemoveFrom.map((t) => t),
+    tagsToAddTo: tagsToAddTo.map((t) => t),
+    emHiddenInEntities: !!state[TAG_FEATURE_NAME].entities['EM_HIDDEN'],
+  });
 
   const removeUpdates = tagsToRemoveFrom.map(
     (tagId): Update<Tag> => ({

@@ -108,6 +108,7 @@ import { INBOX_PROJECT } from '../project/project.const';
 import { GlobalConfigService } from '../config/global-config.service';
 import { TaskLog } from '../../core/log';
 import { devError } from '../../util/dev-error';
+import { DiagnosticLogService } from '../../core/diagnostic-log.service';
 import { DEFAULT_GLOBAL_CONFIG } from '../config/default-global-config.const';
 import { TaskFocusService } from './task-focus.service';
 import { TTActiveTaskSegment } from '../time-tracking/time-tracking.model';
@@ -134,6 +135,7 @@ export class TaskService {
   private readonly _taskArchiveService = inject(TaskArchiveService);
   private readonly _globalConfigService = inject(GlobalConfigService);
   private readonly _taskFocusService = inject(TaskFocusService);
+  private readonly _diagLog = inject(DiagnosticLogService);
   private readonly _deletedTaskIssueSidecar = inject(DeletedTaskIssueSidecarService);
   private readonly _timeBlockDeleteSidecar = inject(TimeBlockDeleteSidecarService);
 
@@ -555,6 +557,11 @@ export class TaskService {
   }
 
   updateTags(task: Task, newTagIds: string[]): void {
+    this._diagLog.debug('TaskService.updateTags', {
+      taskId: task.id,
+      oldTagIds: task.tagIds,
+      newTagIds,
+    });
     this._store.dispatch(
       TaskSharedActions.updateTask({
         task: {

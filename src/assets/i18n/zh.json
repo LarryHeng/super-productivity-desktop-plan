@@ -2540,6 +2540,8 @@
       "IS_TRAY_SHOW_CURRENT_COUNTDOWN": "在托盘/状态菜单中显示当前倒计时（仅限桌面 Mac）",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR": "使用自定义标题栏（仅限Windows/Linux）",
       "IS_USE_CUSTOM_WINDOW_TITLE_BAR_HINT": "需要重启方可生效",
+      "IS_DIAGNOSTIC_LOGGING": "诊断日志",
+      "IS_DIAGNOSTIC_LOGGING_HINT": "记录所有操作（NgRx动作、UI交互）用于排查问题。日志可从 Logs 对话框导出。",
       "IS_VERTICAL_ACTION_BAR": "在侧边显示垂直操作栏（实验性）",
       "IS_VERTICAL_ACTION_BAR_HINT": "将页眉操作按钮移至窗口右侧的垂直栏中。仅限桌面版。",
       "START_OF_NEXT_DAY": "下一天的开始时间",

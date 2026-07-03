@@ -30,6 +30,8 @@ import {
   TextInputElement,
 } from './mention-types';
 
+import { DiagnosticLogService } from '../../core/diagnostic-log.service';
+
 // Custom types for mention events
 interface CustomKeyboardEvent extends KeyboardEvent {
   inputEvent?: boolean;
@@ -233,6 +235,7 @@ export class MentionDirective implements OnChanges {
   private readonly _element = inject(ElementRef);
   private readonly _componentResolver = inject(ComponentFactoryResolver);
   private readonly _viewContainerRef = inject(ViewContainerRef);
+  private readonly _diagLog = inject(DiagnosticLogService);
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['mentionConfig']) {
@@ -412,6 +415,13 @@ export class MentionDirective implements OnChanges {
 
     const config = this.triggerChars[charPressed];
     if (config) {
+      this._diagLog.debug('mention:key:trigger', {
+        key: event.key,
+        charPressed,
+        pos,
+        trigger: config.triggerChar,
+        nestedCount: config.mentions?.length,
+      });
       this.activeConfig = config;
       this.startPos = event.inputEvent ? pos - 1 : pos;
       const selection = this.iframe
@@ -537,6 +547,12 @@ export class MentionDirective implements OnChanges {
           } else {
             this.searchTerm.emit(this.searchString ?? '');
           }
+          this._diagLog.debug('mention:key:search', {
+            key: event.key,
+            activeTrigger: this.activeConfig?.triggerChar,
+            searchString: this.searchString,
+            activeItems: this.activeConfig?.items?.length,
+          });
           this.updateSearchList();
         }
       }
@@ -597,6 +613,13 @@ export class MentionDirective implements OnChanges {
     }
     // update the search list
     if (this.searchList) {
+      this._diagLog.debug('mention:list', {
+        trigger: this.activeConfig?.triggerChar,
+        searchString: this.searchString,
+        totalItems: this.activeConfig?.items?.length,
+        matches: matches.length,
+        hidden: matches.length === 0,
+      });
       this.searchList.items.set(matches);
       this.searchList.hidden.set(matches.length === 0);
       this.listShownChange.emit(matches.length > 0);
