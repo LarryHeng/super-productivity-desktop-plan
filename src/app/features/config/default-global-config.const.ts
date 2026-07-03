@@ -10,11 +10,11 @@ import { INBOX_PROJECT } from '../project/project.const';
 import { DEFAULT_MAX_BACKUP_FILES } from '../../../../electron/shared-with-frontend/backup-file-cleanup.util';
 
 const minute = 60 * 1000;
-const defaultTaskNotesTemplate = `**How can I best achieve it now?**
+const defaultTaskNotesTemplate = `**我要怎么做到这件事？**
 
-**What do I want?**
+**我想要什么？**
 
-**Why do I want it?**
+**为什么我想要它？**
 `;
 
 export const DEFAULT_DAY_START = '9:00';
