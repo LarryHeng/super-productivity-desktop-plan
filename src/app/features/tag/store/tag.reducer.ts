@@ -14,7 +14,7 @@
 import { createEntityAdapter, EntityAdapter } from '@ngrx/entity';
 import { Tag, TagState } from '../tag.model';
 import { createFeatureSelector, createReducer, createSelector, on } from '@ngrx/store';
-import { TODAY_TAG } from '../tag.const';
+import { TODAY_TAG, URGENT_TAG, IMPORTANT_TAG, HIDDEN_MATRIX_TAG } from '../tag.const';
 import { WorkContextType } from '../../work-context/work-context.model';
 import {
   moveTaskDownInTodayList,
@@ -187,22 +187,29 @@ export const selectTagsByIds = createSelector(
 // );
 
 // TODO also add no list tag
-const _addMyDayTagIfNecessary = (state: TagState): TagState => {
-  if (state.ids && !(state.ids as string[]).includes(TODAY_TAG.id)) {
-    state = {
-      ...state,
-      ids: [TODAY_TAG.id, ...state.ids] as string[],
-      entities: {
-        ...state.entities,
-        [TODAY_TAG.id]: TODAY_TAG,
-      },
-    };
-  }
+// System tags that must exist for board panels to render (Eisenhower matrix
+// panels reference EM_URGENT/EM_IMPORTANT/EM_HIDDEN in their excludedTagIds).
+// Without them, BoardComponent.missingTagIds() gates panel rendering.
+const SYSTEM_TAGS = [TODAY_TAG, URGENT_TAG, IMPORTANT_TAG, HIDDEN_MATRIX_TAG];
 
-  return state;
+const _addSystemTagsIfNecessary = (state: TagState): TagState => {
+  let next = state;
+  for (const sysTag of SYSTEM_TAGS) {
+    if (next.ids && !(next.ids as string[]).includes(sysTag.id)) {
+      next = {
+        ...next,
+        ids: [sysTag.id, ...next.ids] as string[],
+        entities: {
+          ...next.entities,
+          [sysTag.id]: sysTag,
+        },
+      };
+    }
+  }
+  return next;
 };
 
-export const initialTagState: TagState = _addMyDayTagIfNecessary(
+export const initialTagState: TagState = _addSystemTagsIfNecessary(
   tagAdapter.getInitialState({
     // additional entity state properties
   }),
@@ -214,7 +221,9 @@ export const tagReducer = createReducer<TagState>(
   // META ACTIONS
   // ------------
   on(loadAllData, (oldState, { appDataComplete }) =>
-    _addMyDayTagIfNecessary(appDataComplete.tag ? { ...appDataComplete.tag } : oldState),
+    _addSystemTagsIfNecessary(
+      appDataComplete.tag ? { ...appDataComplete.tag } : oldState,
+    ),
   ),
 
   // NOTE: transferTask is now handled in planner-shared.reducer.ts

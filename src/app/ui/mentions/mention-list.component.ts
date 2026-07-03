@@ -7,6 +7,7 @@ import {
   Input,
   TemplateRef,
   AfterContentChecked,
+  signal,
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -17,12 +18,6 @@ import { MentionItem } from './mention-config';
 import { Log } from '../../core/log';
 import { MatIcon } from '@angular/material/icon';
 
-/**
- * Angular Mentions.
- * https://github.com/dmacfarlane/angular-mentions
- *
- * Copyright (c) 2016 Dan MacFarlane
- */
 @Component({
   selector: 'mention-list',
   styleUrls: ['./mention-list.component.scss'],
@@ -55,12 +50,12 @@ import { MatIcon } from '@angular/material/icon';
     </ng-template>
     <ul
       #list
-      [hidden]="hidden"
+      [hidden]="hidden()"
       class="dropdown-menu scrollable-menu"
       [class.mention-menu]="!styleOff"
       [class.mention-dropdown]="!styleOff && dropUp"
     >
-      @for (item of items; track item; let i = $index) {
+      @for (item of items(); track item; let i = $index) {
         <li
           [class.active]="activeIndex === i"
           [class.mention-active]="!styleOff && activeIndex === i"
@@ -88,9 +83,9 @@ export class MentionListComponent implements AfterContentChecked {
   @ViewChild('list', { static: true }) list!: ElementRef;
   @ViewChild('defaultItemTemplate', { static: true })
   defaultItemTemplate!: TemplateRef<{ $implicit: MentionItem; index: number }>;
-  items: MentionItem[] | string[] = [];
+  items = signal<MentionItem[] | string[]>([]);
+  hidden = signal(false);
   activeIndex: number = 0;
-  hidden: boolean = false;
   dropUp: boolean = false;
   styleOff: boolean = false;
   private coords: { top: number; left: number } = { top: 0, left: 0 };
@@ -109,7 +104,6 @@ export class MentionListComponent implements AfterContentChecked {
     iframe: HTMLIFrameElement | null = null,
   ): void {
     if (isInputOrTextAreaElement(nativeParentElement)) {
-      // parent elements need to have postition:relative for this to work correctly?
       this.coords = getCaretCoordinates(
         nativeParentElement,
         nativeParentElement.selectionStart || 0,
@@ -121,7 +115,6 @@ export class MentionListComponent implements AfterContentChecked {
         nativeParentElement.offsetLeft +
         this.coords.left -
         nativeParentElement.scrollLeft;
-      // getCretCoordinates() for text/input elements needs an additional offset to position the list correctly
       this.offset = this.getBlockCursorDimensions(nativeParentElement).height;
     } else if (iframe) {
       const context: { iframe: HTMLIFrameElement | null; parent: Element | null } = {
@@ -133,7 +126,6 @@ export class MentionListComponent implements AfterContentChecked {
       const doc = document.documentElement;
       const scrollLeft = (window.pageXOffset || doc.scrollLeft) - (doc.clientLeft || 0);
       const scrollTop = (window.pageYOffset || doc.scrollTop) - (doc.clientTop || 0);
-      // bounding rectangles are relative to view, offsets are relative to container?
       const caretRelativeToView = getContentEditableCaretCoords({
         iframe: iframe,
         parent: null,
@@ -151,28 +143,23 @@ export class MentionListComponent implements AfterContentChecked {
         nativeParentElement.offsetLeft -
         scrollLeft;
     }
-    // set the default/inital position
     this.positionElement();
   }
 
   get activeItem(): MentionItem | string | null {
-    // Add bounds checking to prevent accessing undefined array elements
-    if (!this.items || !Array.isArray(this.items) || this.items.length === 0) {
+    const currentItems = this.items();
+    if (!currentItems || !Array.isArray(currentItems) || currentItems.length === 0) {
       return null;
     }
-
-    if (this.activeIndex < 0 || this.activeIndex >= this.items.length) {
-      Log.warn(
-        `MentionListComponent: activeIndex ${this.activeIndex} is out of bounds for items array of length ${this.items.length}`,
-      );
+    if (this.activeIndex < 0 || this.activeIndex >= currentItems.length) {
+      Log.warn(`MentionListComponent: activeIndex ${this.activeIndex} is out of bounds`);
       return null;
     }
-
-    return this.items[this.activeIndex];
+    return currentItems[this.activeIndex];
   }
 
   activateNextItem(): void {
-    // adjust scrollable-menu offset if the next item is out of view
+    const currentItems = this.items();
     const listEl: HTMLElement = this.list.nativeElement;
     const activeEl = listEl.getElementsByClassName('active').item(0);
     if (activeEl) {
@@ -184,12 +171,14 @@ export class MentionListComponent implements AfterContentChecked {
         }
       }
     }
-    // select the next item
-    this.activeIndex = Math.max(Math.min(this.activeIndex + 1, this.items.length - 1), 0);
+    this.activeIndex = Math.max(
+      Math.min(this.activeIndex + 1, currentItems.length - 1),
+      0,
+    );
   }
 
   activatePreviousItem(): void {
-    // adjust the scrollable-menu offset if the previous item is out of view
+    const currentItems = this.items();
     const listEl: HTMLElement = this.list.nativeElement;
     const activeEl = listEl.getElementsByClassName('active').item(0);
     if (activeEl) {
@@ -201,36 +190,28 @@ export class MentionListComponent implements AfterContentChecked {
         }
       }
     }
-    // select the previous item
-    this.activeIndex = Math.max(Math.min(this.activeIndex - 1, this.items.length - 1), 0);
+    this.activeIndex = Math.max(
+      Math.min(this.activeIndex - 1, currentItems.length - 1),
+      0,
+    );
   }
 
-  // reset for a new mention search
   reset(): void {
     this.list.nativeElement.scrollTop = 0;
     this.checkBounds();
   }
 
-  // final positioning is done after the list is shown (and the height and width are known)
-  // ensure it's in the page bounds
   private checkBounds(): void {
     let left = this.coords.left;
     const top = this.coords.top;
     let dropUp = this.dropUp;
     const bounds: ClientRect = this.list.nativeElement.getBoundingClientRect();
-    // if off right of page, align right
     if (bounds.left + bounds.width > window.innerWidth) {
       left -= bounds.left + bounds.width - window.innerWidth + 10;
     }
-    // if more than half off the bottom of the page, force dropUp
-    // if ((bounds.top+bounds.height/2)>window.innerHeight) {
-    //   dropUp = true;
-    // }
-    // if top is off page, disable dropUp
     if (bounds.top < 0) {
       dropUp = false;
     }
-    // set the revised/final position
     this.positionElement(left, top, dropUp);
   }
 
@@ -240,7 +221,7 @@ export class MentionListComponent implements AfterContentChecked {
     dropUp: boolean = this.dropUp,
   ): void {
     const el: HTMLElement = this.element.nativeElement;
-    top += dropUp ? 0 : this.offset; // top of list is next line
+    top += dropUp ? 0 : this.offset;
     el.className = dropUp ? 'dropup' : '';
     el.style.position = 'absolute';
     el.style.left = left + 'px';

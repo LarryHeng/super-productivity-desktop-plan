@@ -452,12 +452,12 @@ export class MentionDirective implements OnChanges {
           if (this.searchString) {
             this.searchString = this.searchString.slice(0, -1);
           }
-        } else if (this.searchList && this.searchList.hidden) {
+        } else if (this.searchList && this.searchList.hidden()) {
           if (event.keyCode === KEY_TAB || event.keyCode === KEY_ENTER) {
             this.stopSearch();
             return undefined;
           }
-        } else if (this.searchList && !this.searchList.hidden) {
+        } else if (this.searchList && !this.searchList.hidden()) {
           if (event.keyCode === KEY_TAB || event.keyCode === KEY_ENTER) {
             this.stopEvent(event);
 
@@ -563,8 +563,8 @@ export class MentionDirective implements OnChanges {
   }
 
   stopSearch(): void {
-    if (this.searchList && !this.searchList.hidden) {
-      this.searchList.hidden = true;
+    if (this.searchList && !this.searchList.hidden()) {
+      this.searchList.hidden.set(true);
       this.closed.emit();
       this.listShownChange.emit(false);
     }
@@ -597,8 +597,8 @@ export class MentionDirective implements OnChanges {
     }
     // update the search list
     if (this.searchList) {
-      this.searchList.items = matches;
-      this.searchList.hidden = matches.length == 0;
+      this.searchList.items.set(matches);
+      this.searchList.hidden.set(matches.length === 0);
       this.listShownChange.emit(matches.length > 0);
     }
   }

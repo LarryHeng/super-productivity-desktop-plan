@@ -574,6 +574,10 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
       (id: string) => id !== URGENT_TAG.id && id !== IMPORTANT_TAG.id,
     );
     const newTagIds = [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])];
+    // Ensure EM_HIDDEN exists as a tag entity before updating — if the tag
+    // store doesn't contain it, the reducer's handleTagUpdates will silently
+    // drop the bidirectional sync (but the task entity will still be updated).
+    this._tagService.addTag(HIDDEN_MATRIX_TAG);
     this._taskService.updateTags(task, newTagIds);
   }
 

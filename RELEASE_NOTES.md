@@ -1,10 +1,12 @@
-# Desktop Plan 18.12.0-desktop-plan.10
+# Desktop Plan 18.12.0-desktop-plan.11
 
 感谢 Super Productivity 官方项目、Johannes Millan 和所有上游贡献者。
 本版本是基于 Super Productivity 18.12.0 的非官方 Windows 桌面规划衍生版。
 
 ## 本次修复
 
+- 修复标签 mention # 模糊搜索下拉列表不刷新问题（动态组件变更检测未触发）。
+- 修复"移除矩阵标签"按钮不生效问题（系统标签 EM_HIDDEN 未自动创建，导致 Eisenhower 面板不渲染）。
 - 补齐 35 个缺失的简体中文翻译，包括语言名称和插件标签等界面文案。
 - 修复删除重复配置与”从某日停止重复”并发同步时的收敛漏洞（新增 repeatOriginCfgId）。
 - 修复旧版 HRS stop 操作因缺少 taskRepeatCfgSnapshot 导致同步分叉。

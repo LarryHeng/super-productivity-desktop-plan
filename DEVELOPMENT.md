@@ -379,6 +379,27 @@ gh release create desktop-plan-v0.1.XX ".tmp/app-builds/Super-Productivity-Setup
 - git-version.js 环境变量读取错误修复
 - 测试 fixture 补齐缺失的系统标签
 
+### 2026-07-03 (v0.1.17: 当前，Bug 1 & 2 第二轮修复)
+
+**Bug 1: 标签模糊搜索不实时筛选 (第二轮)**
+
+1. `src/app/ui/mentions/mention-list.component.ts` — `items`/`hidden` 从普通属性改为 Angular `signal`，确保动态创建组件每次赋值自动触发模板重渲染
+2. `src/app/ui/mentions/mention.directive.ts` — 适配 signal API（`.set()` / `.hidden()` 调用）
+
+**Bug 2: "移除矩阵标签"按钮不生效 (第二轮)**
+
+3. `src/app/features/tag/store/tag.reducer.ts` — `_addMyDayTagIfNecessary` 改为 `_addSystemTagsIfNecessary`，自动创建 EM_URGENT/EM_IMPORTANT/EM_HIDDEN
+4. `src/app/features/tasks/task-context-menu/task-context-menu-inner/task-context-menu-inner.component.ts` — `removeMatrixTags()` 调用前 `.addTag(HIDDEN_MATRIX_TAG)` 安全兜底
+
+**其他**
+
+5. `package.json` — 版本号 `18.12.0-desktop-plan.11W`
+6. `RELEASE_NOTES.md` — 版本号和修改记录同步
+7. `src/environments/versions.ts` — 版本号同步
+8. `SUPER_PRODUCTIVITY_收口交接文档_v7_2026-07-03.md` — 交接文档更新
+
+**注意**: Bug 1 和 Bug 2 的两轮修复**功能均未验证通过**，详见交接文档 v7 的排查方向。
+
 ### 2026-07-03 (v0.1.16: commit `a7e3cbf49` — 两个 Bug 修复未提交)
 
 **Bug 1: 标签模糊搜索不实时筛选**
