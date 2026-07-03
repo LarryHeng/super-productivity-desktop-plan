@@ -227,6 +227,36 @@ body.uses-theme-background #task-widget-container::after {
   background: rgba(47, 143, 131, 0.35);
 }
 
+/* Snap highlight: brief pulse on the divider when snapping to center */
+#col-divider.snap-flash {
+  background: rgba(47, 143, 131, 0.6);
+  transition: background 0.1s ease;
+}
+
+#row-divider.snap-flash {
+  background: rgba(47, 143, 131, 0.6);
+  transition: background 0.1s ease;
+}
+
+#cross-center.snap-flash {
+  background: rgba(47, 143, 131, 0.7);
+  scale: 1.4;
+  transition:
+    background 0.1s ease,
+    scale 0.1s ease;
+}
+
+/* Center-guide hints: show faint center lines when dragging near center */
+.snap-col #col-divider,
+.snap-col #cross-center {
+  background: rgba(47, 143, 131, 0.5);
+}
+
+.snap-row #row-divider,
+.snap-row #cross-center {
+  background: rgba(47, 143, 131, 0.5);
+}
+
 .task-column {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

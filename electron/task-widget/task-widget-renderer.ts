@@ -50,6 +50,8 @@ const DEFAULT_COL_RATIO = 0.5;
 const DEFAULT_ROW_RATIO = 0.5;
 const MIN_RATIO = 0.18;
 const MAX_RATIO = 0.82;
+const SNAP_RATIO = 0.5;
+const SNAP_THRESHOLD = 0.06;
 
 let colRatio = DEFAULT_COL_RATIO;
 let rowRatio = DEFAULT_ROW_RATIO;
@@ -96,10 +98,11 @@ const applyRatios = (): void => {
 
   const contentW = matrixGrid.clientWidth - padLeft - padRight;
   const contentH = matrixGrid.clientHeight - padTop - padBottom;
-  if (contentW <= GAP + 1 || contentH <= GAP + 1) return;
+  if (contentW <= 0 || contentH <= 0) return;
 
   const availW = contentW - GAP;
   const availH = contentH - GAP;
+
   const col1W = Math.round(colRatio * availW);
   const col2W = availW - col1W;
   const row1H = Math.round(rowRatio * availH);
@@ -115,8 +118,8 @@ const applyRatios = (): void => {
   colDivider.style.left = `${colX}px`;
   colDivider.style.top = `${padTop}px`;
   colDivider.style.height = `${contentH}px`;
-  rowDivider.style.top = `${rowY}px`;
   rowDivider.style.left = `${padLeft}px`;
+  rowDivider.style.top = `${rowY}px`;
   rowDivider.style.width = `${contentW}px`;
   crossCenter.style.left = `${colX}px`;
   crossCenter.style.top = `${rowY}px`;
@@ -134,6 +137,9 @@ const onDragStart = (mode: 'col' | 'row' | 'cross', e: MouseEvent): void => {
   dragStartY = e.clientY;
   dragStartColRatio = colRatio;
   dragStartRowRatio = rowRatio;
+  hasSnappedCol = false;
+  hasSnappedRow = false;
+  matrixGrid.classList.remove('snap-col', 'snap-row');
   if (mode === 'col' || mode === 'cross') colDivider.classList.add('active');
   if (mode === 'row' || mode === 'cross') rowDivider.classList.add('active');
   if (mode === 'cross') crossCenter.classList.add('active');
@@ -143,6 +149,18 @@ const onDragStart = (mode: 'col' | 'row' | 'cross', e: MouseEvent): void => {
 colDivider.addEventListener('mousedown', (e) => onDragStart('col', e));
 rowDivider.addEventListener('mousedown', (e) => onDragStart('row', e));
 crossCenter.addEventListener('mousedown', (e) => onDragStart('cross', e));
+
+let hasSnappedCol = false;
+let hasSnappedRow = false;
+
+const snap = (raw: number, setSnapped: (v: boolean) => void): number => {
+  if (Math.abs(raw - SNAP_RATIO) <= SNAP_THRESHOLD) {
+    setSnapped(true);
+    return SNAP_RATIO;
+  }
+  setSnapped(false);
+  return raw;
+};
 
 document.addEventListener('mousemove', (e) => {
   if (!activeDrag) return;
@@ -163,13 +181,40 @@ document.addEventListener('mousemove', (e) => {
   const dy = e.clientY - dragStartY;
 
   if (activeDrag === 'col' || activeDrag === 'cross') {
-    const dRatio = dx / availW;
-    colRatio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, dragStartColRatio + dRatio));
+    const dRatioX = dx / availW;
+    const rawRatio = dragStartColRatio + dRatioX;
+    colRatio = Math.max(
+      MIN_RATIO,
+      Math.min(
+        MAX_RATIO,
+        snap(rawRatio, (v) => {
+          hasSnappedCol = v;
+        }),
+      ),
+    );
   }
   if (activeDrag === 'row' || activeDrag === 'cross') {
-    const dRatio = dy / availH;
-    rowRatio = Math.max(MIN_RATIO, Math.min(MAX_RATIO, dragStartRowRatio + dRatio));
+    const dRatioY = dy / availH;
+    const rawRatio = dragStartRowRatio + dRatioY;
+    rowRatio = Math.max(
+      MIN_RATIO,
+      Math.min(
+        MAX_RATIO,
+        snap(rawRatio, (v) => {
+          hasSnappedRow = v;
+        }),
+      ),
+    );
   }
+
+  matrixGrid.classList.toggle(
+    'snap-col',
+    !!activeDrag && hasSnappedCol && (activeDrag === 'col' || activeDrag === 'cross'),
+  );
+  matrixGrid.classList.toggle(
+    'snap-row',
+    !!activeDrag && hasSnappedRow && (activeDrag === 'row' || activeDrag === 'cross'),
+  );
 
   applyRatios();
 });
@@ -179,6 +224,7 @@ document.addEventListener('mouseup', () => {
   colDivider.classList.remove('active');
   rowDivider.classList.remove('active');
   crossCenter.classList.remove('active');
+  matrixGrid.classList.remove('snap-col', 'snap-row');
   activeDrag = null;
   persistRatios();
 });
