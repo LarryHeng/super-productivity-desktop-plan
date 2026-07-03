@@ -231,13 +231,8 @@ describe('ScheduleEventComponent – isReferenceCalendar', () => {
   });
 
   describe('resize handle', () => {
-    it('should hide resizing when resize is disabled', () => {
+    it('should not be resizable for Task type (resize disabled for all types)', () => {
       fixture.componentRef.setInput('event', makeTaskScheduleEvent());
-      fixture.detectChanges();
-
-      expect(component.isResizable()).toBe(true);
-
-      fixture.componentRef.setInput('isResizeDisabled', true);
       fixture.detectChanges();
 
       expect(component.isResizable()).toBe(false);
