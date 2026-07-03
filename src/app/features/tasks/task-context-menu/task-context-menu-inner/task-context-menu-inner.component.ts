@@ -568,13 +568,12 @@ export class TaskContextMenuInnerComponent implements AfterViewInit, OnDestroy {
 
   removeMatrixTags(): void {
     const task = this.task;
+    // Strip matrix tags and always add EM_HIDDEN so the task disappears
+    // from all Eisenhower panels regardless of which tags it had before.
     const filtered = (task.tagIds ?? []).filter(
       (id: string) => id !== URGENT_TAG.id && id !== IMPORTANT_TAG.id,
     );
-    const removed = filtered.length < (task.tagIds ?? []).length;
-    const newTagIds = removed
-      ? [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])]
-      : (task.tagIds ?? []);
+    const newTagIds = [...new Set([...filtered, HIDDEN_MATRIX_TAG.id])];
     this._taskService.updateTags(task, newTagIds);
   }
 

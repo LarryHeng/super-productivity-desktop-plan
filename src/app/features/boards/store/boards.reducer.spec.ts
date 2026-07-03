@@ -11,7 +11,7 @@ import {
   deduplicatePanelIds,
   fixBuggyDefaultBoardFilters,
 } from './boards.reducer';
-import { IN_PROGRESS_TAG } from '../../tag/tag.const';
+import { HIDDEN_MATRIX_TAG, IN_PROGRESS_TAG } from '../../tag/tag.const';
 import { BoardsActions } from './boards.actions';
 import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 import { AppDataComplete } from '../../../op-log/model/model-config';
@@ -354,7 +354,7 @@ describe('fixBuggyDefaultBoardFilters (#7498)', () => {
     );
   });
 
-  it('does not touch Eisenhower panels already set to All (idempotent)', () => {
+  it('adds HIDDEN_MATRIX_TAG to Eisenhower panel excludedTagIds (migration)', () => {
     const state: BoardsState = {
       boardCfgs: [
         makeBoard({
@@ -368,10 +368,33 @@ describe('fixBuggyDefaultBoardFilters (#7498)', () => {
 
     const result = fixBuggyDefaultBoardFilters(state);
 
+    for (const panel of result.boardCfgs[0].panels) {
+      expect(panel.excludedTagIds).toContain(HIDDEN_MATRIX_TAG.id);
+    }
+  });
+
+  it('does not touch Eisenhower panels that already have HIDDEN_MATRIX_TAG (idempotent)', () => {
+    const state: BoardsState = {
+      boardCfgs: [
+        makeBoard({
+          id: 'EISENHOWER_MATRIX',
+          panels: eisenhowerPanelIds.map((id) =>
+            makePanel({
+              id,
+              taskDoneState: BoardPanelCfgTaskDoneState.All,
+              excludedTagIds: [HIDDEN_MATRIX_TAG.id],
+            }),
+          ),
+        }),
+      ],
+    };
+
+    const result = fixBuggyDefaultBoardFilters(state);
+
     expect(result).toBe(state);
   });
 
-  it('does not touch a Done-state Eisenhower panel (user-added Done quadrant)', () => {
+  it('adds HIDDEN_MATRIX_TAG for a Done-state Eisenhower panel too', () => {
     const state: BoardsState = {
       boardCfgs: [
         makeBoard({
@@ -388,7 +411,7 @@ describe('fixBuggyDefaultBoardFilters (#7498)', () => {
 
     const result = fixBuggyDefaultBoardFilters(state);
 
-    expect(result).toBe(state);
+    expect(result.boardCfgs[0].panels[0].excludedTagIds).toContain(HIDDEN_MATRIX_TAG.id);
   });
 
   it('strips IN_PROGRESS_TAG from the Kanban DONE panel excludedTagIds', () => {

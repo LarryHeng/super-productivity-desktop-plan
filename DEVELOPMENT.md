@@ -1,9 +1,9 @@
 # Super Productivity Desktop Plan — 开发文档
 
-> 最后更新：2026-07-03 01:00
+> 最后更新：2026-07-03 19:35
 > 源码路径：`F:\AgentData\codex\super-productivity-custom`
 > GitHub：`https://github.com/LarryHeng/super-productivity-desktop-plan`
-> 当前 HEAD：`9cd37c2ca`
+> 当前 HEAD：`a7e3cbf49`
 > 最新 Release：[`desktop-plan-v0.1.14`](https://github.com/LarryHeng/super-productivity-desktop-plan/releases/tag/desktop-plan-v0.1.14)
 
 ---
@@ -16,23 +16,23 @@ cd F:\AgentData\codex\super-productivity-custom
 
 ### 1.1 常用命令
 
-| 操作                | 命令                                                                                                                 |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 安装依赖            | `npm ci`                                                                                                             |
-| Web 开发模式        | `ng serve` 或 `npm run startFrontend`                                                                                |
-| Electron 开发模式   | `npm start`                                                                                                          |
-| 生产构建            | `npm run buildAllElectron:noTests:prod`                                                                              |
-| Windows 打包        | `npm run dist:win:only`                                                                                              |
-| 覆盖 D 盘安装       | `cp .tmp/app-builds/win-unpacked/resources/app.asar "D:\DevelopTools\Super Productivity\working\resources\app.asar"` |
-| 全量单元测试        | `npm test`                                                                                                           |
-| 单文件测试          | `npm run test:file <path>`                                                                                           |
-| Electron 测试       | `npm run test:electron`                                                                                              |
-| sync-core 测试      | `npm run sync-core:test`                                                                                             |
-| sync-providers 测试 | `npm run sync-providers:test`                                                                                        |
-| E2E                 | `npm run e2e`                                                                                                        |
-| Lint                | `npm run lint`                                                                                                       |
-| 单文件检查          | `npm run checkFile <path>`                                                                                           |
-| 国际化检查          | `npm run int:test`                                                                                                   |
+| 操作                | 命令                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| 安装依赖            | `npm ci`                                                                                |
+| Web 开发模式        | `ng serve` 或 `npm run startFrontend`                                                   |
+| Electron 开发模式   | `npm start`                                                                             |
+| 生产构建            | `npm run buildAllElectron:noTests:prod`                                                 |
+| Windows 打包        | `npm run dist:win:only`                                                                 |
+| 覆盖 D 盘安装       | `cp -rf ".tmp/app-builds/win-unpacked/"* "D:\DevelopTools\Super Productivity\working\"` |
+| 全量单元测试        | `npm test`                                                                              |
+| 单文件测试          | `npm run test:file <path>`                                                              |
+| Electron 测试       | `npm run test:electron`                                                                 |
+| sync-core 测试      | `npm run sync-core:test`                                                                |
+| sync-providers 测试 | `npm run sync-providers:test`                                                           |
+| E2E                 | `npm run e2e`                                                                           |
+| Lint                | `npm run lint`                                                                          |
+| 单文件检查          | `npm run checkFile <path>`                                                              |
+| 国际化检查          | `npm run int:test`                                                                      |
 
 ### 1.2 技术栈
 
@@ -378,3 +378,26 @@ gh release create desktop-plan-v0.1.XX ".tmp/app-builds/Super-Productivity-Setup
 - splash 延迟从硬编码 5 秒改为可通过设置页面配置
 - git-version.js 环境变量读取错误修复
 - 测试 fixture 补齐缺失的系统标签
+
+### 2026-07-03 (v0.1.16: commit `a7e3cbf49` — 两个 Bug 修复未提交)
+
+**Bug 1: 标签模糊搜索不实时筛选**
+
+修改文件：
+
+1. `src/app/ui/mentions/mention.directive.ts` — 两处改动：
+   - `ngOnChanges()`: `[mention]` 变化且搜索进行中时跳过 `updateConfig()`，避免每次输入触发配置重建干扰搜索。只有 `[mentionConfig]` 变化或非搜索态才重建配置
+   - `inputHandler()`: IME 组合输入时遍历 `event.data` 的全部字符（而非仅第一个），使中日韩输入法的批量字符都能进入 keyHandler 搜索管道
+
+根因：`[mention]="tagMentions$ | async"` 绑定的 ShortSyntaxTag[] 随每次输入变化，触发 `ngOnChanges` → `updateConfig()` 重置 `triggerChars`，中断正在进行的标签搜索。同时 IME 输入时 `inputHandler` 只处理 `event.data.charCodeAt(0)`（第一个字符），丢失后续字符。
+
+**Bug 2: "移除矩阵标签"后任务仍显示在矩阵看板中**
+
+修改文件：2. `src/app/features/boards/board/board.component.ts` — 新增 `patchedBoardCfg` computed signal：运行时确保 Eisenhower 面板的 `excludedTagIds` 始终包含 `EM_HIDDEN` 3. `src/app/features/boards/board/board.component.html` — 所有 `boardCfg()` 引用改为 `patchedBoardCfg()` 4. `src/app/features/boards/store/boards.reducer.ts` — `fixBuggyDefaultBoardFilters()` 新增持久化数据迁移：为 Eisenhower 面板的 `excludedTagIds` 补充 `EM_HIDDEN`
+
+根因：`fixBuggyDefaultBoardFilters()` 仅对持久化数据生效，且依赖 `loadAllData` 时机。新增 `patchedBoardCfg` computed signal 提供运行时兜底，保证面板配置始终排除 `EM_HIDDEN` 标签。
+
+**改动原因：**
+
+- 标签搜索：输入 `#` → 打字搜索标签 → 发现模糊匹配不生效，需要重新输入 `#` 才能触发。核心问题是每次按键都重建 mention 配置。
+- 移除矩阵标签：点击右键菜单"移除矩阵标签"后任务应消失，但实际仍然显示。根因是持久化数据中 excludedTagIds 缺少 EM_HIDDEN，且无运行时兜底。

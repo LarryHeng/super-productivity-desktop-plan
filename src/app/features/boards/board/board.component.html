@@ -20,7 +20,7 @@
     </button>
   </div>
 } @else {
-  @if (boardCfg().panels.length === 0) {
+  @if (patchedBoardCfg().panels.length === 0) {
     <div class="empty-board-msg">
       <div class="msg">{{ T.F.BOARDS.V.NO_PANELS_MSG | translate }}</div>
       <button
@@ -34,7 +34,7 @@
     </div>
   }
 
-  @for (panel of boardCfg().panels; track panel.id) {
+  @for (panel of patchedBoardCfg().panels; track panel.id) {
     <board-panel
       [panelCfg]="panel"
       (editBoard)="editBoard()"

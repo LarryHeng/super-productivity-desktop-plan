@@ -5,7 +5,7 @@ import { DEFAULT_BOARDS } from '../boards.const';
 import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 import { nanoid } from 'nanoid';
 import { sanitizePanelCfg } from '../boards.util';
-import { IN_PROGRESS_TAG } from '../../tag/tag.const';
+import { HIDDEN_MATRIX_TAG, IN_PROGRESS_TAG } from '../../tag/tag.const';
 
 const sanitizeBoard = (board: BoardCfg): BoardCfg => ({
   ...board,
@@ -86,6 +86,20 @@ export const fixBuggyDefaultBoardFilters = (boardsState: BoardsState): BoardsSta
         return {
           ...panel,
           excludedTagIds: panel.excludedTagIds.filter((id) => id !== IN_PROGRESS_TAG.id),
+        };
+      }
+
+      // Eisenhower quadrants: ensure EM_HIDDEN tag is in excludedTagIds so
+      // tasks removed from the matrix via context menu are filtered out.
+      if (
+        board.id === 'EISENHOWER_MATRIX' &&
+        EISENHOWER_PANEL_IDS.has(panel.id) &&
+        !panel.excludedTagIds?.includes(HIDDEN_MATRIX_TAG.id)
+      ) {
+        boardChanged = true;
+        return {
+          ...panel,
+          excludedTagIds: [...(panel.excludedTagIds || []), HIDDEN_MATRIX_TAG.id],
         };
       }
 

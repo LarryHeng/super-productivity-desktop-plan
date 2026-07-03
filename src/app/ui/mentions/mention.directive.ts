@@ -46,6 +46,19 @@ const KEY_UP = 38;
 const KEY_DOWN = 40;
 const KEY_BUFFERED = 229;
 
+// Keys that must still pass through during IME composition / buffered-input
+// so the user can navigate and interact with the mention list.
+const NAV_KEYS: ReadonlySet<string> = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Enter',
+  'Escape',
+  'Tab',
+  'Backspace',
+]);
+
 // Fuzzy match — characters of needle appear in order in haystack (with
 // gaps allowed). A single mismatch or missing char still matches if >⅔ of
 // chars are present in order. Short search strings (≤3) use substring
@@ -222,23 +235,32 @@ export class MentionDirective implements OnChanges {
   private readonly _viewContainerRef = inject(ViewContainerRef);
 
   ngOnChanges(changes: SimpleChanges): void {
-    // console.log('config change', changes);
-    if (changes['mention'] || changes['mentionConfig']) {
+    if (changes['mentionConfig']) {
+      this.updateConfig();
+      return;
+    }
+    // [mention] items (ShortSyntaxTag[]) change on every keystroke because
+    // they derive from inputTxt$ via switchMap + startWith([]). Rebuilding
+    // triggerChars during an active search disrupts keyHandler's state.
+    // Skip when searching, or when items are empty (transitional startWith).
+    if (changes['mention'] && !this.searching && this.mentionItems?.length) {
       this.updateConfig();
     }
   }
 
   public updateConfig(): void {
-    const config = this.mentionConfig;
     this.triggerChars = {};
-    // use items from directive if they have been set
-    if (this.mentionItems) {
-      config.items = this.mentionItems;
+    // Shallow-copy so we don't mutate the @Input() object shared with the
+    // parent. Without this, setting config.items = this.mentionItems below
+    // corrupts mentionCfg$'s cached value and causes nested-mention items
+    // to be replaced with short-syntax-to-tags output on every keystroke.
+    const cfg = { ...this.mentionConfig };
+    if (this.mentionItems?.length) {
+      cfg.items = this.mentionItems;
     }
-    this.addConfig(config);
-    // nested configs
-    if (config.mentions) {
-      config.mentions.forEach((nestedConfig) => this.addConfig(nestedConfig));
+    this.addConfig(cfg);
+    if (cfg.mentions) {
+      cfg.mentions.forEach((nestedConfig) => this.addConfig(nestedConfig));
     }
   }
 
@@ -313,12 +335,18 @@ export class MentionDirective implements OnChanges {
     event: MentionEvent,
     nativeElement: TextInputElement = this._element.nativeElement,
   ): void {
+    // Bridge IME-composed characters whose preceding keydown had keyCode 229
+    // (KEY_BUFFERED) into the keyHandler pipeline. The `input` event carries
+    // the composed text in `event.data`; iterate through all characters so
+    // multi-codepoint IME input reaches keyHandler and updates searchString.
     if (this.lastKeyCode === KEY_BUFFERED && event.data) {
-      const keyCode = event.data.charCodeAt(0);
-      this.keyHandler(
-        { keyCode, inputEvent: true } as CustomKeyboardEvent,
-        nativeElement,
-      );
+      for (let i = 0; i < event.data.length; i++) {
+        const keyCode = event.data.charCodeAt(i);
+        this.keyHandler(
+          { keyCode, inputEvent: true } as CustomKeyboardEvent,
+          nativeElement,
+        );
+      }
     }
   }
 
@@ -329,7 +357,20 @@ export class MentionDirective implements OnChanges {
   ): boolean | undefined {
     this.lastKeyCode = event.keyCode || 0;
 
-    if (event.isComposing || event.keyCode === KEY_BUFFERED) {
+    // keyCode 229 (KEY_BUFFERED) means the browser couldn't determine the
+    // key from the keyboard event. This happens for:
+    // 1. IME composition (isComposing === true) — common on CJK keyboards
+    // 2. Some keyboard layouts that always send 229 for certain keys
+    //
+    // For case (1): defer to inputHandler bridge so the composed character
+    //   reaches keyHandler via the `input` event path.
+    // For case (2): the character has no `key` property and won't match any
+    //   trigger char, so blocking is safe — inputHandler will still bridge
+    //   its code point.
+    //
+    // Navigation / control keys (Arrow*, Enter, Escape, Tab, Backspace)
+    // always pass through so the user can interact with the mention list.
+    if (this.lastKeyCode === KEY_BUFFERED && !NAV_KEYS.has(event.key || '')) {
       return undefined;
     }
 
@@ -404,6 +445,12 @@ export class MentionDirective implements OnChanges {
           pos = pos - 1;
           if (pos == this.startPos) {
             this.stopSearch();
+            return undefined;
+          }
+          // DOM value hasn't updated yet in keydown; trim searchString
+          // ourselves so updateSearchList sees the correct term.
+          if (this.searchString) {
+            this.searchString = this.searchString.slice(0, -1);
           }
         } else if (this.searchList && this.searchList.hidden) {
           if (event.keyCode === KEY_TAB || event.keyCode === KEY_ENTER) {
@@ -469,11 +516,18 @@ export class MentionDirective implements OnChanges {
           this.stopEvent(event);
           return false;
         } else if (this.searching) {
-          let mention = val.substring(this.startPos + 1, pos);
-          if (event.keyCode !== KEY_BACKSPACE && !event.inputEvent) {
-            mention += charPressed;
+          // For Backspace: we already trimmed searchString above (keydown
+          // runs before DOM update, so val is stale). Use the cached value
+          // instead of recalculating from the out-of-date DOM.
+          if (event.keyCode === KEY_BACKSPACE) {
+            // searchString was trimmed in the Backspace branch above
+          } else {
+            let mention = val.substring(this.startPos + 1, pos);
+            if (!event.inputEvent) {
+              mention += charPressed;
+            }
+            this.searchString = mention;
           }
-          this.searchString = mention;
           if (this.activeConfig!.returnTrigger) {
             const triggerChar =
               this.searchString || event.keyCode === KEY_BACKSPACE
@@ -481,7 +535,7 @@ export class MentionDirective implements OnChanges {
                 : '';
             this.searchTerm.emit(triggerChar + this.searchString);
           } else {
-            this.searchTerm.emit(this.searchString);
+            this.searchTerm.emit(this.searchString ?? '');
           }
           this.updateSearchList();
         }

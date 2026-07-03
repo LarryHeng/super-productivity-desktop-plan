@@ -27,6 +27,13 @@ import { MatDialog } from '@angular/material/dialog';
 import { DialogBoardEditComponent } from '../dialog-board-edit/dialog-board-edit.component';
 import { T } from '../../../t.const';
 
+const EISENHOWER_PANEL_IDS: ReadonlySet<string> = new Set([
+  'URGENT_AND_IMPORTANT',
+  'NOT_URGENT_AND_IMPORTANT',
+  'URGENT_AND_NOT_IMPORTANT',
+  'NOT_URGENT_AND_NOT_IMPORTANT',
+]);
+
 @Component({
   selector: 'board',
   standalone: true,
@@ -44,6 +51,26 @@ export class BoardComponent {
   private _matDialog = inject(MatDialog);
 
   boardCfg = input.required<BoardCfg>();
+
+  /** Runtime-patched board config: ensures every Eisenhower panel always
+   *  excludes EM_HIDDEN so tasks removed via the context-menu button
+   *  ("remove from matrix") immediately disappear from the matrix. */
+  patchedBoardCfg = computed(() => {
+    const cfg = this.boardCfg();
+    if (cfg.id !== 'EISENHOWER_MATRIX') return cfg;
+    let changed = false;
+    const patchedPanels = cfg.panels.map((panel) => {
+      if (!EISENHOWER_PANEL_IDS.has(panel.id)) return panel;
+      const excluded = panel.excludedTagIds || [];
+      if (excluded.includes(HIDDEN_MATRIX_TAG.id)) return panel;
+      changed = true;
+      return {
+        ...panel,
+        excludedTagIds: [...excluded, HIDDEN_MATRIX_TAG.id],
+      };
+    });
+    return changed ? { ...cfg, panels: patchedPanels } : cfg;
+  });
 
   allExistingTagIds = toSignal(this._store.select(selectAllTagIds), { initialValue: [] });
 
