@@ -45,7 +45,7 @@ import { MatIcon } from '@angular/material/icon';
             </mat-icon>
           }
         }
-        <span class="option-title">{{ item[labelKey] || item }}</span>
+        <span class="option-title">{{ (item && item[labelKey]) || item }}</span>
       </div>
     </ng-template>
     <ul
