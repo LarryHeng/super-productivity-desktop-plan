@@ -21,18 +21,26 @@ import { Log, LogLevel } from './log';
 export class DiagnosticLogService {
   private readonly _globalConfigService = inject(GlobalConfigService, { optional: true });
 
-  readonly isEnabled = computed(
-    () => this._globalConfigService?.cfg()?.misc?.isDiagnosticLoggingEnabled ?? false,
-  );
+  readonly isEnabled = computed(() => {
+    try {
+      return this._globalConfigService?.cfg()?.misc?.isDiagnosticLoggingEnabled ?? false;
+    } catch {
+      return false;
+    }
+  });
 
   constructor() {
     if (this._globalConfigService) {
       effect(() => {
-        if (this.isEnabled()) {
-          Log.setLevel(LogLevel.DEBUG);
-          Log.debug('DIAG', 'Diagnostic logging enabled');
-        } else {
-          Log.setLevel(LogLevel.VERBOSE);
+        try {
+          if (this.isEnabled()) {
+            Log.setLevel(LogLevel.DEBUG);
+            Log.debug('DIAG', 'Diagnostic logging enabled');
+          } else {
+            Log.setLevel(LogLevel.VERBOSE);
+          }
+        } catch {
+          // noop when GlobalConfigService mock lacks a proper Signal cfg
         }
       });
     }
