@@ -30,14 +30,14 @@ describe('MentionListComponent contrast (regression #6123)', () => {
     host.style.setProperty('--text-color', 'rgb(200, 200, 200)');
     host.style.setProperty('--bg-lightest', 'rgb(40, 40, 40)');
 
-    component.hidden = false;
+    component.hidden.set(false);
     component.styleOff = false;
     component.labelKey = 'title';
-    component.items = [
+    component.items.set([
       { title: 'Noite', icon: 'star', color: 'rgb(255, 0, 0)' },
       { title: 'Dia', icon: 'sun', color: 'rgb(0, 0, 255)' },
       { title: 'Emoji', icon: '⭐', isEmoji: true, color: 'rgb(0, 255, 0)' },
-    ] as any;
+    ] as any);
   });
 
   describe('when activeIndex is 0', () => {

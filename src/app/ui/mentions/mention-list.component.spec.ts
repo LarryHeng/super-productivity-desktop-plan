@@ -25,7 +25,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null for empty items array', () => {
-      component.items = [];
+      component.items.set([]);
       component.activeIndex = 0;
 
       const result = component.activeItem;
@@ -35,7 +35,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null for undefined items array', () => {
-      component.items = undefined as any;
+      component.items.set(undefined as any);
       component.activeIndex = 0;
 
       const result = component.activeItem;
@@ -45,7 +45,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null for null items array', () => {
-      component.items = null as any;
+      component.items.set(null as any);
       component.activeIndex = 0;
 
       const result = component.activeItem;
@@ -55,7 +55,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null for non-array items', () => {
-      component.items = 'not-an-array' as any;
+      component.items.set('not-an-array' as any);
       component.activeIndex = 0;
 
       const result = component.activeItem;
@@ -65,7 +65,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null and warn for negative activeIndex', () => {
-      component.items = [{ label: 'test1' }, { label: 'test2' }] as any;
+      component.items.set([{ label: 'test1' }, { label: 'test2' }] as any);
       component.activeIndex = -1;
 
       const result = component.activeItem;
@@ -77,7 +77,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null and warn for activeIndex beyond array length', () => {
-      component.items = [{ label: 'test1' }, { label: 'test2' }] as any;
+      component.items.set([{ label: 'test1' }, { label: 'test2' }] as any);
       component.activeIndex = 2;
 
       const result = component.activeItem;
@@ -89,7 +89,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should return null and warn for activeIndex far beyond array length', () => {
-      component.items = [{ label: 'test1' }] as any;
+      component.items.set([{ label: 'test1' }] as any);
       component.activeIndex = 10;
 
       const result = component.activeItem;
@@ -102,7 +102,7 @@ describe('MentionListComponent', () => {
 
     it('should return correct item for valid activeIndex', () => {
       const testItems = [{ label: 'test1' }, { label: 'test2' }, { label: 'test3' }];
-      component.items = testItems as any;
+      component.items.set(testItems as any);
       component.activeIndex = 1;
 
       const result = component.activeItem;
@@ -113,7 +113,7 @@ describe('MentionListComponent', () => {
 
     it('should return first item when activeIndex is 0', () => {
       const testItems = [{ label: 'first' }, { label: 'second' }];
-      component.items = testItems as any;
+      component.items.set(testItems as any);
       component.activeIndex = 0;
 
       const result = component.activeItem;
@@ -124,7 +124,7 @@ describe('MentionListComponent', () => {
 
     it('should return last item when activeIndex is at last position', () => {
       const testItems = [{ label: 'first' }, { label: 'second' }, { label: 'last' }];
-      component.items = testItems as any;
+      component.items.set(testItems as any);
       component.activeIndex = 2;
 
       const result = component.activeItem;
@@ -135,7 +135,7 @@ describe('MentionListComponent', () => {
 
     it('should handle single item array correctly', () => {
       const testItems = [{ label: 'only-item' }];
-      component.items = testItems as any;
+      component.items.set(testItems as any);
       component.activeIndex = 0;
 
       const result = component.activeItem;
@@ -146,7 +146,7 @@ describe('MentionListComponent', () => {
 
     it('should handle items with null/undefined elements', () => {
       const testItems = [{ label: 'test1' }, null, undefined, { label: 'test2' }];
-      component.items = testItems as any;
+      component.items.set(testItems as any);
       component.activeIndex = 1;
 
       const result = component.activeItem;
@@ -157,7 +157,7 @@ describe('MentionListComponent', () => {
 
     it('should return undefined item at valid index', () => {
       const testItems = [{ label: 'test1' }, undefined, { label: 'test2' }];
-      component.items = testItems as any;
+      component.items.set(testItems as any);
       component.activeIndex = 1;
 
       const result = component.activeItem;
@@ -169,7 +169,7 @@ describe('MentionListComponent', () => {
 
   describe('activateNextItem', () => {
     it('should handle empty items array gracefully', () => {
-      component.items = [] as any;
+      component.items.set([] as any);
       component.activeIndex = 0;
 
       expect(() => component.activateNextItem()).not.toThrow();
@@ -177,11 +177,11 @@ describe('MentionListComponent', () => {
     });
 
     it('should increment activeIndex within bounds', () => {
-      component.items = [
+      component.items.set([
         { label: 'test1' },
         { label: 'test2' },
         { label: 'test3' },
-      ] as any;
+      ] as any);
       component.activeIndex = 0;
 
       component.activateNextItem();
@@ -190,7 +190,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should not exceed array bounds', () => {
-      component.items = [{ label: 'test1' }, { label: 'test2' }] as any;
+      component.items.set([{ label: 'test1' }, { label: 'test2' }] as any);
       component.activeIndex = 1; // last item
 
       component.activateNextItem();
@@ -201,7 +201,7 @@ describe('MentionListComponent', () => {
 
   describe('activatePreviousItem', () => {
     it('should handle empty items array gracefully', () => {
-      component.items = [] as any;
+      component.items.set([] as any);
       component.activeIndex = 0;
 
       expect(() => component.activatePreviousItem()).not.toThrow();
@@ -209,11 +209,11 @@ describe('MentionListComponent', () => {
     });
 
     it('should decrement activeIndex within bounds', () => {
-      component.items = [
+      component.items.set([
         { label: 'test1' },
         { label: 'test2' },
         { label: 'test3' },
-      ] as any;
+      ] as any);
       component.activeIndex = 2;
 
       component.activatePreviousItem();
@@ -222,7 +222,7 @@ describe('MentionListComponent', () => {
     });
 
     it('should not go below zero', () => {
-      component.items = [{ label: 'test1' }, { label: 'test2' }] as any;
+      component.items.set([{ label: 'test1' }, { label: 'test2' }] as any);
       component.activeIndex = 0; // first item
 
       component.activatePreviousItem();
