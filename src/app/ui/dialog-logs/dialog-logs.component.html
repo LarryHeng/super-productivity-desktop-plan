@@ -13,6 +13,16 @@
 <mat-dialog-actions align="end">
   <div class="wrap-buttons">
     <button
+      (click)="clear()"
+      class="btn"
+      mat-button
+      type="button"
+    >
+      <mat-icon>delete_sweep</mat-icon>
+      {{ T.DIALOG_LOGS.CLEAR | translate }}
+    </button>
+
+    <button
       (click)="close()"
       class="btn"
       mat-button
@@ -24,13 +34,13 @@
 
     @if (isNative) {
       <button
-        (click)="shareFile()"
+        (click)="openFolder()"
         class="btn"
         mat-button
         type="button"
       >
-        <mat-icon>share</mat-icon>
-        {{ T.DIALOG_LOGS.SHARE_FILE | translate }}
+        <mat-icon>folder_open</mat-icon>
+        {{ T.DIALOG_LOGS.OPEN_FOLDER | translate }}
       </button>
     }
 

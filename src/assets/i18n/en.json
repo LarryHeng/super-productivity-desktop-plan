@@ -42,8 +42,10 @@
     "SWITCH_TO_YEAR_VIEW": "Choose month"
   },
   "DIALOG_LOGS": {
+    "CLEAR": "Clear",
     "COPY": "Copy",
     "HINT": "Logs from this session. Use Copy for short logs (paste into a bug report), or Share file to send the full file.",
+    "OPEN_FOLDER": "Open folder",
     "S_COPY_FAILED": "Failed to copy logs to clipboard",
     "S_SHARE_FAILED": "Failed to share logs",
     "SHARE_FILE": "Share file",

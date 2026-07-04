@@ -92,6 +92,8 @@ const _fuzzyMatch = (haystack: string, needle: string): boolean => {
     // eslint-disable-next-line @typescript-eslint/naming-convention
     '(input)': 'inputHandler($event)',
     // eslint-disable-next-line @typescript-eslint/naming-convention
+    '(compositionend)': 'compositionEndHandler($event)',
+    // eslint-disable-next-line @typescript-eslint/naming-convention
     '(blur)': 'blurHandler($event)',
     autocomplete: 'off',
   },
@@ -350,6 +352,40 @@ export class MentionDirective implements OnChanges {
           nativeElement,
         );
       }
+      return;
+    }
+    // Non-IME input: keyHandler already ran from keydown, but at that point
+    // the DOM value was stale (keydown fires before the character is inserted).
+    // The `input` event fires AFTER the DOM is updated, so sync searchString
+    // from the now-current input value to keep filtering in sync.
+    if (this.searching && this.startPos >= 0 && !event.isComposing) {
+      this._syncSearchFromDOM(nativeElement);
+    }
+  }
+
+  compositionEndHandler(
+    _event: CompositionEvent,
+    nativeElement: TextInputElement = this._element.nativeElement,
+  ): void {
+    // After IME composition finalizes, sync from DOM — the input's value is
+    // authoritative and fully updated.
+    if (!this.searching || this.startPos < 0) return;
+    this._syncSearchFromDOM(nativeElement);
+  }
+
+  private _syncSearchFromDOM(nativeElement: TextInputElement): void {
+    const val = getValue(nativeElement);
+    const pos = getCaretPosition(nativeElement, this.iframe);
+    if (val === null) return;
+    const mention = val.substring(this.startPos + 1, pos);
+    if (mention !== this.searchString) {
+      this.searchString = mention;
+      this._diagLog.debug('mention:search:sync', {
+        searchString: this.searchString,
+        pos,
+        startPos: this.startPos,
+      });
+      this.updateSearchList();
     }
   }
 

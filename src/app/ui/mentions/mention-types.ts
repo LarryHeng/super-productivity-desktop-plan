@@ -21,6 +21,11 @@ export interface MentionEvent extends Partial<Event> {
   stopImmediatePropagation?(): void;
 }
 
+export interface CustomKeyboardEvent extends MentionEvent {
+  keyCode: number;
+  inputEvent?: boolean;
+  wasClick?: boolean;
+}
 export interface CaretPositionNode extends Node {
   anchorNode: Node | null;
   getRangeAt(index: number): Range;
