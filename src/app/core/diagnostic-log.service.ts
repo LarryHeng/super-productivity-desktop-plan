@@ -13,24 +13,29 @@ import { Log, LogLevel } from './log';
  *
  * Use debug() for diagnostic-only log points that should be silent when the
  * toggle is off — no need to guard with `if (enabled)` at every call site.
+ *
+ * GlobalConfigService is injected optionally so the service degrades
+ * gracefully to a no-op in test environments that don't set up NgRx Store.
  */
 @Injectable({ providedIn: 'root' })
 export class DiagnosticLogService {
-  private readonly _globalConfigService = inject(GlobalConfigService);
+  private readonly _globalConfigService = inject(GlobalConfigService, { optional: true });
 
   readonly isEnabled = computed(
-    () => this._globalConfigService.cfg()?.misc?.isDiagnosticLoggingEnabled ?? false,
+    () => this._globalConfigService?.cfg()?.misc?.isDiagnosticLoggingEnabled ?? false,
   );
 
   constructor() {
-    effect(() => {
-      if (this.isEnabled()) {
-        Log.setLevel(LogLevel.DEBUG);
-        Log.debug('DIAG', 'Diagnostic logging enabled');
-      } else {
-        Log.setLevel(LogLevel.VERBOSE);
-      }
-    });
+    if (this._globalConfigService) {
+      effect(() => {
+        if (this.isEnabled()) {
+          Log.setLevel(LogLevel.DEBUG);
+          Log.debug('DIAG', 'Diagnostic logging enabled');
+        } else {
+          Log.setLevel(LogLevel.VERBOSE);
+        }
+      });
+    }
   }
 
   /** Log diagnostic data — only emitted when the toggle is on. */
