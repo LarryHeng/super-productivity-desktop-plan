@@ -28,8 +28,8 @@ import { MatIcon } from '@angular/material/icon';
       let-item="item"
     >
       <div class="custom-option-layout">
-        @if (item.icon) {
-          @if (item.isEmoji) {
+        @if (item && item.icon) {
+          @if (item && item.isEmoji) {
             <span
               class="tag-ico-emoji"
               [style.color]="item.color"
@@ -152,7 +152,9 @@ export class MentionListComponent implements AfterContentChecked {
       return null;
     }
     if (this.activeIndex < 0 || this.activeIndex >= currentItems.length) {
-      Log.warn(`MentionListComponent: activeIndex ${this.activeIndex} is out of bounds`);
+      Log.warn(
+        `MentionListComponent: activeIndex ${this.activeIndex} is out of bounds for items array of length ${currentItems.length}`,
+      );
       return null;
     }
     return currentItems[this.activeIndex];
