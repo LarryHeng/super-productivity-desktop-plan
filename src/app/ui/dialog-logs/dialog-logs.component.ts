@@ -57,7 +57,7 @@ export class DialogLogsComponent {
     }
   }
 
-  async openFolder(): Promise<void> {
+  async openLogFolder(): Promise<void> {
     try {
       const result = await download('SP-logs.json', this.data.logs);
       if (result.path && window.ea?.openPath) {
