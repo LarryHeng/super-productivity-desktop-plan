@@ -38,6 +38,7 @@ describe('TaskElectronEffects', () => {
       .and.returnValue(null);
     const globalConfigServiceSpy = jasmine.createSpyObj('GlobalConfigService', [], {
       cfg$: of({}),
+      misc: jasmine.createSpy('misc').and.returnValue({}),
     });
     const focusModeServiceSpy = jasmine.createSpyObj('FocusModeService', ['mode'], {
       currentSessionTime$: of(0),
