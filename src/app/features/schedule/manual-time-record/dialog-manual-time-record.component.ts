@@ -8,6 +8,8 @@ import {
   MatDialogTitle,
 } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
+import { MatError } from '@angular/material/form-field';
+import { MatIcon } from '@angular/material/icon';
 import { MatIcon } from '@angular/material/icon';
 import { MatRadioButton, MatRadioGroup } from '@angular/material/radio';
 import { Store } from '@ngrx/store';
