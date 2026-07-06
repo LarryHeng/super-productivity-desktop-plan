@@ -1,13 +1,10 @@
 # Super Productivity Desktop Plan — 开发文档
 
-> 最后更新：2026-07-07 00:00
-> 源码路径：`F:\AgentData\codex\super-productivity-custom`
-> GitHub：`https://github.com/LarryHeng/super-productivity-desktop-plan`
-> 当前 HEAD：`cb87a1b6e` (pending changes, NOT committed)
+> 最后更新：2026-07-07 04:34
+> 当前 HEAD：`f0830442c` (committed + pushed)
 > 当前版本：`18.13.1-desktop-plan-v0.3.0`
-> 修改文件数：35 个 (+797 -281 行)
-> 部署 MD5：`2b007cdb09c929cfebdec757d6c23018`
-> 最新 Release：[`Desktop Plan v0.2.0`](https://github.com/LarryHeng/super-productivity-desktop-plan/releases/tag/desktop-plan-v0.2.0)
+> 最新 Release：[`Desktop Plan v0.3.0`](https://github.com/LarryHeng/super-productivity-desktop-plan/releases/tag/desktop-plan-v0.3.0)
+> CI 状态：`success` (Karma 11433/11435 SUCCESS, E2E smoke passed, lint passed, lighthouse passed)
 
 ---
 
@@ -513,4 +510,32 @@ gh release create desktop-plan-v0.1.XX ".tmp/app-builds/Super-Productivity-Setup
 ### 9.3 待完成
 
 - [x] widget countdown 样式运算符修复
-- [ ] 用户验证所有功能
+- [x] 用户验证所有功能
+- [x] 提交发布 v0.3.0 → Release `desktop-plan-v0.3.0`
+
+---
+
+## 10. v0.3.0 CI 修复记录
+
+### 10.1 根因
+
+`<datetime-picker>` 组件内部自带了 `<mat-form-field>`，而 3 个对话框 (dialog-track-time, dialog-manual-time-record × 2) 在 v0.3.0 中将原生的 `<input matInput>` 替换为 `<datetime-picker>`，但保留了外层的 `<mat-form-field>` 包裹。这导致 Angular Material 的 `MatFormField._assertFormFieldControl` 在 `ngAfterContentInit` 抛出 "mat-form-field must contain a MatFormFieldControl"。
+
+Karma 的 tearDown（afterAll）会运行变更检测，此时任何残留组件中的空 mat-form-field 都会触发该错误 → Chrome 断开连接 → CI 失败。
+
+同时发现了另外 4 处孤立 `<mat-error>`（不在 `<mat-form-field>` 内的情况），也会触发同样的错误。
+
+### 10.2 修复方案
+
+1. **dialog-manual-time-record.component.html**: 移除外层 `<mat-form-field>`，用 `<div>` 包裹 `<datetime-picker>`
+2. **dialog-track-time.component.html/ts**: 还原为原生 `<input type="datetime-local" matInput>`（该对话框无需高级日期选择器）
+3. **plugin-management.component.html**: 3 处 `<mat-error>` → `<div>`
+4. **plugin-config-dialog.component.ts**: 1 处 `<mat-error>` → `<div>`
+
+### 10.3 最终 CI 结果
+
+- Karma 单元测试: 11433/11435 SUCCESS（16 skipped）
+- E2E smoke suite: 2 passed
+- Lint: passed
+- Lighthouse: passed
+- sync-core/sync-providers/electron/release-notes 测试: 全部通过
