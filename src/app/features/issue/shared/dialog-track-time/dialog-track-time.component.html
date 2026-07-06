@@ -96,13 +96,13 @@
 
       <mat-form-field>
         <mat-label>{{ data.t.started | translate }}</mat-label>
-        <datetime-picker
-          [selectedDate]="startedDate"
-          [selectedTime]="startedTime"
-          [showQuickAccess]="true"
-          (dateSelected)="onStartedDateSelected($event)"
-          (timeChanged)="onStartedTimeChanged($event)"
-        ></datetime-picker>
+        <input
+          [(ngModel)]="started"
+          matInput
+          name="date"
+          required
+          type="datetime-local"
+        />
         <mat-error>{{ data.t.invalidDate | translate }}</mat-error>
       </mat-form-field>
 
