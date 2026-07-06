@@ -3,21 +3,41 @@
 > 最后更新：2026-07-07
 > 源码路径：`F:\AgentData\codex\super-productivity-custom`
 > 部署路径：`D:\DevelopTools\Super Productivity\working\`
-> 当前分支：`main` (pending changes, NOT committed)
-> 当前 HEAD：`cb87a1b6e`
-> 下一版本：`v0.3.0` → tag `desktop-plan-v0.3.0`
-> 部署 MD5：`2b007cdb09c929cfebdec757d6c23018`
-> 修改文件数：35 个 (+797 -281 行)
+> 当前分支：`main` (已提交 + 已推送)
+> 当前 HEAD：`18e02af8e`
+> 最新 Release：`Desktop Plan v0.3.0` (tag: `desktop-plan-v0.3.0`, 2026-07-07)
 > GitHub：`https://github.com/LarryHeng/super-productivity-desktop-plan`
 
 ---
 
 ## 1. 版本号
 
-**当前代码**: `18.13.1-desktop-plan-v0.3.0`（未提交、未打 tag、未发布）
-**下一个 Release tag**: `desktop-plan-v0.3.0`
-**下一个 Release 标题**: `Desktop Plan v0.3.0`
-**最新已发布**: `Desktop Plan v0.2.0` (tag: `desktop-plan-v0.2.0`, 2026-07-04)
+**已发布版本**: `18.13.1-desktop-plan-v0.3.0`（已提交、已打 tag、已发布）
+**Release tag**: `desktop-plan-v0.3.0`
+**Release 标题**: `Desktop Plan v0.3.0`
+**前一版本**: `Desktop Plan v0.2.0` (tag: `desktop-plan-v0.2.0`, 2026-07-04)
+
+---
+
+## 2. v0.3.0 提交历史
+
+```
+18e02af8e fix(desktop-plan): update test expectations for v0.3.0 data model changes
+ea65fe512 fix(desktop-plan): add updateTaskWidgetCountdown to spec window.ea mock
+c040c6e21 fix(desktop-plan): add misc signal mock to task-electron.effects spec
+cb0f37d68 fix(desktop-plan): remove duplicate MatIcon import
+14ebc45c5 fix(desktop-plan): restore MatError import in dialog-manual-time-record
+ecf0b5a4c feat(desktop-plan): v0.3.0 - countdown, segment refactor, widget dark mode, bug fixes
+```
+
+---
+
+## 3. CI 测试状态
+
+- Karma 单元测试（11435 个）中 `MatFormField` 渲染相关 afterAll 错误为上游已存在问题，非本次引入
+- sync-core / sync-providers / release-notes / electron / lint 测试全部通过
+- E2E 本地运行 102 passed，5 个失败与本次改动无关（legacy archive + planner/notes 中断）
+- Release 已通过 `gh release create` 发布，包含安装包 `Super-Productivity-Setup-x64.exe`
 
 ---
 
@@ -143,6 +163,6 @@ origin       → NO_PUSH_OFFICIAL_UPSTREAM
 
 ## 7. 待办
 
-1. 提交发布 v0.3.0
+1. ~~提交发布 v0.3.0~~ → 已完成
 2. 恢复 "计组4.7结束" 丢失的时间记录（备份文件已定位）
 3. 上游测试修复、Dev 版本号区分
