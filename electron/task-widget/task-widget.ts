@@ -97,6 +97,16 @@ let currentTaskLists: TaskWidgetTaskLists = {
   labels: EMPTY_TASK_WIDGET_LABELS,
   panels: [],
 };
+let countdownName = '';
+let countdownDate = '';
+let countdownShowInWidget = true;
+let countdownNameColor = '#e53935';
+let countdownNameFontSize = 14;
+let countdownDaysColor = '#e53935';
+let countdownDaysFontSize = 16;
+let countdownCommonColor = '#888';
+let countdownCommonFontSize = 13;
+let countdownIsBold = true;
 
 const getMainWindow = (): BrowserWindow | undefined =>
   BrowserWindow.getAllWindows().find((win) => win !== taskWidgetWin);
@@ -779,7 +789,7 @@ const updateTaskWidgetContent = (): void => {
 
   let title = '';
   let timeStr = '';
-  let mode: 'pomodoro' | 'focus' | 'task' | 'idle' = 'idle';
+  let mode: 'pomodoro' | 'focus' | 'task' | 'task-overtime' | 'idle' = 'idle';
 
   if (!currentTask) {
     lastCountdownExpiredKey = null;
@@ -800,7 +810,12 @@ const updateTaskWidgetContent = (): void => {
     } else if (currentTask.timeEstimate) {
       mode = 'task';
       const remainingTime = Math.max(currentTask.timeEstimate - currentTask.timeSpent, 0);
-      timeStr = formatTime(remainingTime);
+      if (remainingTime === 0 && currentTask.timeSpent > 0) {
+        mode = 'task-overtime';
+        timeStr = formatTime(currentTask.timeSpent - currentTask.timeEstimate);
+      } else {
+        timeStr = formatTime(remainingTime);
+      }
       if (remainingTime === 0 && isTaskWidgetDocumentReady) {
         const expiryKey = `${currentTask.id}:${currentTask.timeEstimate}`;
         if (lastCountdownExpiredKey !== expiryKey) {
@@ -826,6 +841,35 @@ const updateTaskWidgetContent = (): void => {
     labels: currentTaskLists.labels,
     panels: currentTaskLists.panels,
   });
+
+  // Send countdown data for Bug 4
+  taskWidgetWin.webContents.send('update-countdown', getCountdownData());
+};
+
+const getCountdownData = (): {
+  name: string;
+  days: number | null;
+  styles: Record<string, string>;
+} | null => {
+  if (!countdownShowInWidget || !countdownName || !countdownDate) {
+    return null;
+  }
+  const name = countdownName;
+  const dateStr = countdownDate;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const targetMs = Date.UTC(y, m - 1, d, 16, 0, 0, 0);
+  const diffDays = Math.ceil((targetMs - Date.now()) / (24 * 60 * 60 * 1000));
+  const styles: Record<string, string> = {
+    nameColor: countdownNameColor || '#e53935',
+    nameFontSize: String(countdownNameFontSize || 14) + 'px',
+    daysColor: countdownDaysColor || '#e53935',
+    daysFontSize: String(countdownDaysFontSize || 16) + 'px',
+    commonColor: countdownCommonColor || '#888',
+    commonFontSize: String(countdownCommonFontSize || 13) + 'px',
+    isBold: countdownIsBold ? 'bold' : 'normal',
+  };
+  return { name, days: diffDays, styles };
 };
 
 export const updateTaskWidgetAlwaysShow = (alwaysShow: boolean): void => {
@@ -969,6 +1013,24 @@ export const initTaskWidgetSettingsListener = (): void => {
   ipcMain.on(IPC.UPDATE_TASK_WIDGET_SETTINGS, (_ev, cfg: TaskWidgetConfig) => {
     applyTaskWidgetSettings(cfg);
   });
+  ipcMain.on(
+    IPC.UPDATE_TASK_WIDGET_COUNTDOWN,
+    (_ev, name: string, date: string, showInWidget: boolean, styles: any) => {
+      countdownName = name || '';
+      countdownDate = date || '';
+      countdownShowInWidget = showInWidget !== false;
+      if (styles) {
+        countdownNameColor = styles.nameColor || '#e53935';
+        countdownNameFontSize = styles.nameFontSize || 14;
+        countdownDaysColor = styles.daysColor || '#e53935';
+        countdownDaysFontSize = styles.daysFontSize || 16;
+        countdownCommonColor = styles.commonColor || '#888';
+        countdownCommonFontSize = styles.commonFontSize || 13;
+        countdownIsBold = styles.isBold !== false;
+      }
+      updateTaskWidgetContent();
+    },
+  );
 };
 
 const formatTime = (timeMs: number): string => {

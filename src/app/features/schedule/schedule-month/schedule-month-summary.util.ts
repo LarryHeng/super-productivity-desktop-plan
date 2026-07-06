@@ -19,7 +19,8 @@ export const buildScheduleMonthSummary = (
 
   for (const event of events) {
     if (
-      event.type !== SVEType.ActualTask ||
+      (event.type !== SVEType.ActualTask &&
+        event.type !== SVEType.CompletedPlannedTask) ||
       !event.plannedForDay ||
       !event.data ||
       !('id' in event.data)

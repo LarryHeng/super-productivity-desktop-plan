@@ -178,7 +178,7 @@
   <button
     class="delete-actual-record-btn"
     [matTooltip]="'Delete time record'"
-    (click)="deleteActualRecord(); $event.stopPropagation()"
+    (click)="deleteActualRecordWithConfirm(); $event.stopPropagation()"
     mat-icon-button
   >
     <mat-icon>delete</mat-icon>

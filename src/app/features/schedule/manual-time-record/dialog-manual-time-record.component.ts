@@ -8,17 +8,15 @@ import {
   MatDialogTitle,
 } from '@angular/material/dialog';
 import { MatButton } from '@angular/material/button';
-import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
-import { MatInput } from '@angular/material/input';
 import { MatIcon } from '@angular/material/icon';
 import { MatRadioButton, MatRadioGroup } from '@angular/material/radio';
 import { Store } from '@ngrx/store';
 import { TranslatePipe } from '@ngx-translate/core';
-import { formatLocalIsoWithoutSeconds } from '../../../util/format-local-iso-without-seconds';
 import { T } from '../../../t.const';
 import { SnackService } from '../../../core/snack/snack.service';
 import { DateService } from '../../../core/date/date.service';
 import { InputDurationSliderComponent } from '../../../ui/duration/input-duration-slider/input-duration-slider.component';
+import { DateTimePickerComponent } from '../../../ui/datetime-picker/datetime-picker.component';
 import { Task } from '../../tasks/task.model';
 import { SelectTaskComponent } from '../../tasks/select-task/select-task.component';
 import { TaskService } from '../../tasks/task.service';
@@ -49,9 +47,6 @@ export interface DialogManualTimeRecordData {
     MatDialogContent,
     MatDialogActions,
     MatButton,
-    MatFormField,
-    MatLabel,
-    MatInput,
     MatError,
     MatIcon,
     MatRadioGroup,
@@ -59,6 +54,7 @@ export interface DialogManualTimeRecordData {
     TranslatePipe,
     SelectTaskComponent,
     InputDurationSliderComponent,
+    DateTimePickerComponent,
   ],
 })
 export class DialogManualTimeRecordComponent {
@@ -73,8 +69,8 @@ export class DialogManualTimeRecordComponent {
   private readonly _timeTrackingState = this._store.selectSignal(selectTimeTrackingState);
 
   selectedTask: Task | null = this.data.task ?? null;
-  startValue: string;
-  endValue: string;
+  startTimestamp: number;
+  endTimestamp: number;
   continuation: ManualRecordContinuation | null = null;
   remainingEstimate = 25 * 60 * 1000;
   errorKey: string | null = null;
@@ -82,8 +78,8 @@ export class DialogManualTimeRecordComponent {
   constructor() {
     const end = this.data.end ?? Date.now();
     const start = this.data.start ?? end - DEFAULT_MANUAL_RECORD_DURATION;
-    this.startValue = formatLocalIsoWithoutSeconds(start);
-    this.endValue = formatLocalIsoWithoutSeconds(end);
+    this.startTimestamp = start;
+    this.endTimestamp = end;
 
     if (this.data.task && this.data.isFromPlannedBlock) {
       this.remainingEstimate = Math.max(
@@ -91,6 +87,50 @@ export class DialogManualTimeRecordComponent {
         this.data.task.timeEstimate - this.data.task.timeSpent - Math.max(0, end - start),
       );
     }
+  }
+
+  get startDate(): Date {
+    return new Date(this.startTimestamp);
+  }
+
+  get endDate(): Date {
+    return new Date(this.endTimestamp);
+  }
+
+  get startTimeStr(): string {
+    const d = new Date(this.startTimestamp);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  get endTimeStr(): string {
+    const d = new Date(this.endTimestamp);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  onStartDateSelected(date: Date): void {
+    const oldTime = new Date(this.startTimestamp);
+    date.setHours(oldTime.getHours(), oldTime.getMinutes());
+    this.startTimestamp = date.getTime();
+  }
+
+  onEndDateSelected(date: Date): void {
+    const oldTime = new Date(this.endTimestamp);
+    date.setHours(oldTime.getHours(), oldTime.getMinutes());
+    this.endTimestamp = date.getTime();
+  }
+
+  onStartTimeChanged(time: string): void {
+    const date = new Date(this.startTimestamp);
+    const [h, m] = time.split(':').map(Number);
+    date.setHours(h, m);
+    this.startTimestamp = date.getTime();
+  }
+
+  onEndTimeChanged(time: string): void {
+    const date = new Date(this.endTimestamp);
+    const [h, m] = time.split(':').map(Number);
+    date.setHours(h, m);
+    this.endTimestamp = date.getTime();
   }
 
   selectTask(taskOrTitle: Task | string): void {
@@ -104,8 +144,8 @@ export class DialogManualTimeRecordComponent {
   submit(): void {
     this.errorKey = null;
     const task = this.selectedTask;
-    const start = new Date(this.startValue).getTime();
-    const end = new Date(this.endValue).getTime();
+    const start = this.startTimestamp;
+    const end = this.endTimestamp;
     if (!task) {
       this.errorKey = T.F.SCHEDULE.MANUAL_RECORD_TASK_REQUIRED;
       return;

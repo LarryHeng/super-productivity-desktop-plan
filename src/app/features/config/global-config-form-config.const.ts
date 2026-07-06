@@ -17,6 +17,7 @@ import { SHORT_SYNTAX_FORM_CFG } from './form-cfgs/short-syntax-form.const';
 import { CLIPBOARD_IMAGES_FORM } from './form-cfgs/clipboard-images-form.const';
 import { TASKS_SETTINGS_FORM_CFG } from './form-cfgs/tasks-settings-form.const';
 import { TASK_WIDGET_FORM_CFG } from './form-cfgs/task-widget-form.const';
+import { COUNTDOWN_FORM_CFG } from './form-cfgs/countdown-form.const';
 
 const filterGlobalConfigForm = (cfg: ConfigFormSection<any>): boolean => {
   return (
@@ -31,6 +32,7 @@ export const GLOBAL_GENERAL_FORM_CONFIG: ConfigFormConfig = [
   APP_FEATURES_FORM_CFG,
   MISC_SETTINGS_FORM_CFG,
   TASK_WIDGET_FORM_CFG,
+  COUNTDOWN_FORM_CFG,
   KEYBOARD_SETTINGS_FORM_CFG,
   CLIPBOARD_IMAGES_FORM,
 ].filter(filterGlobalConfigForm);

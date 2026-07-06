@@ -48,6 +48,19 @@ contextBridge.exposeInMainWorld('taskWidgetAPI', {
       ipcRenderer.removeListener('countdown-expired', listener);
     };
   },
+  onUpdateCountdown: (
+    callback: (
+      data: { name: string; days: number | null; styles: Record<string, string> } | null,
+    ) => void,
+  ) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: any): void =>
+      callback(data);
+    ipcRenderer.on('update-countdown', listener);
+
+    return () => {
+      ipcRenderer.removeListener('update-countdown', listener);
+    };
+  },
   onUpdateBackground: (callback: (data: any) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, data: any): void =>
       callback(data);

@@ -1,34 +1,34 @@
-# Desktop Plan 18.12.0-desktop-plan.11
+# Desktop Plan v0.3.0
 
 感谢 Super Productivity 官方项目、Johannes Millan 和所有上游贡献者。
-本版本是基于 Super Productivity 18.12.0 的非官方 Windows 桌面规划衍生版。
+本版本是基于 Super Productivity 18.13.1 的非官方 Windows 桌面规划衍生版。
 
-## 本次修复
+## 功能修复
 
-- 修复标签 mention # 模糊搜索下拉列表不刷新问题（动态组件变更检测未触发）。
-- 修复"移除矩阵标签"按钮不生效问题（系统标签 EM_HIDDEN 未自动创建，导致 Eisenhower 面板不渲染）。
-- 补齐 35 个缺失的简体中文翻译，包括语言名称和插件标签等界面文案。
-- 修复删除重复配置与”从某日停止重复”并发同步时的收敛漏洞（新增 repeatOriginCfgId）。
-- 修复旧版 HRS stop 操作因缺少 taskRepeatCfgSnapshot 导致同步分叉。
-- 修复 task-detail E2E 测试对定制版默认排程的不兼容。
-- 停用 wiki-sync CI job（仓库无 .wiki）。
+- 实际块删除按钮失效：dayStr 推导逻辑修复，支持未设置 plannedForDay 的实际块删除
+- 部分块”调整记录”无响应：timeSpentOnDay 为空时 fallback 到 segment.duration
+- Formly datepicker 未注册：日期输入改用 type: 'date'
+- 新增 actions 未注册 op-log：Remove/Update segment 加入 ActionType 枚举
+- 月视图不显示补记记录：新增 CompletedPlannedTask 类型匹配
+- 真实块修改时长无上限：originalDuration 硬上限，只能缩减不能延长
 
-## 主要更新
+## 新增功能
 
-- 新增桌面艾森豪威尔矩阵小组件，与主程序同步任务、DONE 和倒计时状态。
-- 新增以真实计时为主的时间表，区分不可编辑的实际块和可调整的规划参考块。
-- 规划表与时间表均提供周一至周日周视图、月视图联动和”回到今天”。
-- 支持合并同任务的相邻实际记录，间隔可在 0 至 30 分钟内设置。
-- 重复任务生成的规划块可以在当天列内移动；跨日拖动仍会被拒绝。
-- 从指定日期停止重复时，保留此前记录并只删除该日及之后的实例。
-- 修正空闲时间补记、每日 04:00 自动结算和已完成任务标签清理。
-- 新增全局背景与小组件独立背景、透明度、焦点选择和受管图片目录选择。
-- 支持自选备份目录并迁移已有备份。
-- 补齐简体中文界面与休息提醒。
+- 倒数日：替换励志语句，支持自定义名称、目标日期、颜色、字号、粗细
+- 小组件倒数日：独立显示开关 + 8 个独立样式字段
+- 倒计时超时红色：归零后 mode 切换为 task-overtime，红色正向计时
+- 小组件深色模式完整适配
+
+## 功能改造
+
+- 小组件导航栏重构：左侧倒数日+标题，右侧计时+按钮；窄屏自适应两行布局
+- 时间追踪分段重构：segment 新增 originalDuration 字段；手动补记永不合并
+- 全局日历改造：datetime-local 统一替换为 DateTimePickerComponent
+- 调整记录对话框改进：文本框输入格式 (1h 30m)、独立删除按钮、全中文化
 
 ## Windows 安装
 
 - 适用于 Windows x64。
 - 安装目录可自选，建议使用非系统盘。
-- 该社区构建未使用商业代码签名证书，Windows 可能显示“未知发布者”。
+- 该社区构建未使用商业代码签名证书，Windows 可能显示”未知发布者”。
 - 安装前建议保留一份现有备份；安装不会主动删除用户数据。

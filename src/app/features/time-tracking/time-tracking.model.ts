@@ -35,6 +35,8 @@ export interface TTActualTaskSegment {
   start: number;
   end: number;
   source?: 'manual';
+  /** Original duration in ms at creation time — hard upper bound for edits */
+  originalDuration?: number;
 }
 
 export interface TTActiveTaskSegment {

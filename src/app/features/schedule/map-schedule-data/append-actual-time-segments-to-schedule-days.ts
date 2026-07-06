@@ -57,6 +57,7 @@ export const appendActualTimeSegmentsToScheduleDays = (
         duration: segment.end - segment.start,
         data: task,
         plannedForDay: day.dayDate,
+        originalDuration: segment.originalDuration ?? segment.end - segment.start,
       };
     });
     const shiftedEntries = shiftPlannedEntriesAfterActualTime(
@@ -89,11 +90,16 @@ export const mergeNearbyActualTaskSegments = (
   const merged: TTActualTaskSegment[] = [];
 
   for (const segment of sorted) {
+    // Manual segments are NEVER merged
+    if (segment.source === 'manual') {
+      merged.push({ ...segment });
+      continue;
+    }
     const previous = merged[merged.length - 1];
     if (
       previous &&
+      previous.source !== 'manual' &&
       previous.taskId === segment.taskId &&
-      previous.source === segment.source &&
       segment.start - previous.end <= mergeGapMs
     ) {
       merged[merged.length - 1] = {

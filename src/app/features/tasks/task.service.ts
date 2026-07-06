@@ -945,6 +945,23 @@ export class TaskService {
     );
   }
 
+  removeActualTimeSegment(taskId: string, date: string, start: number): void {
+    this._store.dispatch(
+      TimeTrackingActions.removeActualTimeSegment({ taskId, date, start }),
+    );
+  }
+
+  updateActualTimeSegment(
+    taskId: string,
+    date: string,
+    start: number,
+    newDuration: number,
+  ): void {
+    this._store.dispatch(
+      TimeTrackingActions.updateActualTimeSegment({ taskId, date, start, newDuration }),
+    );
+  }
+
   /**
    * Adds time spent to a task AND dispatches the persistent syncTimeSpent action.
    * Use this instead of addTimeSpent when the caller is NOT using BatchedTimeSyncAccumulator

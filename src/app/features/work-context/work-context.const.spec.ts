@@ -164,6 +164,7 @@ describe('work-context theme background slider persistence (#8504)', () => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const checkExpressions = (field: FormlyFieldConfig): void => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const opts = field.options as any;
     opts.checkExpressions({ fieldGroup: [field], options: opts });
   };

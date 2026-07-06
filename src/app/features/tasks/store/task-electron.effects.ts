@@ -165,6 +165,47 @@ export class TaskElectronEffects {
             panels: buildEisenhowerTaskWidgetPanels(allTasks, translateTitle),
             labels: buildTaskWidgetLabels(translateTitle),
           });
+          const miscCfg = this._configService.misc();
+          const countdownName = (miscCfg?.countdownTargetName as string) || '';
+          const countdownDate = (miscCfg?.countdownTargetDate as string) || '';
+          const countdownShowInWidget =
+            (miscCfg?.countdownShowInWidget as boolean) ?? true;
+          const countdownStyles = {
+            nameColor:
+              (miscCfg?.widgetCountdownNameColor as string) ||
+              (miscCfg?.countdownNameColor as string) ||
+              '#e53935',
+            nameFontSize:
+              (miscCfg?.widgetCountdownNameFontSize as number) ||
+              (miscCfg?.countdownNameFontSize as number) ||
+              14,
+            daysColor:
+              (miscCfg?.widgetCountdownDaysColor as string) ||
+              (miscCfg?.countdownDaysColor as string) ||
+              '#e53935',
+            daysFontSize:
+              (miscCfg?.widgetCountdownDaysFontSize as number) ||
+              (miscCfg?.countdownDaysFontSize as number) ||
+              16,
+            commonColor:
+              (miscCfg?.widgetCountdownCommonColor as string) ||
+              (miscCfg?.countdownCommonColor as string) ||
+              '#888',
+            commonFontSize:
+              (miscCfg?.widgetCountdownCommonFontSize as number) ||
+              (miscCfg?.countdownCommonFontSize as number) ||
+              13,
+            isBold:
+              (miscCfg?.widgetCountdownIsBold as boolean) ??
+              (miscCfg?.countdownIsBold as boolean) ??
+              true,
+          };
+          window.ea.updateTaskWidgetCountdown(
+            countdownName,
+            countdownDate,
+            countdownShowInWidget,
+            countdownStyles,
+          );
         }),
       ),
     { dispatch: false },

@@ -11,6 +11,7 @@ const extendTaskTitle = document.getElementById('extend-task-title') as HTMLElem
 const extendMinutes = document.getElementById('extend-minutes') as HTMLInputElement;
 const extendConfirm = document.getElementById('extend-confirm') as HTMLButtonElement;
 const extendCancel = document.getElementById('extend-cancel') as HTMLButtonElement;
+const countdownDisplay = document.getElementById('countdown-display') as HTMLSpanElement;
 let expiredTaskId: string | null = null;
 let labels = {
   activeTask: '',
@@ -372,7 +373,13 @@ const renderPanels = (
 
 window.taskWidgetAPI.onUpdateContent((data) => {
   labels = { ...labels, ...data.labels };
-  container.classList.remove('mode-pomodoro', 'mode-focus', 'mode-task', 'mode-idle');
+  container.classList.remove(
+    'mode-pomodoro',
+    'mode-focus',
+    'mode-task',
+    'mode-task-overtime',
+    'mode-idle',
+  );
   if (data.mode) {
     container.classList.add(`mode-${data.mode}`);
   }
@@ -381,6 +388,53 @@ window.taskWidgetAPI.onUpdateContent((data) => {
   timeDisplay.textContent = data.time || '--:--';
   renderPanels(data.panels || []);
 });
+
+window.taskWidgetAPI.onUpdateCountdown(
+  (
+    data: { name: string; days: number | null; styles: Record<string, string> } | null,
+  ) => {
+    if (data && data.name && data.days !== null) {
+      const s = data.styles || {};
+      const nameEl = document.createElement('span');
+      nameEl.style.cssText = `color:${s.nameColor || '#e53935'};font-size:${s.nameFontSize || '14px'};font-weight:${s.isBold || 'bold'}`;
+      nameEl.textContent = data.name;
+
+      const daysEl = document.createElement('span');
+      daysEl.style.cssText = `color:${s.daysColor || '#e53935'};font-size:${s.daysFontSize || '16px'};font-weight:${s.isBold || 'bold'}`;
+      daysEl.textContent = `${data.days}天`;
+
+      countdownDisplay.innerHTML = '';
+      const prefix1 = document.createElement('span');
+      prefix1.style.cssText = `color:${s.commonColor || '#888'};font-size:${s.commonFontSize || '13px'}`;
+      prefix1.textContent = data.days > 0 ? '距离' : data.days === 0 ? '今天就是' : '';
+
+      const prefix2 = document.createElement('span');
+      prefix2.style.cssText = `color:${s.commonColor || '#888'};font-size:${s.commonFontSize || '13px'}`;
+      prefix2.textContent = data.days > 0 ? '还剩' : data.days === 0 ? '' : '已经过去';
+
+      if (data.days >= 0) {
+        countdownDisplay.appendChild(prefix1);
+        countdownDisplay.appendChild(nameEl);
+        countdownDisplay.appendChild(prefix2);
+        countdownDisplay.appendChild(daysEl);
+        if (data.days === 0) {
+          const exclaim = document.createElement('span');
+          exclaim.style.cssText = `color:${s.daysColor || '#e53935'};font-size:${s.daysFontSize || '16px'}`;
+          exclaim.textContent = '！';
+          countdownDisplay.appendChild(exclaim);
+        }
+      } else {
+        countdownDisplay.appendChild(nameEl);
+        countdownDisplay.appendChild(prefix2);
+        countdownDisplay.appendChild(daysEl);
+      }
+      countdownDisplay.style.display = '';
+    } else {
+      countdownDisplay.textContent = '';
+      countdownDisplay.style.display = 'none';
+    }
+  },
+);
 
 window.taskWidgetAPI.onUpdateOpacity(({ backgroundOpacity, contentOpacity }) => {
   document.body.style.setProperty('--background-opacity', backgroundOpacity.toString());

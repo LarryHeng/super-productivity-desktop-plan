@@ -13,6 +13,8 @@ export interface ScheduleEvent {
   duration?: number;
   dayOfMonth?: number;
   plannedForDay?: string;
+  /** Original segment duration at creation time (ms) — hard upper bound for edits */
+  originalDuration?: number;
   data?: SVE['data'];
   overlap?: { count: number; offset: number };
   isBeyondBudget?: boolean;

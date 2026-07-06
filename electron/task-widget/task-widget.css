@@ -92,21 +92,30 @@ body.uses-theme-background #task-widget-container::after {
 }
 
 #widget-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  gap: 10px;
   min-height: 48px;
   padding: 9px 10px 8px 12px;
   border-bottom: 1px solid var(--border);
 }
 
 #active-task {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  display: flex;
   align-items: center;
+  gap: 8px;
   min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+
+#widget-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 #active-label {
@@ -130,6 +139,16 @@ body.uses-theme-background #task-widget-container::after {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
+  white-space: nowrap;
+}
+
+#countdown-display {
+  font-weight: bold;
+  color: #e53935;
+  margin-right: 12px;
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -446,6 +465,66 @@ body.uses-theme-background #task-widget-container::after {
   color: var(--accent);
 }
 
+.mode-task-overtime #time-display {
+  color: var(--danger);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  body {
+    --text: #e0e0e0;
+    --muted: #9e9e9e;
+    --accent: #4db6ac;
+    --danger: #ef5350;
+    --panel-bg-light: rgba(30, 30, 30, var(--background-opacity));
+    --panel-bg-dark: rgba(18, 18, 18, var(--background-opacity));
+    --border: rgba(255, 255, 255, 0.12);
+  }
+
+  #widget-header {
+    border-bottom-color: var(--border);
+  }
+
+  #countdown-display {
+    border-right-color: var(--border);
+  }
+
+  #widget-actions button {
+    background: rgba(45, 45, 45, 0.85);
+    color: #e0e0e0;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  #widget-actions button:hover {
+    background: rgba(60, 60, 60, 0.95);
+  }
+
+  #task-title {
+    color: #e0e0e0;
+  }
+
+  .mode-idle #time-display {
+    color: var(--muted);
+  }
+
+  .mode-pomodoro #time-display {
+    color: #ef5350;
+  }
+
+  .mode-focus #time-display {
+    color: #64b5f6;
+  }
+
+  .mode-task #time-display {
+    color: var(--accent);
+  }
+
+  .mode-task-overtime #time-display {
+    color: var(--danger);
+  }
+}
+
+/* --- Narrow layout (≤560px) --- */
 .size-narrow #matrix-grid {
   grid-template-columns: 1fr;
   gap: 8px;
@@ -457,12 +536,56 @@ body.uses-theme-background #task-widget-container::after {
   display: none;
 }
 
+/* Flatten wrappers */
+.size-narrow #active-task,
+.size-narrow #widget-right {
+  display: contents;
+}
+
+/* 2-row grid */
 .size-narrow #widget-header {
-  grid-template-columns: 1fr;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 4px 8px;
+  align-items: center;
+  padding: 6px 8px 6px 10px;
+}
+
+/* Row 1: countdown left, widget-actions right */
+.size-narrow #countdown-display {
+  grid-row: 1;
+  grid-column: 1;
+  border-right: none;
+  margin: 0;
+  padding: 0;
+  justify-self: start;
 }
 
 .size-narrow #widget-actions {
-  justify-content: flex-end;
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+}
+
+/* Row 2: task-title left, time-display right (active-label hidden on narrow) */
+.size-narrow #active-label {
+  display: none;
+}
+
+.size-narrow #task-title {
+  grid-row: 2;
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size-narrow #time-display {
+  grid-row: 2;
+  grid-column: 2;
+  justify-self: end;
 }
 
 @media (prefers-color-scheme: dark) {

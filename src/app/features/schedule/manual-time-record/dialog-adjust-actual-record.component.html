@@ -1,0 +1,70 @@
+<h1 mat-dialog-title>调整时间记录</h1>
+
+<mat-dialog-content>
+  <div class="adjust-form">
+    <div class="info-row">
+      <mat-icon>task_alt</mat-icon>
+      <span class="task-title">{{ data.taskTitle }}</span>
+    </div>
+
+    <div class="info-row">
+      <mat-icon>schedule</mat-icon>
+      <span>起始时间: {{ startTimeStr }}</span>
+    </div>
+
+    <div class="info-row">
+      <mat-icon>hourglass_empty</mat-icon>
+      <span>最大时长: {{ formatDuration(maxDurationMs) }} ({{ maxMinutes }}分钟)</span>
+    </div>
+
+    <div class="duration-section">
+      <label
+        >新时长 (例如 1h 30m 或 90m，不超过 {{ formatDuration(maxDurationMs) }}):</label
+      >
+      <div class="duration-input-row">
+        <input
+          type="text"
+          class="duration-text-input"
+          [(ngModel)]="durationInput"
+          placeholder="例如: 1h 30m 或 90m"
+          (input)="parseDuration()"
+        />
+        <span class="duration-hint">{{
+          parsedMs ? formatDuration(parsedMs) : '...'
+        }}</span>
+      </div>
+      @if (errorMsg) {
+        <div class="warn-text">{{ errorMsg }}</div>
+      }
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button
+    mat-button
+    color="warn"
+    type="button"
+    (click)="deleteRecord()"
+  >
+    <mat-icon>delete</mat-icon>
+    删除记录
+  </button>
+  <button
+    mat-button
+    type="button"
+    (click)="cancel()"
+  >
+    取消
+  </button>
+  <button
+    mat-stroked-button
+    color="primary"
+    type="button"
+    [disabled]="!isValid"
+    (click)="save()"
+  >
+    <mat-icon>save</mat-icon>
+    保存
+  </button>
+</mat-dialog-actions>

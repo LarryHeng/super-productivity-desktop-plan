@@ -75,6 +75,33 @@ export const TimeTrackingActions = createActionGroup({
     'Update whole State': props<{
       newState: TimeTrackingState;
     }>(),
+    'Remove actual time segment': (actionProps: {
+      taskId: string;
+      date: string;
+      start: number;
+    }) => ({
+      ...actionProps,
+      meta: {
+        isPersistent: true,
+        entityType: 'TIME_TRACKING',
+        entityId: `TASK_SEGMENT:${actionProps.date}:${actionProps.taskId}:${actionProps.start}`,
+        opType: OpType.Update,
+      } satisfies PersistentActionMeta,
+    }),
+    'Update actual time segment': (actionProps: {
+      taskId: string;
+      date: string;
+      start: number;
+      newDuration: number;
+    }) => ({
+      ...actionProps,
+      meta: {
+        isPersistent: true,
+        entityType: 'TIME_TRACKING',
+        entityId: `TASK_SEGMENT:${actionProps.date}:${actionProps.taskId}:${actionProps.start}`,
+        opType: OpType.Update,
+      } satisfies PersistentActionMeta,
+    }),
   },
 });
 

@@ -43,7 +43,8 @@ import { DateTimeFormatService } from '../../../core/date-time-format/date-time-
 import { FH } from '../schedule.const';
 import { CalendarEventActionsService } from '../../calendar-integration/calendar-event-actions.service';
 import { DialogManualTimeRecordComponent } from '../manual-time-record/dialog-manual-time-record.component';
-import { DialogPromptComponent } from '../../../ui/dialog-prompt/dialog-prompt.component';
+import { DialogAdjustActualRecordComponent } from '../manual-time-record/dialog-adjust-actual-record.component';
+import { DialogConfirmComponent } from '../../../ui/dialog-confirm/dialog-confirm.component';
 import { getDbDateStr, isDBDateStr } from '../../../util/get-db-date-str';
 import { parseDbDateStr } from '../../../util/parse-db-date-str';
 
@@ -503,6 +504,26 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     this.taskContextMenu()?.open(event);
   }
 
+  deleteActualRecordWithConfirm(): void {
+    const t = this.task();
+    if (!t) return;
+    this._matDialog
+      .open(DialogConfirmComponent, {
+        data: {
+          title: '确认删除',
+          message: `确定要删除 "${t.title}" 的这条时间记录吗？此操作不可撤销。`,
+          okTxt: '删除',
+          cancelTxt: '取消',
+        },
+      })
+      .afterClosed()
+      .subscribe((confirmed: boolean) => {
+        if (confirmed) {
+          this.deleteActualRecord();
+        }
+      });
+  }
+
   deleteActualRecord(): void {
     const t = this.task();
     const evt = this.se();
@@ -512,14 +533,12 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     )
       return;
     const dayStr =
-      typeof (evt as any).plannedForDay === 'string'
-        ? (evt as any).plannedForDay
-        : typeof evt.start === 'number'
-          ? getDbDateStr(evt.start)
-          : undefined;
+      (evt as any).plannedForDay ||
+      (typeof evt.start === 'number' ? getDbDateStr(evt.start) : undefined);
     if (!dayStr) return;
     const newTimeSpentOnDay = { ...(t.timeSpentOnDay || {}) };
     delete newTimeSpentOnDay[dayStr];
+    this._taskService.removeActualTimeSegment(t.id, dayStr, evt.start as number);
     this._store.dispatch(
       TaskSharedActions.updateTask({
         task: { id: t.id, changes: { timeSpentOnDay: newTimeSpentOnDay } },
@@ -594,49 +613,74 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
       return;
 
     const dayStr =
-      typeof (evt as any).plannedForDay === 'string'
-        ? (evt as any).plannedForDay
-        : evt.start
-          ? getDbDateStr(evt.start)
-          : undefined;
-    if (!dayStr || !t.timeSpentOnDay?.[dayStr]) return;
+      (evt as any).plannedForDay ||
+      (typeof evt.start === 'number' ? getDbDateStr(evt.start) : undefined);
+    if (!dayStr) return;
 
-    const currentMs = t.timeSpentOnDay[dayStr];
-    const currentMinutes = Math.round(currentMs / 60000);
+    // Use timeSpentOnDay if available, otherwise fall back to event duration
+    const currentMs =
+      t.timeSpentOnDay?.[dayStr] ||
+      (typeof evt.duration === 'number' && evt.duration > 0 ? evt.duration : undefined);
+    if (!currentMs || currentMs <= 0) return;
+    const startTs = typeof evt.start === 'number' ? evt.start : Date.now();
 
     this._matDialog
-      .open(DialogPromptComponent, {
+      .open(DialogAdjustActualRecordComponent, {
         data: {
-          title: this._translateService.instant(T.F.SCHEDULE.ADJUST_RECORD_TITLE),
-          message: this._translateService.instant(T.F.SCHEDULE.ADJUST_RECORD_PLACEHOLDER),
-          value: currentMinutes,
-          type: 'number',
+          taskTitle: t.title,
+          currentDurationMs: currentMs,
+          maxDurationMs: evt.originalDuration || currentMs,
+          startTimestamp: startTs,
+          dayStr,
+          task: t,
         },
       })
       .afterClosed()
-      .subscribe((newMinutes: number | undefined) => {
-        if (newMinutes === undefined || newMinutes === null || newMinutes < 0) return;
-        const newMs = newMinutes * 60000;
-        if (newMs === 0) {
-          this.deleteActualRecord();
-          return;
-        }
-        if (newMs !== currentMs) {
-          this._store.dispatch(
-            TaskSharedActions.updateTask({
-              task: {
-                id: t.id,
-                changes: {
-                  timeSpentOnDay: {
-                    ...t.timeSpentOnDay,
-                    [dayStr]: newMs,
-                  },
+      .subscribe(
+        (
+          result:
+            | { action: 'save'; newDurationMs: number }
+            | { action: 'delete' }
+            | undefined,
+        ) => {
+          if (!result) return;
+          if (result.action === 'delete') {
+            this._matDialog
+              .open(DialogConfirmComponent, {
+                data: {
+                  title: '确认删除',
+                  message: `确定要删除 "${t.title}" 的这条时间记录吗？`,
+                  okTxt: '删除',
+                  cancelTxt: '取消',
                 },
-              },
-            }),
-          );
-        }
-      });
+              })
+              .afterClosed()
+              .subscribe((confirmed: boolean) => {
+                if (confirmed) {
+                  this.deleteActualRecord();
+                }
+              });
+            return;
+          }
+          if (result.action === 'save') {
+            const newMs = result.newDurationMs;
+            const maxMs = evt.originalDuration || currentMs;
+            if (newMs !== currentMs && newMs <= maxMs && newMs > 0) {
+              this._taskService.updateActualTimeSegment(t.id, dayStr, startTs, newMs);
+              this._store.dispatch(
+                TaskSharedActions.updateTask({
+                  task: {
+                    id: t.id,
+                    changes: {
+                      timeSpentOnDay: { ...t.timeSpentOnDay, [dayStr]: newMs },
+                    },
+                  },
+                }),
+              );
+            }
+          }
+        },
+      );
   }
 
   markAsDone(): void {
@@ -691,7 +735,7 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
 
     const isActualOrCompleted =
       evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask;
-    // Actual blocks: no resize allowed (only system timer + manual backfill)
+    // Actual blocks: no resize allowed via drag
     if (isActualOrCompleted) {
       return false;
     }
@@ -779,26 +823,31 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
         evt.type === SVEType.ActualTask || evt.type === SVEType.CompletedPlannedTask;
 
       if (isActualOrCompleted) {
-        // Allow bidirectional resizing of actual time blocks (enlarge or shrink)
+        // Allow shrinking actual time blocks only (new duration must be <= current)
         const dayStr =
-          typeof (evt as any).plannedForDay === 'string'
-            ? (evt as any).plannedForDay
-            : getDbDateStr(evt.start as number);
+          (evt as any).plannedForDay ||
+          (typeof evt.start === 'number' ? getDbDateStr(evt.start as number) : undefined);
         if (!dayStr || !t.timeSpentOnDay?.[dayStr]) {
           this._resizeHeight.set('');
           return;
         }
         const currentSpent = t.timeSpentOnDay[dayStr];
         const newSpent = Math.max(0, currentSpent + timeChangeInMs);
+        // Enforce: can only shrink, not enlarge
+        const clampedSpent = Math.min(newSpent, currentSpent);
         const roundedSpent =
-          Math.round(newSpent / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS;
-        if (roundedSpent !== currentSpent) {
+          Math.round(clampedSpent / FIVE_MINUTES_IN_MS) * FIVE_MINUTES_IN_MS;
+        // Minimum 5 minutes
+        const minSpent = Math.max(FIVE_MINUTES_IN_MS, roundedSpent);
+        if (minSpent !== currentSpent) {
+          const startTs = typeof evt.start === 'number' ? evt.start : Date.now();
+          this._taskService.updateActualTimeSegment(t.id, dayStr, startTs, minSpent);
           this._store.dispatch(
             TaskSharedActions.updateTask({
               task: {
                 id: t.id,
                 changes: {
-                  timeSpentOnDay: { ...t.timeSpentOnDay, [dayStr]: roundedSpent },
+                  timeSpentOnDay: { ...t.timeSpentOnDay, [dayStr]: minSpent },
                 },
               },
             }),

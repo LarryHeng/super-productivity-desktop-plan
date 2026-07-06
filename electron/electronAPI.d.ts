@@ -257,6 +257,12 @@ export interface ElectronAPI {
   sendSettingsUpdate(globalCfg: GlobalConfigState): void;
 
   updateTaskWidgetSettings(cfg: TaskWidgetConfig): void;
+  updateTaskWidgetCountdown(
+    name: string,
+    date: string,
+    showInWidget: boolean,
+    styles: any,
+  ): void;
 
   updateTitleBarDarkMode(isDarkMode: boolean): void;
 

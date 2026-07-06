@@ -2556,7 +2556,24 @@
       "THEME_REMOVE_BUTTON": "移除主题",
       "THEME_REMOVED_TOAST": "主题已移除；已恢复为默认。",
       "THEME_SELECT_LABEL": "选择主题",
-      "TITLE": "更多设置"
+      "TITLE": "更多设置",
+      "COUNTDOWN_TARGET_NAME": "倒数日目标名称",
+      "COUNTDOWN_TARGET_DATE": "倒数日目标日期",
+      "COUNTDOWN_IS_BOLD": "倒数日文字加粗",
+      "COUNTDOWN_NAME_COLOR": "目标名称颜色",
+      "COUNTDOWN_NAME_FONT_SIZE": "目标名称字体大小 (px)",
+      "COUNTDOWN_DAYS_COLOR": "天数字体颜色",
+      "COUNTDOWN_DAYS_FONT_SIZE": "天数字体大小 (px)",
+      "COUNTDOWN_COMMON_COLOR": "通用文字颜色",
+      "COUNTDOWN_COMMON_FONT_SIZE": "通用文字字体大小 (px)",
+      "COUNTDOWN_SHOW_IN_WIDGET": "在桌面小组件中显示倒数日",
+      "WIDGET_COUNTDOWN_NAME_COLOR": "小组件-名称颜色",
+      "WIDGET_COUNTDOWN_NAME_FONT_SIZE": "小组件-名称字体(px)",
+      "WIDGET_COUNTDOWN_DAYS_COLOR": "小组件-天数颜色",
+      "WIDGET_COUNTDOWN_DAYS_FONT_SIZE": "小组件-天数字体(px)",
+      "WIDGET_COUNTDOWN_IS_BOLD": "小组件-加粗",
+      "WIDGET_COUNTDOWN_COMMON_COLOR": "小组件-通用文字颜色",
+      "WIDGET_COUNTDOWN_COMMON_FONT_SIZE": "小组件-通用文字字体(px)"
     },
     "POMODORO": {
       "BREAK_DURATION": "短休息持续时间",
@@ -2649,6 +2666,10 @@
       "L_IS_TRACKING_REMINDER_SHOW_ON_MOBILE": "在移动应用上显示跟踪提醒",
       "L_TRACKING_REMINDER_MIN_TIME": "在显示跟踪提醒横幅前等待的时间",
       "TITLE": "时间跟踪"
+    },
+    "COUNTDOWN": {
+      "TITLE": "倒数日",
+      "HELP": "设定目标日期和名称，系统自动计算剩余天数。倒计时将替换所有页面顶部的语句，并同步到桌面小组件。"
     }
   },
   "GLOBAL": {

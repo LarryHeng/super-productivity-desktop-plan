@@ -51,6 +51,7 @@ import { MatCheckbox } from '@angular/material/checkbox';
 import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { formatLocalIsoWithoutSeconds } from '../../../../util/format-local-iso-without-seconds';
+import { DateTimePickerComponent } from '../../../../ui/datetime-picker/datetime-picker.component';
 import { TrackTimeDialogData } from './track-time-dialog.model';
 
 @Component({
@@ -62,6 +63,7 @@ import { TrackTimeDialogData } from './track-time-dialog.model';
   imports: [
     FormsModule,
     AsyncPipe,
+    DateTimePickerComponent,
     MatDialogTitle,
     MatIcon,
     MatDialogContent,
@@ -220,6 +222,29 @@ export class DialogTrackTimeComponent implements OnDestroy {
       ? { ...matchingCheckboxCfg, isChecked: false }
       : undefined;
     this.started = this._fillInStarted(mode);
+  }
+
+  get startedDate(): Date {
+    return new Date(this.started);
+  }
+
+  get startedTime(): string {
+    const d = new Date(this.started);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  onStartedDateSelected(date: Date): void {
+    const oldD = new Date(this.started);
+    date.setHours(oldD.getHours(), oldD.getMinutes());
+    this.started = formatLocalIsoWithoutSeconds(date.getTime());
+  }
+
+  onStartedTimeChanged(time: string | null): void {
+    if (!time) return;
+    const d = new Date(this.started);
+    const [h, m] = time.split(':').map(Number);
+    d.setHours(h, m);
+    this.started = formatLocalIsoWithoutSeconds(d.getTime());
   }
 
   getTimeToLogForMode(mode: JiraWorklogExportDefaultTime): number {

@@ -105,6 +105,8 @@ export const ACTION_TYPE_TO_CODE: Record<ActionType, string> = {
 
   // TimeTracking actions (K)
   [ActionType.TIME_TRACKING_ADD_ACTUAL_TIME_SEGMENT]: 'KA',
+  [ActionType.TIME_TRACKING_REMOVE_ACTUAL_TIME_SEGMENT]: 'KR',
+  [ActionType.TIME_TRACKING_UPDATE_ACTUAL_TIME_SEGMENT]: 'KU',
   [ActionType.TIME_TRACKING_SYNC_SESSIONS]: 'KS',
   [ActionType.TIME_TRACKING_SYNC_TIME_SPENT]: 'KT',
   [ActionType.TIME_TRACKING_UPDATE_CONTEXT_DATA]: 'KW',

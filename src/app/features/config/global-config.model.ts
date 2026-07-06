@@ -46,6 +46,44 @@ export type MiscConfig = Readonly<{
   isUseCustomWindowTitleBar?: boolean;
   /** Enable diagnostic logging: records all operations (NgRx actions, UI interactions) for troubleshooting */
   isDiagnosticLoggingEnabled?: boolean;
+  /** Countdown target name (e.g., "春节", "项目截止") */
+  countdownTargetName?: string;
+  /** Countdown target date in YYYY-MM-DD format (UTC+8 Beijing time) */
+  countdownTargetDate?: string;
+  /** Countdown font size in px, default 14 */
+  countdownFontSize?: number;
+  /** Countdown name color (CSS value), default '#e53935' */
+  countdownNameColor?: string;
+  /** Countdown name font size in px, default 14 */
+  countdownNameFontSize?: number;
+  /** Countdown text color (CSS value), default '#e53935' */
+  countdownColor?: string;
+  /** Countdown text bold, default true */
+  countdownIsBold?: boolean;
+  /** Countdown days color (CSS value), default '#e53935' */
+  countdownDaysColor?: string;
+  /** Countdown days font size in px, default 16 */
+  countdownDaysFontSize?: number;
+  /** Countdown common text color (CSS value, e.g. "还剩", "天"), default same as secondary text */
+  countdownCommonColor?: string;
+  /** Countdown common text font size in px, default 13 */
+  countdownCommonFontSize?: number;
+  /** Show countdown in task widget, default true */
+  countdownShowInWidget?: boolean;
+  /** Widget countdown name color */
+  widgetCountdownNameColor?: string;
+  /** Widget countdown name font size */
+  widgetCountdownNameFontSize?: number;
+  /** Widget countdown days color */
+  widgetCountdownDaysColor?: string;
+  /** Widget countdown days font size */
+  widgetCountdownDaysFontSize?: number;
+  /** Widget countdown common text color */
+  widgetCountdownCommonColor?: string;
+  /** Widget countdown common text font size */
+  widgetCountdownCommonFontSize?: number;
+  /** Widget countdown text bold */
+  widgetCountdownIsBold?: boolean;
   customTheme?: string;
   // number: one of DefaultStartPage. string: project id.
   defaultStartPage?: number | string;

@@ -19,26 +19,26 @@
     }
 
     <div class="time-fields">
-      <mat-form-field>
-        <mat-label>{{ T.F.SCHEDULE.MANUAL_RECORD_START | translate }}</mat-label>
-        <input
-          matInput
-          required
-          type="datetime-local"
-          name="manualRecordStart"
-          [(ngModel)]="startValue"
-        />
-      </mat-form-field>
-      <mat-form-field>
-        <mat-label>{{ T.F.SCHEDULE.MANUAL_RECORD_END | translate }}</mat-label>
-        <input
-          matInput
-          required
-          type="datetime-local"
-          name="manualRecordEnd"
-          [(ngModel)]="endValue"
-        />
-      </mat-form-field>
+      <div class="field-group">
+        <label>{{ T.F.SCHEDULE.MANUAL_RECORD_START | translate }}</label>
+        <datetime-picker
+          [selectedDate]="startDate"
+          [selectedTime]="startTimeStr"
+          [showQuickAccess]="true"
+          (dateSelected)="onStartDateSelected($event)"
+          (timeChanged)="onStartTimeChanged($event)"
+        ></datetime-picker>
+      </div>
+      <div class="field-group">
+        <label>{{ T.F.SCHEDULE.MANUAL_RECORD_END | translate }}</label>
+        <datetime-picker
+          [selectedDate]="endDate"
+          [selectedTime]="endTimeStr"
+          [showQuickAccess]="true"
+          (dateSelected)="onEndDateSelected($event)"
+          (timeChanged)="onEndTimeChanged($event)"
+        ></datetime-picker>
+      </div>
     </div>
 
     @if (data.isFromPlannedBlock) {

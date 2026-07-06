@@ -124,6 +124,7 @@ const timeTrackingReducerInternal = createReducer(
               start,
               end,
               ...(source ? { source } : {}),
+              originalDuration: end - start,
             },
           ],
         },
@@ -163,6 +164,37 @@ const timeTrackingReducerInternal = createReducer(
       },
     };
   }),
+
+  on(TimeTrackingActions.removeActualTimeSegment, (state, { taskId, date, start }) => {
+    const existingSegments = state.taskSegments?.[date] ?? [];
+    return {
+      ...state,
+      taskSegments: {
+        ...(state.taskSegments ?? {}),
+        [date]: existingSegments.filter(
+          (segment) => !(segment.taskId === taskId && segment.start === start),
+        ),
+      },
+    };
+  }),
+
+  on(
+    TimeTrackingActions.updateActualTimeSegment,
+    (state, { taskId, date, start, newDuration }) => {
+      const existingSegments = state.taskSegments?.[date] ?? [];
+      return {
+        ...state,
+        taskSegments: {
+          ...(state.taskSegments ?? {}),
+          [date]: existingSegments.map((segment) =>
+            segment.taskId === taskId && segment.start === start
+              ? { ...segment, end: segment.start + newDuration }
+              : segment,
+          ),
+        },
+      };
+    },
+  ),
 );
 
 export const timeTrackingReducer = (

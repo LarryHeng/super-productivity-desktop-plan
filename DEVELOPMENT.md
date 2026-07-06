@@ -1,10 +1,13 @@
 # Super Productivity Desktop Plan — 开发文档
 
-> 最后更新：2026-07-03 19:35
+> 最后更新：2026-07-07 00:00
 > 源码路径：`F:\AgentData\codex\super-productivity-custom`
 > GitHub：`https://github.com/LarryHeng/super-productivity-desktop-plan`
-> 当前 HEAD：`a7e3cbf49`
-> 最新 Release：[`desktop-plan-v0.1.14`](https://github.com/LarryHeng/super-productivity-desktop-plan/releases/tag/desktop-plan-v0.1.14)
+> 当前 HEAD：`cb87a1b6e` (pending changes, NOT committed)
+> 当前版本：`18.13.1-desktop-plan-v0.3.0`
+> 修改文件数：35 个 (+797 -281 行)
+> 部署 MD5：`2b007cdb09c929cfebdec757d6c23018`
+> 最新 Release：[`Desktop Plan v0.2.0`](https://github.com/LarryHeng/super-productivity-desktop-plan/releases/tag/desktop-plan-v0.2.0)
 
 ---
 
@@ -422,3 +425,92 @@ gh release create desktop-plan-v0.1.XX ".tmp/app-builds/Super-Productivity-Setup
 
 - 标签搜索：输入 `#` → 打字搜索标签 → 发现模糊匹配不生效，需要重新输入 `#` 才能触发。核心问题是每次按键都重建 mention 配置。
 - 移除矩阵标签：点击右键菜单"移除矩阵标签"后任务应消失，但实际仍然显示。根因是持久化数据中 excludedTagIds 缺少 EM_HIDDEN，且无运行时兜底。
+
+---
+
+## 9. v0.3.0 修改汇总 (35 文件, +753/-135)
+
+### 9.1 备份
+
+| 项目               | 值                                                                              |
+| ------------------ | ------------------------------------------------------------------------------- |
+| 备份 Tag           | `backup-v0.2.0-before-segment-refactor-20260706-213159`                         |
+| 备份路径           | `D:\DevelopTools\Super Productivity\rollbacks\2026-07-06-pre-segment-refactor\` |
+| app.asar MD5       | `1824bdbdcf32ad4bfbd57f5bdcf12f1c`                                              |
+| 源码 HEAD (修改前) | `cb87a1b6e`                                                                     |
+
+### 9.2 2026-07-06 修改记录 (v0.3.0, 进行中)
+
+**修改文件总览：**
+
+| 文件                                                                                          | 操作     | 关联         |
+| --------------------------------------------------------------------------------------------- | -------- | ------------ |
+| `src/app/features/schedule/schedule-event/schedule-event.component.ts`                        | 修改     | Bug 1, Bug 2 |
+| `src/app/features/schedule/manual-time-record/dialog-manual-time-record.component.ts`         | 重写     | Bug 1, 功能6 |
+| `src/app/features/schedule/manual-time-record/dialog-manual-time-record.component.html`       | 重写     | 功能6        |
+| `src/app/features/schedule/manual-time-record/dialog-adjust-actual-record.component.ts`       | **新建** | Bug 1        |
+| `src/app/features/schedule/manual-time-record/dialog-adjust-actual-record.component.html`     | **新建** | Bug 1        |
+| `src/app/features/schedule/manual-time-record/dialog-adjust-actual-record.component.scss`     | **新建** | Bug 1        |
+| `src/app/features/time-tracking/store/time-tracking.actions.ts`                               | 修改     | Bug 1, 功能5 |
+| `src/app/features/time-tracking/store/time-tracking.reducer.ts`                               | 修改     | Bug 1, 功能5 |
+| `src/app/features/tasks/task.service.ts`                                                      | 修改     | Bug 1, 功能5 |
+| `src/app/features/schedule/map-schedule-data/append-actual-time-segments-to-schedule-days.ts` | 修改     | 功能5        |
+| `src/app/features/config/global-config.model.ts`                                              | 修改     | Bug 4        |
+| `src/app/features/config/default-global-config.const.ts`                                      | 修改     | Bug 4        |
+| `src/app/core-ui/main-header/header-countdown/header-countdown.component.ts`                  | **新建** | Bug 4        |
+| `src/app/core-ui/main-header/main-header.component.ts`                                        | 修改     | Bug 4        |
+| `src/app/core-ui/main-header/main-header.component.html`                                      | 修改     | Bug 4        |
+| `electron/task-widget/task-widget.ts`                                                         | 修改     | Bug 3, Bug 4 |
+| `electron/task-widget/task-widget-renderer.ts`                                                | 修改     | Bug 3, Bug 4 |
+| `electron/task-widget/task-widget.html`                                                       | 修改     | Bug 4        |
+| `electron/task-widget/task-widget.css`                                                        | 修改     | Bug 3, Bug 4 |
+| `electron/task-widget/task-widget-preload.ts`                                                 | 修改     | Bug 4        |
+| `electron/task-widget/task-widget-api.d.ts`                                                   | 修改     | Bug 4        |
+| `src/app/features/issue/shared/dialog-track-time/dialog-track-time.component.ts`              | 修改     | 功能6        |
+| `src/app/features/issue/shared/dialog-track-time/dialog-track-time.component.html`            | 修改     | 功能6        |
+
+**修改内容汇总：**
+
+#### Bug 1: 时间表补记/删除/调整记录修复
+
+- `deleteActualRecord`: dayStr 推导逻辑修复（移除 `typeof...string` 严格检查），改为 `plannedForDay || getDbDateStr(start)`
+- 删除时同时调用 `taskService.removeActualTimeSegment()` 删除 TimeTrackingState 中的 segment
+- `adjustActualRecord`: 从 `DialogPromptComponent`（纯数字）改为新建的 `DialogAdjustActualRecordComponent`（含独立 Delete 按钮 + InputDurationSlider）
+- 手动补记对话框: 起始/结束时间从原生 `datetime-local` 改为 `DateTimePickerComponent`
+
+#### Bug 2: 真实块修改时间限制
+
+- `isResizable()`: 对 ActualTask/CompletedPlannedTask 返回 `true`（启用实际块 resize）
+- `_onResizeEnd()`: 限制新时长 `Math.min(newSpent, currentSpent)`（只能缩小不能放大），最小保留 5 分钟
+- resize 时调用 `taskService.updateActualTimeSegment()` 更新 TimeTrackingState 中的 segment
+- `adjustActualRecord()` 对话框中时长只能 ≤ 当前值
+
+#### Bug 3: 倒计时结束后变红正向计时
+
+- `task-widget.ts`: 倒计时归零且 timeSpent > estimate 时 mode 改为 `'task-overtime'`，时间显示超出量
+- `task-widget-renderer.ts`: 新增 `mode-task-overtime` class 支持
+- `task-widget.css`: `.mode-task-overtime #time-display { color: var(--danger); }`
+
+#### Bug 4: 倒数日功能
+
+- 新增 `HeaderCountdownComponent` 替换 `HeaderProductivityTipComponent`
+- 配置字段: `countdownTargetName`, `countdownTargetDate`, `countdownFontSize`, `countdownColor`, `countdownIsBold`
+- 用北京时间 UTC+8 计算天数差，每分钟自动刷新
+- 小组件新增 `#countdown-display` 元素 + `update-countdown` IPC 通道同步
+
+#### 功能5: 时间追踪分段改造
+
+- `mergeNearbyActualTaskSegments()`: 手动补记 segment（source='manual'）永不合并
+- 新增 `removeActualTimeSegment` / `updateActualTimeSegment` actions 和 reducers
+- `taskService` 新增 `removeActualTimeSegment()` / `updateActualTimeSegment()` 方法
+- 合并间隔默认值 `DEFAULT_ACTUAL_SEGMENT_MERGE_GAP_MINUTES = 5`（保留但可配置）
+
+#### 功能6: 全局日历改造
+
+- `DialogManualTimeRecordComponent`: 起始/结束时间改用 `DateTimePickerComponent`
+- `DialogTrackTimeComponent`: `datetime-local` 改为 `DateTimePickerComponent`
+
+### 9.3 待完成
+
+- [x] widget countdown 样式运算符修复
+- [ ] 用户验证所有功能

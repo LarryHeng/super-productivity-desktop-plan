@@ -44,6 +44,12 @@ interface TaskWidgetCountdownExpiredData {
   title: string;
 }
 
+interface TaskWidgetCountdownData {
+  name: string;
+  days: number | null;
+  styles: Record<string, string>;
+}
+
 interface TaskWidgetAPI {
   showMainWindow: () => void;
   completeTask: (taskId: string, isDone: boolean) => void;
@@ -55,6 +61,9 @@ interface TaskWidgetAPI {
   onUpdateBackground: (callback: (data: TaskWidgetBackgroundData) => void) => () => void;
   onCountdownExpired: (
     callback: (data: TaskWidgetCountdownExpiredData) => void,
+  ) => () => void;
+  onUpdateCountdown: (
+    callback: (data: TaskWidgetCountdownData | null) => void,
   ) => () => void;
 }
 

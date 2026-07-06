@@ -86,6 +86,8 @@ export enum ActionType {
 
   // TimeTracking actions (K)
   TIME_TRACKING_ADD_ACTUAL_TIME_SEGMENT = '[TimeTracking] Add actual time segment',
+  TIME_TRACKING_REMOVE_ACTUAL_TIME_SEGMENT = '[TimeTracking] Remove actual time segment',
+  TIME_TRACKING_UPDATE_ACTUAL_TIME_SEGMENT = '[TimeTracking] Update actual time segment',
   TIME_TRACKING_SYNC_SESSIONS = '[TimeTracking] Sync sessions',
   TIME_TRACKING_SYNC_TIME_SPENT = '[TimeTracking] Sync time spent',
   TIME_TRACKING_UPDATE_CONTEXT_DATA = '[TimeTracking] Update Work Context Data',

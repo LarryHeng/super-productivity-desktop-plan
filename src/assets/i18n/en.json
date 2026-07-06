@@ -2556,7 +2556,24 @@
       "THEME_REMOVE_BUTTON": "Remove theme",
       "THEME_REMOVED_TOAST": "Theme removed; reverted to Default.",
       "THEME_SELECT_LABEL": "Select Theme",
-      "TITLE": "Misc Settings"
+      "TITLE": "Misc Settings",
+      "COUNTDOWN_TARGET_NAME": "Countdown target name",
+      "COUNTDOWN_TARGET_DATE": "Countdown target date",
+      "COUNTDOWN_IS_BOLD": "Countdown text bold",
+      "COUNTDOWN_NAME_COLOR": "Target name color",
+      "COUNTDOWN_NAME_FONT_SIZE": "Target name font size (px)",
+      "COUNTDOWN_DAYS_COLOR": "Days text color",
+      "COUNTDOWN_DAYS_FONT_SIZE": "Days font size (px)",
+      "COUNTDOWN_COMMON_COLOR": "Common text color",
+      "COUNTDOWN_COMMON_FONT_SIZE": "Common text font size (px)",
+      "COUNTDOWN_SHOW_IN_WIDGET": "Show countdown in desktop widget",
+      "WIDGET_COUNTDOWN_NAME_COLOR": "Widget - Name color",
+      "WIDGET_COUNTDOWN_NAME_FONT_SIZE": "Widget - Name font size(px)",
+      "WIDGET_COUNTDOWN_DAYS_COLOR": "Widget - Days color",
+      "WIDGET_COUNTDOWN_DAYS_FONT_SIZE": "Widget - Days font size(px)",
+      "WIDGET_COUNTDOWN_IS_BOLD": "Widget - Bold",
+      "WIDGET_COUNTDOWN_COMMON_COLOR": "Widget - Common text color",
+      "WIDGET_COUNTDOWN_COMMON_FONT_SIZE": "Widget - Common text font size(px)"
     },
     "POMODORO": {
       "BREAK_DURATION": "Short break duration",
@@ -2649,6 +2666,10 @@
       "L_IS_TRACKING_REMINDER_SHOW_ON_MOBILE": "Show tracking reminder on mobile app",
       "L_TRACKING_REMINDER_MIN_TIME": "Time to wait before showing tracking reminder banner",
       "TITLE": "Time Tracking"
+    },
+    "COUNTDOWN": {
+      "TITLE": "Countdown Day",
+      "HELP": "Set a target date and name. The countdown will replace the header tip across all pages and sync to the desktop task widget."
     }
   },
   "GLOBAL": {
