@@ -214,6 +214,7 @@ describe('TimeTracking Reducer', () => {
           taskId: 'task-1',
           start: 1_000,
           end: 2_000,
+          originalDuration: 1_000,
         },
       ]);
     });
@@ -248,6 +249,7 @@ describe('TimeTracking Reducer', () => {
           start: 1_000,
           end: 2_000,
           source: 'manual',
+          originalDuration: 1_000,
         },
       ]);
     });

@@ -5,6 +5,7 @@ import { Store } from '@ngrx/store';
 import { TranslateModule } from '@ngx-translate/core';
 import { of } from 'rxjs';
 import { DateService } from '../../../../core/date/date.service';
+import { GlobalConfigService } from '../../../config/global-config.service';
 import { SnackService } from '../../../../core/snack/snack.service';
 import { getDbDateStr } from '../../../../util/get-db-date-str';
 import { TaskService } from '../../../tasks/task.service';
@@ -97,6 +98,26 @@ describe('DialogTrackTimeComponent', () => {
         {
           provide: DateService,
           useValue: dateService,
+        },
+        {
+          provide: GlobalConfigService,
+          useValue: jasmine.createSpyObj('GlobalConfigService', [], {
+            misc: jasmine.createSpy('misc').and.returnValue({}),
+            cfg: () => ({}),
+            tasks: () => ({}),
+            localization: () => ({}),
+            shortSyntax: () => ({}),
+            sound: () => ({}),
+            evaluation: () => ({}),
+            idle: () => ({}),
+            sync: () => ({}),
+            takeABreak: () => ({}),
+            pomodoroConfig: () => ({}),
+            flowtimeConfig: () => ({}),
+            clipboardImages: () => ({}),
+            timelineCfg: () => ({}),
+            appFeatures: () => ({}),
+          }),
         },
       ],
     }).compileComponents();

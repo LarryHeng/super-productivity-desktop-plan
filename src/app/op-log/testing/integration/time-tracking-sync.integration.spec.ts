@@ -86,6 +86,7 @@ describe('Time Tracking Sync Integration', () => {
           start: 1_000,
           end: 2_000,
           source: 'manual',
+          originalDuration: 1_000,
         },
       ]);
     });
