@@ -56,9 +56,16 @@
       }}
     </button>
     @if (uploadError()) {
-      <mat-error style="margin-top: 8px; display: block">
+      <div
+        style="
+          margin-top: 8px;
+          display: block;
+          color: var(--mdc-theme-error, #f44336);
+          font-size: 12px;
+        "
+      >
         {{ uploadError() }}
-      </mat-error>
+      </div>
     }
 
     <div style="margin-top: 16px">
@@ -136,17 +143,19 @@
       <p>{{ getPluginDescription(plugin) }}</p>
 
       @if (plugin.error) {
-        <mat-error>
+        <div style="color: var(--mdc-theme-error, #f44336); font-size: 12px">
           <mat-icon>error</mat-icon>
           {{ plugin.error }}
-        </mat-error>
+        </div>
       }
 
       @if (requiresNodeExecution(plugin) && !IS_ELECTRON) {
-        <mat-error style="margin-top: 8px">
+        <div
+          style="margin-top: 8px; color: var(--mdc-theme-error, #f44336); font-size: 12px"
+        >
           <mat-icon>desktop_windows</mat-icon>
           {{ getNodeExecutionMessage() }}
-        </mat-error>
+        </div>
       }
 
       <table>

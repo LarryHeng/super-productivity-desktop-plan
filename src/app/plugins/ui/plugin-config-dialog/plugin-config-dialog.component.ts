@@ -43,10 +43,10 @@ interface PluginConfigData {
           <mat-spinner diameter="40"></mat-spinner>
         </div>
       } @else if (error()) {
-        <mat-error>
+        <div>
           <mat-icon>error</mat-icon>
           {{ error() }}
-        </mat-error>
+        </div>
       } @else {
         <form [formGroup]="form">
           <formly-form
