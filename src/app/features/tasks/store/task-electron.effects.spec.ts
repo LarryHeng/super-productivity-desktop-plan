@@ -63,6 +63,7 @@ describe('TaskElectronEffects', () => {
         on: jasmine.createSpy('on'),
         updateCurrentTask: jasmine.createSpy('updateCurrentTask'),
         updateTaskWidgetTasks: jasmine.createSpy('updateTaskWidgetTasks'),
+        updateTaskWidgetCountdown: jasmine.createSpy('updateTaskWidgetCountdown'),
         updateTodayTasks: jasmine.createSpy('updateTodayTasks'),
         setProgressBar: jasmine.createSpy('setProgressBar'),
         onSwitchTask: jasmine.createSpy('onSwitchTask'),
