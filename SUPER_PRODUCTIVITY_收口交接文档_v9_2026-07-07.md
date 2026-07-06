@@ -1,27 +1,36 @@
 # Super Productivity 收口交接文档 v9
 
-> 最后更新：2026-07-07
+> 最后更新：2026-07-07 04:40
 > 源码路径：`F:\AgentData\codex\super-productivity-custom`
 > 部署路径：`D:\DevelopTools\Super Productivity\working\`
 > 当前分支：`main` (已提交 + 已推送)
-> 当前 HEAD：`18e02af8e`
+> 当前 HEAD：`64ead3e38`
 > 最新 Release：`Desktop Plan v0.3.0` (tag: `desktop-plan-v0.3.0`, 2026-07-07)
+> CI 状态：`success` ✅ (连续两次通过)
 > GitHub：`https://github.com/LarryHeng/super-productivity-desktop-plan`
 
 ---
 
 ## 1. 版本号
 
-**已发布版本**: `18.13.1-desktop-plan-v0.3.0`（已提交、已打 tag、已发布）
+**已发布版本**: `18.13.1-desktop-plan-v0.3.0`（已提交、已打 tag、已发布、Release 含安装包）
 **Release tag**: `desktop-plan-v0.3.0`
 **Release 标题**: `Desktop Plan v0.3.0`
 **前一版本**: `Desktop Plan v0.2.0` (tag: `desktop-plan-v0.2.0`, 2026-07-04)
 
 ---
 
-## 2. v0.3.0 提交历史
+## 2. v0.3.0 完整提交历史
 
 ```
+64ead3e38 docs(desktop-plan): update DEVELOPMENT.md with v0.3.0 release and CI fix notes
+f0830442c fix(desktop-plan): revert dialog-track-time to native datetime-local input
+6b4529b77 fix(desktop-plan): unwrap mat-form-field around datetime-picker in dialog-track-time
+60f792997 fix(desktop-plan): remove mat-form-field wrapping datetime-picker in dialog-track-time
+c3cd574c2 ci: trigger CI run
+2fe98ac40 fix(desktop-plan): replace all orphan <mat-error> with plain div to fix CI afterAll crash
+da839d892 fix(desktop-plan): replace orphan <mat-error> with plain div to fix CI afterAll crash
+880d5f545 docs(desktop-plan): update handover doc post v0.3.0 release
 18e02af8e fix(desktop-plan): update test expectations for v0.3.0 data model changes
 ea65fe512 fix(desktop-plan): add updateTaskWidgetCountdown to spec window.ea mock
 c040c6e21 fix(desktop-plan): add misc signal mock to task-electron.effects spec
@@ -34,10 +43,22 @@ ecf0b5a4c feat(desktop-plan): v0.3.0 - countdown, segment refactor, widget dark 
 
 ## 3. CI 测试状态
 
-- Karma 单元测试（11435 个）中 `MatFormField` 渲染相关 afterAll 错误为上游已存在问题，非本次引入
-- sync-core / sync-providers / release-notes / electron / lint 测试全部通过
-- E2E 本地运行 102 passed，5 个失败与本次改动无关（legacy archive + planner/notes 中断）
-- Release 已通过 `gh release create` 发布，包含安装包 `Super-Productivity-Setup-x64.exe`
+| 阶段 | 结果 |
+|------|------|
+| Karma 单元测试 | 11433/11435 SUCCESS (16 skipped) |
+| E2E smoke suite | 2 passed |
+| Lint (TS + SCSS + rules) | passed (0 errors) |
+| Lighthouse | passed |
+| sync-core (12 文件, 206 test) | passed |
+| sync-providers (16 文件, 376 test) | passed |
+| Electron (188 test) | passed (186 pass, 2 skipped) |
+| release-notes | passed |
+
+### 3.1 CI 修复历程
+
+**根因**: `<datetime-picker>` 自带 `<mat-form-field>`，将其包裹在外层 `<mat-form-field>` 中导致 Angular Material 在 ngAfterContentInit 抛出 "mat-form-field must contain a MatFormFieldControl"。外加 4 处孤立 `<mat-error>`（不在 `<mat-form-field>` 内）同样触发此错误。
+
+**修复**: 移除外层 mat-form-field 包装（2处），孤立 mat-error → plain div（4处），dialog-track-time 还原为原生 datetime-local input（1处）。详见 `DEVELOPMENT.md` 第10节。
 
 ---
 
@@ -163,6 +184,7 @@ origin       → NO_PUSH_OFFICIAL_UPSTREAM
 
 ## 7. 待办
 
-1. ~~提交发布 v0.3.0~~ → 已完成
-2. 恢复 "计组4.7结束" 丢失的时间记录（备份文件已定位）
-3. 上游测试修复、Dev 版本号区分
+1. ~~提交发布 v0.3.0~~ → 已完成 (2026-07-07)
+2. ~~CI 修复~~ → 已完成 (2026-07-07, 最终 SUCCESS)
+3. 恢复 "计组4.7结束" 丢失的时间记录（备份文件已定位）
+4. 上游测试修复、Dev 版本号区分
