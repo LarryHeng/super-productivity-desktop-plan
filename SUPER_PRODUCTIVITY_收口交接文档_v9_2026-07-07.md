@@ -3,6 +3,8 @@
 > 最后更新：2026-07-07 05:25 (CI 全绿，文档已补充)
 > 源码路径：`F:\AgentData\codex\super-productivity-custom`
 > 部署路径：`D:\DevelopTools\Super Productivity\working\`
+> 交接文档路径：`F:\AgentData\codex\super-productivity-custom\` (v5~v9)
+> 备份路径：`D:\DevelopTools\Super Productivity\rollbacks\`
 > 当前分支：`main` (已提交 + 已推送)
 > 当前 HEAD：`01844005d`
 > 最新 Release：`Desktop Plan v0.3.0` (tag: `desktop-plan-v0.3.0`, 2026-07-07)
