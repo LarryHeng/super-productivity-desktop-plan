@@ -14,7 +14,13 @@
 import { createEntityAdapter, EntityAdapter } from '@ngrx/entity';
 import { Tag, TagState } from '../tag.model';
 import { createFeatureSelector, createReducer, createSelector, on } from '@ngrx/store';
-import { TODAY_TAG, URGENT_TAG, IMPORTANT_TAG, HIDDEN_MATRIX_TAG } from '../tag.const';
+import {
+  TODAY_TAG,
+  URGENT_TAG,
+  IMPORTANT_TAG,
+  IN_PROGRESS_TAG,
+  HIDDEN_MATRIX_TAG,
+} from '../tag.const';
 import { WorkContextType } from '../../work-context/work-context.model';
 import {
   moveTaskDownInTodayList,
@@ -192,6 +198,22 @@ export const selectTagsByIds = createSelector(
 // Without them, BoardComponent.missingTagIds() gates panel rendering.
 const SYSTEM_TAGS = [TODAY_TAG, URGENT_TAG, IMPORTANT_TAG, HIDDEN_MATRIX_TAG];
 
+const LEGACY_SYSTEM_TAG_TITLES: Readonly<Record<string, string>> = {
+  [TODAY_TAG.id]: 'Today',
+  [URGENT_TAG.id]: 'urgent',
+  [IMPORTANT_TAG.id]: 'important',
+  [IN_PROGRESS_TAG.id]: 'in-progress',
+  [HIDDEN_MATRIX_TAG.id]: 'hidden',
+};
+
+const LOCALIZED_SYSTEM_TAGS = [
+  TODAY_TAG,
+  URGENT_TAG,
+  IMPORTANT_TAG,
+  IN_PROGRESS_TAG,
+  HIDDEN_MATRIX_TAG,
+];
+
 const _addSystemTagsIfNecessary = (state: TagState): TagState => {
   let next = state;
   for (const sysTag of SYSTEM_TAGS) {
@@ -209,6 +231,21 @@ const _addSystemTagsIfNecessary = (state: TagState): TagState => {
   return next;
 };
 
+const _localizeLegacySystemTagTitles = (state: TagState): TagState => {
+  let entities = state.entities;
+  let hasChanges = false;
+
+  for (const systemTag of LOCALIZED_SYSTEM_TAGS) {
+    const tag = entities[systemTag.id];
+    if (tag?.title === LEGACY_SYSTEM_TAG_TITLES[systemTag.id]) {
+      entities = { ...entities, [systemTag.id]: { ...tag, title: systemTag.title } };
+      hasChanges = true;
+    }
+  }
+
+  return hasChanges ? { ...state, entities } : state;
+};
+
 export const initialTagState: TagState = _addSystemTagsIfNecessary(
   tagAdapter.getInitialState({
     // additional entity state properties
@@ -221,8 +258,10 @@ export const tagReducer = createReducer<TagState>(
   // META ACTIONS
   // ------------
   on(loadAllData, (oldState, { appDataComplete }) =>
-    _addSystemTagsIfNecessary(
-      appDataComplete.tag ? { ...appDataComplete.tag } : oldState,
+    _localizeLegacySystemTagTitles(
+      _addSystemTagsIfNecessary(
+        appDataComplete.tag ? { ...appDataComplete.tag } : oldState,
+      ),
     ),
   ),
 

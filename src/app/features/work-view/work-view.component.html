@@ -327,6 +327,18 @@
                 [isIconBefore]="true"
                 [isGroup]="true"
               >
+                <button
+                  actions
+                  class="e2e-clear-completed-matrix-tags done-tasks-clear-matrix-tags"
+                  mat-stroked-button
+                  [matTooltip]="T.WW.CLEAR_MATRIX_TAGS | translate"
+                  [attr.aria-label]="T.WW.CLEAR_MATRIX_TAGS | translate"
+                  (click)="$event.stopPropagation(); clearCompletedMatrixTags()"
+                  type="button"
+                >
+                  <mat-icon>label_off</mat-icon>
+                  {{ T.WW.CLEAR_MATRIX_TAGS | translate }}
+                </button>
                 <task-list
                   class="tour-doneList"
                   [noTasksMsg]="
@@ -338,16 +350,6 @@
                   listModelId="DONE"
                 ></task-list>
                 <div class="finish-day-button-wrapper">
-                  <button
-                    class="e2e-clear-completed-matrix-tags"
-                    mat-flat-button
-                    color="primary"
-                    (click)="clearCompletedMatrixTags()"
-                    tabindex="1"
-                  >
-                    <mat-icon>label_off</mat-icon>
-                    {{ T.WW.CLEAR_MATRIX_TAGS | translate }}
-                  </button>
                   @if (hasDoneTasks()) {
                     <button
                       class="e2e-hide-done-tasks"

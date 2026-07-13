@@ -134,6 +134,11 @@ export const getResolvedBackgroundOverlayOpacity = (
 export const getBackgroundImageBlur = (context: WorkContextThemeSource): number =>
   normalizeBackgroundImageBlur(context?.theme?.backgroundImageBlur);
 
+export const shouldRenderOnboardingPresets = (
+  isAppLoading: boolean,
+  isShowOnboardingPresets: boolean,
+): boolean => !isAppLoading && isShowOnboardingPresets;
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -260,6 +265,10 @@ export class AppComponent implements OnDestroy, AfterViewInit {
   isShowOnboardingPresets = signal(
     !localStorage.getItem(LS.ONBOARDING_PRESET_DONE) &&
       !localStorage.getItem(LS.IS_SKIP_TOUR),
+  );
+
+  readonly isOnboardingPresetOverlayVisible = computed(() =>
+    shouldRenderOnboardingPresets(this.isAppLoading(), this.isShowOnboardingPresets()),
   );
 
   private _subs: Subscription = new Subscription();

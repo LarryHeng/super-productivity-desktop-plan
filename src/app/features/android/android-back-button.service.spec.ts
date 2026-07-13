@@ -276,7 +276,6 @@ describe('AndroidBackButtonService (#7972)', () => {
       '/config',
       '/search',
       '/scheduled-list',
-      '/donate',
     ].forEach((url) => {
       it(`uses window.history.back() on ${url}`, () => {
         routerUrl = url;

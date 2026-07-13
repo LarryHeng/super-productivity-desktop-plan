@@ -9,13 +9,15 @@ import {
 import { T } from '../../../t.const';
 import { FormsModule } from '@angular/forms';
 import { HelpSectionComponent } from '../../../ui/help-section/help-section.component';
-import { InputDurationSliderComponent } from '../../../ui/duration/input-duration-slider/input-duration-slider.component';
 import { MatButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
+import { MatFormField, MatLabel, MatPrefix } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
 import { LocaleDatePipe } from 'src/app/ui/pipes/locale-date.pipe';
 import { TranslatePipe } from '@ngx-translate/core';
 import { DateTimeFormatService } from 'src/app/core/date-time-format/date-time-format.service';
 import { DatePickerInputComponent } from '../../../ui/date-picker-input/date-picker-input.component';
+import { InputDurationDirective } from '../../../ui/duration/input-duration.directive';
 
 export interface NewTimeEntry {
   timeSpent: number;
@@ -32,11 +34,15 @@ export interface NewTimeEntry {
     FormsModule,
     MatDialogContent,
     HelpSectionComponent,
-    InputDurationSliderComponent,
     MatDialogActions,
     MatButton,
     MatDialogClose,
     MatIcon,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatPrefix,
+    InputDurationDirective,
     LocaleDatePipe,
     TranslatePipe,
     DatePickerInputComponent,

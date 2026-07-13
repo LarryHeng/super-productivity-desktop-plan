@@ -14,11 +14,16 @@ import {
   SyncConfig,
 } from '../global-config.model';
 import type { KeyboardConfig } from '@sp/keyboard-config';
-import { DEFAULT_GLOBAL_CONFIG } from '../default-global-config.const';
+import {
+  DEFAULT_GLOBAL_CONFIG,
+  LEGACY_DEFAULT_TAKE_A_BREAK_MESSAGE,
+  LEGACY_DEFAULT_TASK_NOTES_TEMPLATE,
+} from '../default-global-config.const';
 import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 import { getHoursFromClockString } from '../../../util/get-hours-from-clock-string';
 import { normalizeStartOfNextDayConfig } from '../normalize-start-of-next-day-config';
 import { LOCAL_ONLY_SYNC_KEYS } from '../local-only-sync-settings.util';
+import { LanguageCode } from '../../../core/locale.constants';
 
 /**
  * Migrate the legacy `isSyncSessionWithTracking` flag (removed in the focus-mode
@@ -189,6 +194,8 @@ export const globalConfigReducer = createReducer<GlobalConfigState>(
         ...normalizeStartOfNextDayConfig(appDataComplete.globalConfig.misc ?? {}),
       },
     };
+    const incomingTasks = appDataComplete.globalConfig.tasks;
+    const incomingTakeABreak = appDataComplete.globalConfig.takeABreak;
 
     return {
       ...incomingGlobalConfig,
@@ -201,18 +208,35 @@ export const globalConfigReducer = createReducer<GlobalConfigState>(
       },
       tasks: {
         ...DEFAULT_GLOBAL_CONFIG.tasks,
-        ...appDataComplete.globalConfig.tasks,
+        ...incomingTasks,
         // Legacy configs stored `null`/`''` (the old "None" default) which no longer
         // has a matching dropdown option; coerce to the Inbox default so the select
         // shows a value. Behavior is unchanged — an unset default already routed new
         // tasks to the Inbox (#7891).
         defaultProjectId:
-          appDataComplete.globalConfig.tasks?.defaultProjectId ||
-          DEFAULT_GLOBAL_CONFIG.tasks.defaultProjectId,
+          incomingTasks?.defaultProjectId || DEFAULT_GLOBAL_CONFIG.tasks.defaultProjectId,
+        notesTemplate:
+          incomingTasks?.notesTemplate === LEGACY_DEFAULT_TASK_NOTES_TEMPLATE
+            ? DEFAULT_GLOBAL_CONFIG.tasks.notesTemplate
+            : (incomingTasks?.notesTemplate ?? DEFAULT_GLOBAL_CONFIG.tasks.notesTemplate),
+      },
+      takeABreak: {
+        ...DEFAULT_GLOBAL_CONFIG.takeABreak,
+        ...incomingTakeABreak,
+        takeABreakMessage:
+          incomingTakeABreak?.takeABreakMessage === LEGACY_DEFAULT_TAKE_A_BREAK_MESSAGE
+            ? DEFAULT_GLOBAL_CONFIG.takeABreak.takeABreakMessage
+            : (incomingTakeABreak?.takeABreakMessage ??
+              DEFAULT_GLOBAL_CONFIG.takeABreak.takeABreakMessage),
       },
       shortSyntax: {
         ...DEFAULT_GLOBAL_CONFIG.shortSyntax,
         ...appDataComplete.globalConfig.shortSyntax,
+      },
+      localization: {
+        ...DEFAULT_GLOBAL_CONFIG.localization,
+        ...appDataComplete.globalConfig.localization,
+        lng: appDataComplete.globalConfig.localization?.lng ?? LanguageCode.zh,
       },
       localBackup: {
         ...DEFAULT_GLOBAL_CONFIG.localBackup,

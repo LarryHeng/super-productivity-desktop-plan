@@ -46,13 +46,16 @@ describe('DialogTimeEstimateComponent estimate-only mode', () => {
     }).compileComponents();
   });
 
-  it('shows only the estimate editor', () => {
+  it('shows only the estimate text input', () => {
     const fixture = TestBed.createComponent(DialogTimeEstimateComponent);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelectorAll('input-duration-slider').length).toBe(
-      1,
+      0,
     );
+    expect(
+      fixture.nativeElement.querySelector('input[name="timeEstimate"]'),
+    ).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.other-days')).toBeNull();
   });
 

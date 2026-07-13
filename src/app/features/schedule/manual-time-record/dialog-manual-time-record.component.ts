@@ -15,8 +15,10 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { T } from '../../../t.const';
 import { SnackService } from '../../../core/snack/snack.service';
 import { DateService } from '../../../core/date/date.service';
-import { InputDurationSliderComponent } from '../../../ui/duration/input-duration-slider/input-duration-slider.component';
 import { DateTimePickerComponent } from '../../../ui/datetime-picker/datetime-picker.component';
+import { MatFormField, MatLabel, MatPrefix } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { InputDurationDirective } from '../../../ui/duration/input-duration.directive';
 import { Task } from '../../tasks/task.model';
 import { SelectTaskComponent } from '../../tasks/select-task/select-task.component';
 import { TaskService } from '../../tasks/task.service';
@@ -52,8 +54,12 @@ export interface DialogManualTimeRecordData {
     MatRadioButton,
     TranslatePipe,
     SelectTaskComponent,
-    InputDurationSliderComponent,
     DateTimePickerComponent,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    MatPrefix,
+    InputDurationDirective,
   ],
 })
 export class DialogManualTimeRecordComponent {

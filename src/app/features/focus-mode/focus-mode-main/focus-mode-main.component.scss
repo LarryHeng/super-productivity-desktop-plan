@@ -101,7 +101,7 @@
   align-items: center;
 
   // Mirror the size tokens declared on focus-clock-face's :host so sibling
-  // elements (the duration-slider overlay) can read them. Both pull the
+  // elements (the duration-input overlay) can read them. Both pull the
   // diameter from the shared --clock-face-size-default token.
   --clock-face-size: var(--clock-face-size-default);
   --clock-time-size: calc(var(--clock-face-size) * 0.22);
@@ -123,9 +123,8 @@
   margin-top: 8px;
 }
 
-// Duration slider overlays the clock face so the selector fills the full
-// circle during countdown preparation.
-.duration-slider-overlay-wrapper {
+// Duration input overlays the clock face during countdown preparation.
+.duration-input-overlay-wrapper {
   position: absolute;
   top: calc(var(--clock-face-size) * 0.5);
   left: 50%;
@@ -134,24 +133,18 @@
   pointer-events: auto;
 }
 
-.duration-slider-overlay {
-  // The slider's perimeter sits at radius=size/2 from its center, while
-  // focus-clock-face's SVG ring sits at radius=15.9155/36 of viewBox (≈88.4%
-  // of diameter). Shrink the slider to align its handle with the ring.
-  --input-duration-slider-size: calc(var(--clock-face-size) * 0.884);
-  --input-duration-slider-value-size: var(--clock-time-size);
+.duration-input-overlay {
   display: flex;
   justify-content: center;
 
-  // The bare-ring visual (transparent chrome, dot handle, full-width value)
-  // and the Pomodoro type-only behaviour now live on the slider itself, via
-  // its [bareRing] / [hideHandle] inputs.
+  mat-form-field {
+    width: min(220px, calc(var(--clock-face-size) * 0.72));
+  }
 }
 
-// When the duration slider is showing (countdown prep), hide the clock
-// digits — the slider's own value display takes over. Toggled by a class
+// When the duration input is showing, hide the clock digits. Toggled by a class
 // bound to isShowDurationSlider() in the template.
-.clock-display__content.is-duration-slider-active .clock-time {
+.clock-display__content.is-duration-input-active .clock-time {
   visibility: hidden;
 }
 

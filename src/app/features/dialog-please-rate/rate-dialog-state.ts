@@ -3,6 +3,11 @@ import { IS_ANDROID_WEB_VIEW } from '../../util/is-android-web-view';
 import { IS_IOS } from '../../util/is-ios';
 import { IS_ELECTRON } from '../../app.constants';
 import { getAppVersionStr } from '../../util/get-app-version-str';
+import {
+  APP_CONTRIBUTING_URL,
+  APP_DISCUSSIONS_URL,
+  APP_REPOSITORY_URL,
+} from '../../core/app-external-links.const';
 
 // Device-local only. localStorage keys are implicitly excluded from sync exports.
 // Length of TRIGGER_TIERS is the prompt cap: at most one prompt per tier, ever.
@@ -22,12 +27,9 @@ const MAINTAINER_EMAIL = 'contact@super-productivity.com';
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.superproductivity.superproductivity';
 const APP_STORE_URL = 'https://apps.apple.com/app/id1482572463';
-const HOW_TO_RATE_URL =
-  'https://github.com/super-productivity/super-productivity/blob/master/docs/how-to-rate.md';
-export const DISCUSSIONS_URL =
-  'https://github.com/super-productivity/super-productivity/discussions/new';
-export const CONTRIBUTING_URL =
-  'https://github.com/super-productivity/super-productivity/blob/master/CONTRIBUTING.md';
+const HOW_TO_RATE_URL = APP_REPOSITORY_URL;
+export const DISCUSSIONS_URL = APP_DISCUSSIONS_URL;
+export const CONTRIBUTING_URL = APP_CONTRIBUTING_URL;
 
 export interface RateDialogState {
   lastShownAppStartDay: number;

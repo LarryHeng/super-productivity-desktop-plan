@@ -73,7 +73,7 @@
   >
     <div
       class="clock-display__content"
-      [class.is-duration-slider-active]="isShowDurationSlider()"
+      [class.is-duration-input-active]="isShowDurationSlider()"
     >
       <focus-clock-face
         class="clock-face"
@@ -142,21 +142,26 @@
         </div>
       }
 
-      <!-- Duration slider (Preparation state: Countdown drags + types, Pomodoro types only) -->
+      <!-- Duration input (Preparation state) -->
       @if (isShowDurationSlider()) {
-        <div class="duration-slider-overlay-wrapper">
+        <div class="duration-input-overlay-wrapper">
           <div
-            class="duration-slider-overlay"
+            class="duration-input-overlay"
             [@modeSwitchFade]="mode()"
           >
-            <input-duration-slider
-              [model]="displayDuration()"
-              [bareRing]="true"
-              [hideHandle]="isPomodoro()"
-              [useFlexibleIncrement]="!isPomodoro()"
-              [blurOnEnter]="true"
-              (modelChange)="onDurationChange($event)"
-            ></input-duration-slider>
+            <mat-form-field subscriptSizing="dynamic">
+              <mat-label>{{
+                T.F.FOCUS_MODE.CLICK_TO_EDIT_DURATION | translate
+              }}</mat-label>
+              <input
+                [ngModel]="displayDuration()"
+                inputDuration
+                matInput
+                name="focusDuration"
+                type="text"
+                (ngModelChange)="onDurationChange($event)"
+              />
+            </mat-form-field>
           </div>
         </div>
       }

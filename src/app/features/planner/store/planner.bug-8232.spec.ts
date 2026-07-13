@@ -78,14 +78,14 @@ describe('Planner Selectors - #8232 timed recurring done task double-count', () 
   const todayAt = (clock: string): number =>
     getDateTimeFromClockString(clock, dateStrToUtcDate(today).getTime());
 
-  it('done timed recurring instance contributes 0 remaining, not estimate x 2', () => {
+  it('counts a done timed recurring instance by its actual duration, not estimate x 2', () => {
     const cfg = dailyTimedRepeatCfg('R1', ONE_HOUR);
     const task = createMockTask({
       id: 't1',
       repeatCfgId: 'R1',
       isDone: true,
       timeEstimate: ONE_HOUR,
-      timeSpent: 0,
+      timeSpent: ONE_HOUR / 2,
       dueWithTime: todayAt('09:00'),
     }) as TaskWithDueTime;
 
@@ -106,7 +106,7 @@ describe('Planner Selectors - #8232 timed recurring done task double-count', () 
       0,
     );
 
-    expect(result[0].timeEstimate).toBe(0);
+    expect(result[0].timeEstimate).toBe(ONE_HOUR / 2);
     // One real (done) instance, projection dropped.
     expect(result[0].itemsTotal).toBe(1);
     // Scheduled list still shows the instance (visible in the day), but as a
@@ -145,9 +145,7 @@ describe('Planner Selectors - #8232 timed recurring done task double-count', () 
     expect(result[0].scheduledIItems.length).toBe(1);
   });
 
-  it('done timed task with no recurring cfg also contributes 0 (getScheduledTaskItems is done-aware)', () => {
-    // Independent of the dedup fix: a one-off done timed task used to contribute
-    // its full estimate via scheduledTaskItems.
+  it('falls back to the estimate for a done timed task with no recorded duration', () => {
     const task = createMockTask({
       id: 't1',
       isDone: true,
@@ -171,7 +169,7 @@ describe('Planner Selectors - #8232 timed recurring done task double-count', () 
       0,
     );
 
-    expect(result[0].timeEstimate).toBe(0);
+    expect(result[0].timeEstimate).toBe(ONE_HOUR);
   });
 
   it('still projects a timed recurring cfg that has no instance in the day', () => {

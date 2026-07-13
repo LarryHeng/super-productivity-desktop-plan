@@ -25,6 +25,17 @@ import { AppDataComplete } from '../../../op-log/model/model-config';
 import { DEFAULT_GLOBAL_CONFIG } from '../default-global-config.const';
 import { LOCAL_ONLY_SYNC_KEYS } from '../local-only-sync-settings.util';
 import { INBOX_PROJECT } from '../../project/project.const';
+import { LanguageCode } from '../../../core/locale.constants';
+
+const LEGACY_DEFAULT_TASK_NOTES_TEMPLATE = `**How can I best achieve it now?**
+
+**What do I want?**
+
+**Why do I want it?**
+`;
+
+const LEGACY_DEFAULT_TAKE_A_BREAK_MESSAGE =
+  'You have been working for ${duration} without one. Go away from the computer! Take a short walk! Makes you more productive in the long run!';
 
 describe('GlobalConfigReducer', () => {
   describe('loadAllData action', () => {
@@ -93,6 +104,53 @@ describe('GlobalConfigReducer', () => {
       expect(result.tasks.notesTemplate).toBe(DEFAULT_GLOBAL_CONFIG.tasks.notesTemplate);
     });
 
+    it('should translate legacy English default templates without changing custom text', () => {
+      const incomingConfig = {
+        ...initialGlobalConfigState,
+        tasks: {
+          ...initialGlobalConfigState.tasks,
+          notesTemplate: LEGACY_DEFAULT_TASK_NOTES_TEMPLATE,
+        },
+        takeABreak: {
+          ...initialGlobalConfigState.takeABreak,
+          takeABreakMessage: LEGACY_DEFAULT_TAKE_A_BREAK_MESSAGE,
+        },
+      };
+
+      const result = globalConfigReducer(
+        initialGlobalConfigState,
+        loadAllData({
+          appDataComplete: { globalConfig: incomingConfig } as AppDataComplete,
+        }),
+      );
+
+      expect(result.tasks.notesTemplate).toBe(DEFAULT_GLOBAL_CONFIG.tasks.notesTemplate);
+      expect(result.takeABreak.takeABreakMessage).toBe(
+        DEFAULT_GLOBAL_CONFIG.takeABreak.takeABreakMessage,
+      );
+    });
+
+    it('should preserve custom task templates and break messages', () => {
+      const incomingConfig = {
+        ...initialGlobalConfigState,
+        tasks: { ...initialGlobalConfigState.tasks, notesTemplate: '我的自定义模板' },
+        takeABreak: {
+          ...initialGlobalConfigState.takeABreak,
+          takeABreakMessage: '我的自定义休息提示',
+        },
+      };
+
+      const result = globalConfigReducer(
+        initialGlobalConfigState,
+        loadAllData({
+          appDataComplete: { globalConfig: incomingConfig } as AppDataComplete,
+        }),
+      );
+
+      expect(result.tasks.notesTemplate).toBe('我的自定义模板');
+      expect(result.takeABreak.takeABreakMessage).toBe('我的自定义休息提示');
+    });
+
     it('should coerce a legacy null defaultProjectId to the Inbox default (#7891)', () => {
       // Older configs stored `null` (the removed "None" default). With the "None"
       // option gone, that value no longer matches a dropdown option, so it must be
@@ -147,6 +205,44 @@ describe('GlobalConfigReducer', () => {
       );
 
       expect(result.tasks.defaultProjectId).toBe('my-project');
+    });
+
+    it('should migrate legacy unset language to Simplified Chinese on load', () => {
+      const incomingConfig = {
+        ...initialGlobalConfigState,
+        localization: {
+          ...initialGlobalConfigState.localization,
+          lng: undefined,
+        },
+      };
+
+      const result = globalConfigReducer(
+        initialGlobalConfigState,
+        loadAllData({
+          appDataComplete: { globalConfig: incomingConfig } as AppDataComplete,
+        }),
+      );
+
+      expect(result.localization.lng).toBe(LanguageCode.zh);
+    });
+
+    it('should preserve an explicitly configured language on load', () => {
+      const incomingConfig = {
+        ...initialGlobalConfigState,
+        localization: {
+          ...initialGlobalConfigState.localization,
+          lng: LanguageCode.en,
+        },
+      };
+
+      const result = globalConfigReducer(
+        initialGlobalConfigState,
+        loadAllData({
+          appDataComplete: { globalConfig: incomingConfig } as AppDataComplete,
+        }),
+      );
+
+      expect(result.localization.lng).toBe(LanguageCode.en);
     });
 
     describe('keyboard migration', () => {
@@ -1054,6 +1150,10 @@ describe('GlobalConfigReducer', () => {
 
   describe('Selectors', () => {
     describe('selectLocalizationConfig', () => {
+      it('should default the app language to Simplified Chinese', () => {
+        expect(DEFAULT_GLOBAL_CONFIG.localization.lng).toBe(LanguageCode.zh);
+      });
+
       it('should return default config when state is undefined', () => {
         const result = selectLocalizationConfig.projector(undefined as any);
         expect(result).toEqual(DEFAULT_GLOBAL_CONFIG.localization);

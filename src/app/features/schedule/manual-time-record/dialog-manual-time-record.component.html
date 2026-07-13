@@ -59,10 +59,17 @@
         </mat-radio-group>
 
         @if (continuation === 'continue') {
-          <input-duration-slider
-            [(model)]="remainingEstimate"
-            [label]="T.F.SCHEDULE.MANUAL_RECORD_REMAINING | translate"
-          ></input-duration-slider>
+          <mat-form-field>
+            <mat-label>{{ T.F.SCHEDULE.MANUAL_RECORD_REMAINING | translate }}</mat-label>
+            <input
+              [(ngModel)]="remainingEstimate"
+              inputDuration="optional"
+              matInput
+              name="remainingEstimate"
+              type="text"
+            />
+            <mat-icon matPrefix>hourglass_top</mat-icon>
+          </mat-form-field>
         }
       </section>
     }

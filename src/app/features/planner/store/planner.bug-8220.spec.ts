@@ -65,14 +65,14 @@ describe('Planner Selectors - #8220 recurring done task double-count', () => {
     defaultEstimate,
   });
 
-  it('counts a done recurring instance once (0 remaining), not also as a projection', () => {
+  it('counts a done recurring instance once by its actual duration, not also as a projection', () => {
     const cfg = dailyRepeatCfg('R1', ONE_HOUR);
     const task = createMockTask({
       id: 't1',
       repeatCfgId: 'R1',
       isDone: true,
       timeEstimate: ONE_HOUR,
-      timeSpent: 0,
+      timeSpent: ONE_HOUR / 2,
     });
 
     // Pass t1 as a today-list task id (the reporter sees this in the Today column).
@@ -91,7 +91,7 @@ describe('Planner Selectors - #8220 recurring done task double-count', () => {
       0,
     );
 
-    expect(result[0].timeEstimate).toBe(0);
+    expect(result[0].timeEstimate).toBe(ONE_HOUR / 2);
     expect(result[0].itemsTotal).toBe(1);
   });
 
@@ -155,7 +155,7 @@ describe('Planner Selectors - #8220 recurring done task double-count', () => {
       0,
     );
 
-    expect(result[0].timeEstimate).toBe(0);
+    expect(result[0].timeEstimate).toBe(ONE_HOUR);
     expect(result[0].itemsTotal).toBe(1);
     expect(result[0].scheduledIItems.length).toBe(0);
   });

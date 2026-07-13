@@ -3,6 +3,7 @@ import {
   getBackgroundImagePosition,
   getBackgroundOverlayOpacity,
   getResolvedBackgroundOverlayOpacity,
+  shouldRenderOnboardingPresets,
 } from './app.component';
 
 describe('AppComponent theme helpers', () => {
@@ -69,6 +70,13 @@ describe('AppComponent theme helpers', () => {
     it('clamps invalid coordinates and centers context backgrounds', () => {
       expect(getBackgroundImagePosition('image:global', -20, 140)).toBe('0% 100%');
       expect(getBackgroundImagePosition(null, 10, 90)).toBe('50% 50%');
+    });
+  });
+
+  describe('shouldRenderOnboardingPresets()', () => {
+    it('waits until the startup splash is hidden', () => {
+      expect(shouldRenderOnboardingPresets(true, true)).toBe(false);
+      expect(shouldRenderOnboardingPresets(false, true)).toBe(true);
     });
   });
 });

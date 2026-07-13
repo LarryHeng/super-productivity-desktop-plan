@@ -21,7 +21,7 @@ export interface ProfileMetadata {
 }
 
 export const DEFAULT_PROFILE_ID = 'default';
-export const DEFAULT_PROFILE_NAME = 'Default Profile';
+export const DEFAULT_PROFILE_NAME = '默认配置档';
 
 export const PROFILE_METADATA_FILENAME = 'profiles-meta.json';
 export const PROFILE_DATA_FOLDER = 'profiles';

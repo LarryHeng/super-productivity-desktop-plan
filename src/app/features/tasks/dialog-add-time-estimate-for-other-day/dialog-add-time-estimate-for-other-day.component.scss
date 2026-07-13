@@ -2,9 +2,13 @@
 
 .wrap-time {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   flex-wrap: wrap;
   margin-bottom: var(--s);
+
+  mat-form-field {
+    min-width: 220px;
+  }
 
   @include mq(xs, max) {
     margin-left: -20px;

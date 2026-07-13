@@ -33,11 +33,17 @@
       />
 
       <div class="wrap-time">
-        <input-duration-slider
-          [(model)]="newEntry.timeSpent"
-          [label]="T.F.TASK.D_TIME_FOR_DAY.TINE_SPENT | translate"
-        >
-        </input-duration-slider>
+        <mat-form-field>
+          <mat-label>{{ T.F.TASK.D_TIME_FOR_DAY.TINE_SPENT | translate }}</mat-label>
+          <input
+            [(ngModel)]="newEntry.timeSpent"
+            inputDuration
+            matInput
+            name="timeSpent"
+            type="text"
+          />
+          <mat-icon matPrefix>timer</mat-icon>
+        </mat-form-field>
       </div>
     </mat-dialog-content>
 

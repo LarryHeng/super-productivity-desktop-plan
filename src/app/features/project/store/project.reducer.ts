@@ -80,6 +80,21 @@ const _addInboxProjectIfNecessary = (state: ProjectState): ProjectState => {
   return state;
 };
 
+const _localizeLegacyInboxTitle = (state: ProjectState): ProjectState => {
+  const inbox = state.entities[INBOX_PROJECT.id];
+  if (!inbox || inbox.title !== 'Inbox') {
+    return state;
+  }
+
+  return {
+    ...state,
+    entities: {
+      ...state.entities,
+      [INBOX_PROJECT.id]: { ...inbox, title: INBOX_PROJECT.title },
+    },
+  };
+};
+
 export const initialProjectState: ProjectState = _addInboxProjectIfNecessary(
   projectAdapter.getInitialState({
     ids: [],
@@ -93,8 +108,10 @@ export const projectReducer = createReducer<ProjectState>(
   // META ACTIONS
   // ------------
   on(loadAllData, (oldState, { appDataComplete }) =>
-    _addInboxProjectIfNecessary(
-      appDataComplete.project ? appDataComplete.project : oldState,
+    _localizeLegacyInboxTitle(
+      _addInboxProjectIfNecessary(
+        appDataComplete.project ? appDataComplete.project : oldState,
+      ),
     ),
   ),
 

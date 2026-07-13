@@ -63,6 +63,10 @@ import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { MatButton } from '@angular/material/button';
 import { LocalBackupService } from '../../imex/local-backup/local-backup.service';
+import {
+  APP_CHANGELOG_URL,
+  APP_DISCUSSIONS_URL,
+} from '../../core/app-external-links.const';
 
 @Component({
   selector: 'config-page',
@@ -103,6 +107,8 @@ export class ConfigPageComponent implements OnInit {
   readonly taskWidgetSettingsService = inject(TaskWidgetSettingsService);
 
   T: typeof T = T;
+  readonly appChangelogUrl = APP_CHANGELOG_URL;
+  readonly appFeedbackUrl = APP_DISCUSSIONS_URL;
 
   selectedTabIndex = 0;
   expandedSection: string | null = null;

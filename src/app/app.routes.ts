@@ -90,13 +90,6 @@ export const APP_ROUTES: Routes = [
     canActivate: [FocusOverlayOpenGuard],
   },
   {
-    path: 'donate',
-    loadComponent: () =>
-      import('./routes/pages.routes').then((m) => m.DonatePageComponent),
-    data: { page: 'donate' },
-    canActivate: [FocusOverlayOpenGuard],
-  },
-  {
     path: 'contrast-test',
     loadComponent: () =>
       import('./routes/pages.routes').then((m) => m.ContrastTestComponent),

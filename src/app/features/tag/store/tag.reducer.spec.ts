@@ -1,13 +1,51 @@
 import { computeOrderedTaskIdsForTag, initialTagState, tagReducer } from './tag.reducer';
 import { Tag } from '../tag.model';
 import { addTag } from './tag.actions';
-import { TODAY_TAG } from '../tag.const';
+import {
+  HIDDEN_MATRIX_TAG,
+  IN_PROGRESS_TAG,
+  IMPORTANT_TAG,
+  TODAY_TAG,
+  URGENT_TAG,
+} from '../tag.const';
 import { moveTaskInTodayList } from '../../work-context/store/work-context-meta.actions';
 import { WorkContextType } from '../../work-context/work-context.model';
+import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
 describe('TagReducer', () => {
+  describe('loadAllData', () => {
+    it('translates legacy system tag titles without changing custom tags', () => {
+      const legacyTags = [
+        { ...TODAY_TAG, title: 'Today' },
+        { ...URGENT_TAG, title: 'urgent' },
+        { ...IMPORTANT_TAG, title: 'important' },
+        { ...IN_PROGRESS_TAG, title: 'in-progress' },
+        { ...HIDDEN_MATRIX_TAG, title: 'hidden' },
+        { ...IMPORTANT_TAG, id: 'custom-tag', title: 'important' },
+      ];
+      const result = tagReducer(
+        {} as any,
+        loadAllData({
+          appDataComplete: {
+            tag: {
+              ids: legacyTags.map((tag) => tag.id),
+              entities: Object.fromEntries(legacyTags.map((tag) => [tag.id, tag])),
+            },
+          } as any,
+        }),
+      );
+
+      expect(result.entities[TODAY_TAG.id]?.title).toBe('今天');
+      expect(result.entities[URGENT_TAG.id]?.title).toBe('紧急');
+      expect(result.entities[IMPORTANT_TAG.id]?.title).toBe('重要');
+      expect(result.entities[IN_PROGRESS_TAG.id]?.title).toBe('进行中');
+      expect(result.entities[HIDDEN_MATRIX_TAG.id]?.title).toBe('已隐藏');
+      expect(result.entities['custom-tag']?.title).toBe('important');
+    });
+  });
+
   describe('standard', () => {
     let initialState;
 

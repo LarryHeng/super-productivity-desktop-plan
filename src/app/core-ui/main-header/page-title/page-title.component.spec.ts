@@ -68,7 +68,6 @@ describe('PageTitleComponent', () => {
       ['/habits', T.MH.HABITS],
       ['/search', T.MH.SEARCH],
       ['/scheduled-list', T.MH.ALL_PLANNED_LIST],
-      ['/donate', T.MH.DONATE],
       ['/config', T.PS.GLOBAL_SETTINGS],
     ];
 
@@ -81,6 +80,11 @@ describe('PageTitleComponent', () => {
 
     it('falls through to activeWorkContextTitle for non-special routes', () => {
       const c = setupComponent('/active/tasks');
+      expect(c.displayTitle()).toBe('Today');
+    });
+
+    it('does not reserve a title for the removed donate route', () => {
+      const c = setupComponent('/donate');
       expect(c.displayTitle()).toBe('Today');
     });
 

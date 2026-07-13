@@ -15,8 +15,42 @@ import { moveNoteToOtherProject } from '../../note/store/note.actions';
 import { INBOX_PROJECT } from '../project.const';
 import { moveTaskInTodayList } from '../../work-context/store/work-context-meta.actions';
 import { WorkContextType } from '../../work-context/work-context.model';
+import { loadAllData } from '../../../root-store/meta/load-all-data.action';
 
 describe('projectReducer', () => {
+  describe('loadAllData', () => {
+    it('translates the legacy Inbox title but preserves a renamed inbox', () => {
+      const legacyInbox = { ...INBOX_PROJECT, title: 'Inbox' };
+      const renamedInbox = { ...INBOX_PROJECT, title: '收集箱' };
+
+      const legacyResult = projectReducer(
+        {} as any,
+        loadAllData({
+          appDataComplete: {
+            project: {
+              ids: [legacyInbox.id],
+              entities: { [legacyInbox.id]: legacyInbox },
+            },
+          } as any,
+        }),
+      );
+      const renamedResult = projectReducer(
+        {} as any,
+        loadAllData({
+          appDataComplete: {
+            project: {
+              ids: [renamedInbox.id],
+              entities: { [renamedInbox.id]: renamedInbox },
+            },
+          } as any,
+        }),
+      );
+
+      expect(legacyResult.entities[INBOX_PROJECT.id]?.title).toBe('收件箱');
+      expect(renamedResult.entities[INBOX_PROJECT.id]?.title).toBe('收集箱');
+    });
+  });
+
   describe('UpdateProjectOrder', () => {
     it('Should re-add archived projects if incomplete list is given as param', () => {
       const s = fakeEntityStateFromArray([

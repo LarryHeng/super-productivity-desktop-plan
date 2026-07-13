@@ -6,6 +6,7 @@ import { privacyExport } from '../../imex/file-imex/privacy-export';
 import { getAppVersionStr } from '../../util/get-app-version-str';
 import { Log } from '../log';
 import { getErrorTxt } from '../../util/get-error-text';
+import { APP_GITHUB_OWNER, APP_GITHUB_REPOSITORY } from '../app-external-links.const';
 
 let isWasErrorAlertCreated = false;
 
@@ -261,8 +262,8 @@ export const getGithubErrorUrl = (
   isHideActionsBeforeError = false,
 ): string => {
   return newGithubIssueUrl({
-    user: 'johannesjo',
-    repo: 'super-productivity',
+    user: APP_GITHUB_OWNER,
+    repo: APP_GITHUB_REPOSITORY,
     title: '💥 ' + title,
     template: 'in_app_bug_report.md',
     body: getGithubIssueErrorMarkdown(stackTrace, origErr, isHideActionsBeforeError),

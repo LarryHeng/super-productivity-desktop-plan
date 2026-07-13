@@ -23,7 +23,7 @@ export const TODAY_TAG: Tag = {
   created: Date.now(),
   ...WORK_CONTEXT_DEFAULT_COMMON,
   icon: 'wb_sunny',
-  title: 'Today',
+  title: '今天',
   id: 'TODAY',
   theme: {
     ...WORK_CONTEXT_DEFAULT_THEME,
@@ -57,7 +57,7 @@ export const URGENT_TAG: Tag = {
   created: Date.now(),
   ...WORK_CONTEXT_DEFAULT_COMMON,
   icon: 'emergency',
-  title: 'urgent',
+  title: '紧急',
   id: 'EM_URGENT',
   theme: {
     ...WORK_CONTEXT_DEFAULT_THEME,
@@ -72,7 +72,7 @@ export const IMPORTANT_TAG: Tag = {
   created: Date.now(),
   ...WORK_CONTEXT_DEFAULT_COMMON,
   icon: 'priority_high',
-  title: 'important',
+  title: '重要',
   id: 'EM_IMPORTANT',
   theme: {
     ...WORK_CONTEXT_DEFAULT_THEME,
@@ -86,7 +86,7 @@ export const IN_PROGRESS_TAG: Tag = {
   color: null,
   created: Date.now(),
   ...WORK_CONTEXT_DEFAULT_COMMON,
-  title: 'in-progress',
+  title: '进行中',
   id: 'KANBAN_IN_PROGRESS',
   theme: {
     ...WORK_CONTEXT_DEFAULT_THEME,
@@ -105,7 +105,7 @@ export const HIDDEN_MATRIX_TAG: Tag = {
   created: Date.now(),
   ...WORK_CONTEXT_DEFAULT_COMMON,
   icon: 'visibility_off',
-  title: 'hidden',
+  title: '已隐藏',
   id: 'EM_HIDDEN',
   theme: {
     ...WORK_CONTEXT_DEFAULT_THEME,

@@ -91,14 +91,6 @@ export const APP_FEATURES_FORM_CFG: ConfigFormSection<AppFeaturesConfig> = {
       },
     },
     {
-      key: 'isDonatePageEnabled',
-      type: 'slide-toggle',
-      templateOptions: {
-        label: T.GCF.APP_FEATURES.DONATE_PAGE,
-        icon: 'favorite',
-      },
-    },
-    {
       key: 'isFinishDayEnabled',
       type: 'slide-toggle',
       templateOptions: {

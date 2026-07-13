@@ -80,7 +80,7 @@ export const pickInitialActiveRef = (
 };
 
 export const BUILT_IN_THEMES: CustomTheme[] = [
-  { id: 'default', name: 'Default', kind: 'builtin', url: '', requiredMode: 'system' },
+  { id: 'default', name: '默认', kind: 'builtin', url: '', requiredMode: 'system' },
   {
     id: 'zen',
     name: 'Zen',

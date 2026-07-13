@@ -27,7 +27,6 @@ import { getDbDateStr } from '../../../util/get-db-date-str';
 import { T } from '../../../t.const';
 import { FormsModule } from '@angular/forms';
 import { HelpSectionComponent } from '../../../ui/help-section/help-section.component';
-import { InputDurationSliderComponent } from '../../../ui/duration/input-duration-slider/input-duration-slider.component';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatFormField, MatLabel, MatPrefix } from '@angular/material/form-field';
@@ -47,7 +46,6 @@ import { LocaleDatePipe } from '../../../ui/pipes/locale-date.pipe';
     FormsModule,
     MatDialogContent,
     HelpSectionComponent,
-    InputDurationSliderComponent,
     MatButton,
     MatIcon,
     MatFormField,

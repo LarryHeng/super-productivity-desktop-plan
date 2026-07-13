@@ -180,7 +180,9 @@ export class ScheduleEventComponent implements AfterViewInit, OnDestroy {
     const evt = this.se();
     return (
       (evt as any)?.data?.title ||
-      (evt.type === SVEType.LunchBreak ? 'Lunch Break' : 'TITLE')
+      (evt.type === SVEType.LunchBreak
+        ? this._translateService.instant(T.F.SCHEDULE.LUNCH_BREAK)
+        : 'TITLE')
     );
   });
 

@@ -11,6 +11,11 @@ import { TourId } from '../../features/shepherd/shepherd-steps.const';
 import { T } from '../../t.const';
 import { LS } from '../../core/persistence/storage-keys.const';
 import { getGithubErrorUrl } from '../../core/error-handler/global-error-handler.util';
+import {
+  APP_HELP_URL,
+  QQ_GROUP_LABEL,
+  QQ_GROUP_URL,
+} from '../../core/app-external-links.const';
 import { DialogPromptComponent } from '../../ui/dialog-prompt/dialog-prompt.component';
 import {
   DialogCreateTagComponent,
@@ -36,7 +41,6 @@ import {
 import { GlobalConfigService } from '../../features/config/global-config.service';
 import { AppFeaturesConfig } from '../../features/config/global-config.model';
 import { SnackService } from '../../core/snack/snack.service';
-import { IS_IOS_NATIVE } from '../../util/is-native-platform';
 
 @Injectable({
   providedIn: 'root',
@@ -103,9 +107,6 @@ export class MagicNavConfigService {
   );
   private readonly isBoardsEnabled = computed(
     () => this._configService.appFeatures().isBoardsEnabled,
-  );
-  private readonly isDonatePageEnabled = computed(
-    () => this._configService.appFeatures().isDonatePageEnabled,
   );
   private readonly isHabitsEnabled = computed(
     () => this._configService.appFeatures().isHabitsEnabled,
@@ -252,19 +253,6 @@ export class MagicNavConfigService {
       },
 
       // Help Menu (rendered as mat-menu)
-      // Not allowed to display donation stuff on iOS per App Store guidelines
-      ...(this.isDonatePageEnabled() && !IS_IOS_NATIVE
-        ? [
-            {
-              type: 'route',
-              id: 'donate',
-              label: T.MH.DONATE,
-              icon: 'favorite',
-              route: '/donate',
-              featureConfigKey: 'isDonatePageEnabled',
-            } as NavItem,
-          ]
-        : []),
       {
         type: 'menu',
         id: 'help',
@@ -276,7 +264,7 @@ export class MagicNavConfigService {
             id: 'help-online',
             label: T.MH.HM.GET_HELP_ONLINE,
             icon: 'help_center',
-            href: 'https://github.com/super-productivity/super-productivity/blob/master/README.md#question-how-to-use-it',
+            href: APP_HELP_URL,
           },
           {
             type: 'action',
@@ -285,24 +273,12 @@ export class MagicNavConfigService {
             icon: 'bug_report',
             action: () => this._openBugReport(),
           },
-          // Not allowed to display donation stuff on iOS per App Store guidelines
-          ...(!IS_IOS_NATIVE
-            ? [
-                {
-                  type: 'href' as const,
-                  id: 'help-contribute',
-                  label: T.MH.HM.CONTRIBUTE,
-                  icon: 'volunteer_activism',
-                  href: 'https://github.com/super-productivity/super-productivity/blob/master/CONTRIBUTING.md',
-                },
-              ]
-            : []),
           {
             type: 'href',
-            id: 'help-reddit',
-            label: T.MH.HM.REDDIT_COMMUNITY,
+            id: 'help-qq-group',
+            label: QQ_GROUP_LABEL,
             icon: 'forum',
-            href: 'https://www.reddit.com/r/superProductivity/',
+            href: QQ_GROUP_URL,
           },
           {
             type: 'action',

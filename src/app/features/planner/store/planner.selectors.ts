@@ -231,7 +231,7 @@ const getPlannerDay = (
 
   const deadlineTasks = deadlineTasksByDay[dayDate] || [];
 
-  const timeEstimate = getAllTimeSpent(
+  const timeEstimate = getPlannerTimeEstimate(
     normalTasks,
     repeatProjectionsForDay,
     noStartTimeRepeatProjections,
@@ -282,14 +282,22 @@ const getPlannerDay = (
   };
 };
 
-const getAllTimeSpent = (
+const getPlannerTaskDuration = (task: Task): number => {
+  if (!task.isDone) {
+    return getTimeLeftForTask(task);
+  }
+
+  return task.timeSpent > 0 ? task.timeSpent : task.timeEstimate;
+};
+
+const getPlannerTimeEstimate = (
   normalTasks: TaskCopy[],
   taskRepeatProjections: ScheduleItemRepeatProjection[],
   noStartTimeRepeatProjections: NoStartTimeRepeatProjection[],
   plannedTaskProjections: ScheduleItemTask[],
 ): number => {
   return (
-    normalTasks.reduce((acc, t) => acc + (t.isDone ? 0 : getTimeLeftForTask(t)), 0) +
+    normalTasks.reduce((acc, task) => acc + getPlannerTaskDuration(task), 0) +
     taskRepeatProjections.reduce((acc, rp) => acc + rp.end - rp.start, 0) +
     plannedTaskProjections.reduce((acc, si) => acc + si.end - si.start, 0) +
     noStartTimeRepeatProjections.reduce(
@@ -355,11 +363,7 @@ const getScheduledTaskItems = (
     )
     .map((task) => {
       const start = task.dueWithTime;
-      // Mirror normalTasks: a done task contributes 0 remaining time. Without
-      // this, a done timed task still adds its full estimate to the day total
-      // (and a done timed recurring task double-counted with its projection
-      // before the dedup above). See #8232.
-      const end = start + (task.isDone ? 0 : getTimeLeftForTask(task));
+      const end = start + getPlannerTaskDuration(task);
       return {
         id: task.id,
         type: ScheduleItemType.Task,

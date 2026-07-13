@@ -24,6 +24,12 @@ const NEXT_BTN = {
   type: 'next',
 };
 
+const CREATE_TASK_NEXT_BTN = {
+  classes: PRIMARY_CLASSES,
+  text: '下一步',
+  type: 'next',
+};
+
 export enum TourId {
   CreateTask = 'CreateTask',
   KeyboardNav = 'KeyboardNav',
@@ -43,16 +49,15 @@ export const SHEPHERD_STEPS = (
   return [
     {
       id: TourId.CreateTask,
-      title: 'Create a task',
+      title: '创建任务',
       text: [
-        '<p>Tasks can be created from the Add Task Bar. ',
-        'It also understands short syntax, so you can set useful details ',
-        'while typing the task title.</p>',
+        '<p>你可以在添加任务栏中创建任务。',
+        '它支持简写语法，因此输入任务标题时也能一并设置有用的细节。</p>',
       ].join(''),
       buttons: [
         {
           classes: PRIMARY_CLASSES,
-          text: 'Open Add Task Bar',
+          text: '打开添加任务栏',
           action: () => {
             layoutService.showAddTaskBar();
             window.setTimeout(() => shepherdService.next());
@@ -61,11 +66,11 @@ export const SHEPHERD_STEPS = (
       ],
     },
     {
-      title: 'Create a task',
+      title: '创建任务',
       text: [
-        'Try creating a task with a planned date and time estimate:<br><br>',
-        '<code>Prepare demo @tomorrow 30m</code><br><br>',
-        'Type it into the Add Task Bar and press <kbd>Enter</kbd>.',
+        '试着创建一个带计划日期和时间估计的任务：<br><br>',
+        '<code>准备演示 @明天 30m</code><br><br>',
+        '在添加任务栏中输入它，然后按 <kbd>Enter</kbd>。',
       ].join(''),
       attachTo: {
         element: 'add-task-bar',
@@ -81,8 +86,8 @@ export const SHEPHERD_STEPS = (
       ),
     },
     {
-      title: 'Close the Add Task Bar',
-      text: 'Press the <kbd>Escape</kbd> key to close the Add Task Bar.',
+      title: '关闭添加任务栏',
+      text: '按 <kbd>Escape</kbd> 键关闭添加任务栏。',
       attachTo: {
         element: 'add-task-bar',
         on: 'bottom',
@@ -91,28 +96,27 @@ export const SHEPHERD_STEPS = (
       when: nextOnObs(actions$.pipe(ofType(hideAddTaskBar)), shepherdService),
     },
     {
-      title: 'Short syntax',
+      title: '简写语法',
       text: [
-        '<p>The example title is cleaned up automatically. ',
-        'With the default Short Syntax settings, ',
-        '<code>@tomorrow</code> plans the task for tomorrow and ',
-        '<code>30m</code> sets a 30 minute estimate.</p>',
-        '<p>You can also use:</p>',
+        '<p>示例标题会自动整理。使用默认的简写语法设置时，',
+        '<code>@明天</code> 会将任务计划到明天，',
+        '<code>30m</code> 会设置 30 分钟的预计时长。</p>',
+        '<p>你还可以使用：</p>',
         '<ul>',
-        '<li><code>#tag</code> to add a tag</li>',
-        '<li><code>+project</code> to assign a project</li>',
-        '<li><code>@friday</code> or <code>@16:00</code> to plan a task</li>',
-        '<li><code>!friday</code> or <code>!14:30</code> to set a deadline</li>',
+        '<li><code>#标签</code> 添加标签</li>',
+        '<li><code>+项目</code> 分配项目</li>',
+        '<li><code>@周五</code> 或 <code>@16:00</code> 计划任务</li>',
+        '<li><code>!周五</code> 或 <code>!14:30</code> 设置截止日期</li>',
         '</ul>',
       ].join(''),
-      buttons: [NEXT_BTN],
+      buttons: [CREATE_TASK_NEXT_BTN],
     },
     {
-      title: 'Short syntax settings',
-      text: '<p>You can enable or disable the individual short syntax options under <strong>Settings / Tasks / Short Syntax</strong>.</p><p>This how-to stays available from the Help menu whenever you want to try it again.</p>',
+      title: '简写语法设置',
+      text: '<p>你可以在 <strong>设置 / 任务 / 简写语法</strong> 中单独启用或禁用各项简写功能。</p><p>需要再次查看时，可随时从帮助菜单打开本指南。</p>',
       buttons: [
         {
-          text: 'End Tour',
+          text: '结束指南',
           classes: PRIMARY_CLASSES,
           action: () => {
             shepherdService.complete();

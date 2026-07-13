@@ -117,7 +117,7 @@
   <!-- -->
 }
 
-@if (isShowOnboardingPresets()) {
+@if (isOnboardingPresetOverlayVisible()) {
   <onboarding-preset-selection
     (presetSelected)="onPresetSelected()"
     (dismissed)="onOnboardingDismissed()"

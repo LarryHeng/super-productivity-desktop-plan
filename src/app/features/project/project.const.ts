@@ -27,7 +27,7 @@ export const INBOX_PROJECT: Project = {
   ...DEFAULT_PROJECT,
   ...WORK_CONTEXT_DEFAULT_COMMON,
   icon: 'inbox',
-  title: 'Inbox',
+  title: '收件箱',
   // _TAG to distinguish from legacy default project
   id: 'INBOX_PROJECT',
   theme: {

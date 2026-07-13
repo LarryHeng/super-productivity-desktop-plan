@@ -117,7 +117,7 @@ export class AndroidBackButtonService {
   /**
    * Primary navigation destinations (bottom-nav tabs + main feature pages).
    * Context sub-pages (worklog, metrics, …) and utility pages (settings, search,
-   * scheduled-list, donate, …) are intentionally excluded so back navigates up
+   * scheduled-list, …) are intentionally excluded so back navigates up
    * from them rather than jumping home.
    *
    * INVARIANT: this must classify every URL `getStartPageUrlPath()` can return

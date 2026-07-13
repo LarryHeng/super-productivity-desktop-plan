@@ -61,7 +61,10 @@ import {
   FocusModeMode,
 } from '../focus-mode.model';
 import { FocusModeCountdownComponent } from '../focus-mode-countdown/focus-mode-countdown.component';
-import { InputDurationSliderComponent } from '../../../ui/duration/input-duration-slider/input-duration-slider.component';
+import { FormsModule } from '@angular/forms';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
+import { MatInput } from '@angular/material/input';
+import { InputDurationDirective } from '../../../ui/duration/input-duration.directive';
 import {
   SegmentedButtonGroupComponent,
   SegmentedButtonOption,
@@ -105,7 +108,11 @@ import { DialogFlowtimeSettingsComponent } from '../dialog-flowtime-settings/dia
     MatMiniFabButton,
     FocusModeCountdownComponent,
     MatFabButton,
-    InputDurationSliderComponent,
+    FormsModule,
+    MatFormField,
+    MatLabel,
+    MatInput,
+    InputDurationDirective,
     SegmentedButtonGroupComponent,
     FocusModeTaskSelectorComponent,
   ],

@@ -8,6 +8,7 @@ import { TaskReminderOptionId } from '../tasks/task.model';
 import { GlobalConfigState } from './global-config.model';
 import { INBOX_PROJECT } from '../project/project.const';
 import { DEFAULT_MAX_BACKUP_FILES } from '../../../../electron/shared-with-frontend/backup-file-cleanup.util';
+import { LanguageCode } from '../../core/locale.constants';
 
 const minute = 60 * 1000;
 const defaultTaskNotesTemplate = `**我要怎么做到这件事？**
@@ -18,8 +19,16 @@ const defaultTaskNotesTemplate = `**我要怎么做到这件事？**
 `;
 
 export const DEFAULT_DAY_START = '9:00';
-export const DEFAULT_TAKE_A_BREAK_MESSAGE =
+export const LEGACY_DEFAULT_TASK_NOTES_TEMPLATE = `**How can I best achieve it now?**
+
+**What do I want?**
+
+**Why do I want it?**
+`;
+export const LEGACY_DEFAULT_TAKE_A_BREAK_MESSAGE =
   'You have been working for ${duration} without one. Go away from the computer! Take a short walk! Makes you more productive in the long run!';
+export const DEFAULT_TAKE_A_BREAK_MESSAGE =
+  '您已连续工作 ${duration}，该休息一下了。离开电脑走一走，短暂休息能让之后的工作更高效！';
 
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
   appFeatures: {
@@ -33,13 +42,12 @@ export const DEFAULT_GLOBAL_CONFIG: GlobalConfigState = {
     isProjectNotesEnabled: true,
     isSyncIconEnabled: true,
     isSearchEnabled: true,
-    isDonatePageEnabled: true,
     isEnableUserProfiles: false,
     isHabitsEnabled: true,
     isFinishDayEnabled: true,
   },
   localization: {
-    lng: undefined,
+    lng: LanguageCode.zh,
     dateTimeLocale: undefined,
     firstDayOfWeek: undefined,
   },

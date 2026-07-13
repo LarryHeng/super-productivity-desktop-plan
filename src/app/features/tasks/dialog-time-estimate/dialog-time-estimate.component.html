@@ -16,17 +16,29 @@
 
       <div class="wrap-time">
         @if (!isEstimateOnly) {
-          <input-duration-slider
-            [(model)]="timeSpentOnDayCopy[todayStr]"
-            [label]="T.F.TASK.D_TIME.TIME_SPENT | translate"
-          >
-          </input-duration-slider>
+          <mat-form-field>
+            <mat-label>{{ T.F.TASK.D_TIME.TIME_SPENT | translate }}</mat-label>
+            <input
+              [(ngModel)]="timeSpentOnDayCopy[todayStr]"
+              inputDuration="optional"
+              matInput
+              name="timeSpentToday"
+              type="text"
+            />
+            <mat-icon matPrefix>timer</mat-icon>
+          </mat-form-field>
         }
-        <input-duration-slider
-          [(model)]="taskCopy.timeEstimate"
-          [label]="T.F.TASK.D_TIME.ESTIMATE | translate"
-        >
-        </input-duration-slider>
+        <mat-form-field>
+          <mat-label>{{ T.F.TASK.D_TIME.ESTIMATE | translate }}</mat-label>
+          <input
+            [(ngModel)]="taskCopy.timeEstimate"
+            inputDuration
+            matInput
+            name="timeEstimate"
+            type="text"
+          />
+          <mat-icon matPrefix>hourglass_top</mat-icon>
+        </mat-form-field>
       </div>
 
       @if (!isEstimateOnly) {

@@ -40,6 +40,7 @@ import { confirmDialog } from '../../../util/native-dialogs';
 import { Store } from '@ngrx/store';
 import { selectAll as selectAllIssueProviders } from '../../../features/issue/store/issue-provider.selectors';
 import COMMUNITY_PLUGINS_DATA from '../../../../assets/community-plugins.json';
+import { APP_REPOSITORY_URL } from '../../../core/app-external-links.const';
 
 interface CommunityPlugin {
   name: string;
@@ -80,6 +81,7 @@ interface PluginManifestAuthor {
   ],
 })
 export class PluginManagementComponent {
+  readonly appRepositoryUrl = APP_REPOSITORY_URL;
   private readonly _pluginService = inject(PluginService);
   private readonly _pluginMetaPersistenceService = inject(PluginMetaPersistenceService);
   private readonly _pluginCacheService = inject(PluginCacheService);
