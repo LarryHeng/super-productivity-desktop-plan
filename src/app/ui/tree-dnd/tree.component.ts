@@ -409,9 +409,14 @@ export class TreeDndComponent<TData = unknown> {
   private _scheduleItemReset(item: CdkDrag<TreeId>): void {
     const reset = (): void => {
       try {
+        const dragRef = item as unknown as {
+          _dragRef?: { _rootElement?: HTMLElement | null };
+        };
+        if (!dragRef._dragRef?._rootElement) {
+          return;
+        }
         item.reset();
       } catch (error) {
-        // Ignore reset errors - they can happen if the item is already destroyed
         Log.debug('Failed to reset drag item:', error);
       }
     };

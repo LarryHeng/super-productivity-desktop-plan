@@ -14,7 +14,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
   selector: 'header-countdown',
   standalone: true,
   template: `
-    @if (name() && daysRemaining() !== null) {
+    @if (name() && (daysRemaining() ?? 0) > 0) {
       <div class="header-countdown">
         <span
           class="countdown-prefix"
@@ -43,7 +43,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
           >{{ daysRemaining() }}天</span
         >
       </div>
-    } @else if (name() && daysRemaining() !== null && daysRemaining() === 0) {
+    } @else if (name() && daysRemaining() !== null && daysRemaining()! <= 0) {
       <div class="header-countdown">
         <span class="countdown-prefix">今天就是</span>
         <span

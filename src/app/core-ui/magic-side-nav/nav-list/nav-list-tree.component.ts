@@ -71,6 +71,7 @@ export class NavListTreeComponent implements OnDestroy {
   private readonly _menuTreeService = inject(MenuTreeService);
   private readonly _router = inject(Router);
   private _expandAnimationTimeoutId: number | null = null;
+  private _persistDebounceTimers: Record<string, number | undefined> = {};
 
   item = input.required<NavTreeItem>();
   showLabels = input<boolean>(true);
@@ -114,6 +115,10 @@ export class NavListTreeComponent implements OnDestroy {
       window.clearTimeout(this._expandAnimationTimeoutId);
       this._expandAnimationTimeoutId = null;
     }
+    Object.values(this._persistDebounceTimers).forEach((id) => {
+      if (id != null) window.clearTimeout(id);
+    });
+    this._persistDebounceTimers = {};
   }
 
   onChildClick(node: TreeNode<MenuTreeViewNode>): void {
@@ -202,13 +207,24 @@ export class NavListTreeComponent implements OnDestroy {
     this._persistCurrentTree();
   }
 
+  private readonly PERSIST_DEBOUNCE_MS = 300;
+
   private _persistCurrentTree(): void {
-    const viewTree = this._treeNodesToViewNodes(this.treeNodes());
-    if (this.item().id === 'projects') {
-      this._menuTreeService.persistProjectViewTree(viewTree);
-    } else if (this.item().id === 'tags') {
-      this._menuTreeService.persistTagViewTree(viewTree);
+    const treeKey = this.item().id;
+    const existingTimer = this._persistDebounceTimers[treeKey];
+    if (existingTimer != null) {
+      window.clearTimeout(existingTimer);
     }
+
+    this._persistDebounceTimers[treeKey] = window.setTimeout(() => {
+      delete this._persistDebounceTimers[treeKey];
+      const viewTree = this._treeNodesToViewNodes(this.treeNodes());
+      if (this.item().id === 'projects') {
+        this._menuTreeService.persistProjectViewTree(viewTree);
+      } else if (this.item().id === 'tags') {
+        this._menuTreeService.persistTagViewTree(viewTree);
+      }
+    }, this.PERSIST_DEBOUNCE_MS);
   }
 
   private _toTreeNode(node: MenuTreeViewNode): TreeNode<MenuTreeViewNode> {
