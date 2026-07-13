@@ -26,15 +26,9 @@ test.describe('Desktop plan smoke', () => {
     await waitForAngularStability(page);
     await expect(page.getByTestId('schedule-week-return-today')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Timeline block colors' }).click();
-    await expect(
-      page.getByRole('textbox', { name: 'Planned time', exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('textbox', { name: 'Actual time', exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole('textbox', { name: 'Backfilled time', exact: true }),
-    ).toBeVisible();
+    await page.getByTestId('schedule-block-colors').click();
+    await expect(page.getByTestId('schedule-planned-block-color')).toBeVisible();
+    await expect(page.getByTestId('schedule-actual-block-color')).toBeVisible();
+    await expect(page.getByTestId('schedule-backfilled-block-color')).toBeVisible();
   });
 });

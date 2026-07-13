@@ -64,6 +64,7 @@
 
   <button
     mat-icon-button
+    data-testid="schedule-block-colors"
     [matMenuTriggerFor]="blockColorMenu"
     [matTooltip]="T.F.SCHEDULE.BLOCK_COLORS | translate"
     [attr.aria-label]="T.F.SCHEDULE.BLOCK_COLORS | translate"
@@ -80,6 +81,7 @@
           <span>{{ T.F.SCHEDULE.PLANNED_BLOCK_COLOR | translate }}</span>
           <input
             type="color"
+            data-testid="schedule-planned-block-color"
             [value]="blockColors().planned"
             (change)="updateBlockColor('planned', $event)"
           />
@@ -88,6 +90,7 @@
           <span>{{ T.F.SCHEDULE.ACTUAL_BLOCK_COLOR | translate }}</span>
           <input
             type="color"
+            data-testid="schedule-actual-block-color"
             [value]="blockColors().actual"
             (change)="updateBlockColor('actual', $event)"
           />
@@ -96,6 +99,7 @@
           <span>{{ T.F.SCHEDULE.COMPLETED_PLANNED_BLOCK_COLOR | translate }}</span>
           <input
             type="color"
+            data-testid="schedule-backfilled-block-color"
             [value]="blockColors().completedPlanned"
             (change)="updateBlockColor('completedPlanned', $event)"
           />
