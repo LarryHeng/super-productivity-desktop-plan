@@ -61,7 +61,7 @@ describe('workContext selectors', () => {
           routerLink: 'tag/TODAY',
           taskIds: [],
           theme: TODAY_TAG.theme,
-          title: 'Today',
+          title: TODAY_TAG.title,
           type: 'TAG',
           // workEnd: {},
           // workStart: {},
